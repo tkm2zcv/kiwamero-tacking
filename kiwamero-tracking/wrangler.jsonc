@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kiwamero-tracking",
+  // OpenNext build output (run `opennextjs-cloudflare build` to produce .open-next/)
+  "main": ".open-next/worker.js",
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "compatibility_date": "2026-10-27",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kiwamero-tracking",
+      // Placeholder ID is fine for local dev (Miniflare). Replace with the real
+      // D1 database_id from `wrangler d1 create kiwamero-tracking` before deploy.
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ]
+}

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KiwameroTracker — Tracker Sites Analysis Report</title>
+<style>
+  :root {
+    --bg: #0a0a0b; --card: #131316; --muted: #1f1f23; --border: #28282d;
+    --fg: #fafafa; --fg2: #a0a0a8; --cyan: #22d3ee; --emerald: #34d399;
+    --red: #f87171; --valo: #ff4655; --discord: #5865f2; --blue: #3b82f6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--fg); font-family: 'Segoe UI', 'Noto Sans JP', sans-serif; line-height: 1.7; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 48px 24px 80px; }
+  .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+  .brand img { width: 44px; height: 44px; filter: drop-shadow(0 0 16px rgba(59,130,246,.5)); }
+  .brand b { font-size: 22px; letter-spacing: -0.02em; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+  h1 { font-size: 34px; font-weight: 900; letter-spacing: -0.03em; margin: 24px 0 6px; }
+  h2 { font-size: 20px; font-weight: 800; margin: 48px 0 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 15px; font-weight: 700; margin: 24px 0 10px; color: var(--cyan); }
+  .sub { color: var(--fg2); font-size: 13px; }
+  .grid { display: grid; gap: 16px; }
+  .grid-3 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .grid-2 { grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .card h4 { font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .swatch { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 12px; font-family: Consolas, monospace; }
+  .swatch i { width: 26px; height: 18px; border-radius: 4px; border: 1px solid rgba(255,255,255,.12); flex-shrink: 0; }
+  .swatch span { color: var(--fg2); flex: 1; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--fg2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 10px; border-bottom: 1px solid rgba(40,40,45,.6); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  .tag { padding: 2px 7px; border-radius: 5px; font-size: 10px; font-weight: 700; background: var(--muted); }
+  .tag.cyan { background: rgba(34,211,238,.14); color: var(--cyan); }
+  .tag.green { background: rgba(52,211,153,.14); color: var(--emerald); }
+  .tag.red { background: rgba(248,113,113,.14); color: var(--red); }
+  .tag.blue { background: rgba(59,130,246,.14); color: #60a5fa; }
+  ul { padding-left: 18px; font-size: 13px; color: var(--fg2); }
+  ul li { margin: 4px 0; }
+  ul li b { color: var(--fg); }
+  .shot { border-radius: 10px; border: 1px solid var(--border); width: 100%; display: block; margin-top: 10px; }
+  .shot-cap { font-size: 11px; color: var(--fg2); margin-top: 6px; }
+  code { font-family: Consolas, monospace; font-size: 12px; background: var(--muted); padding: 1px 6px; border-radius: 4px; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; }
+  .flow .step { background: var(--muted); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; }
+  .flow .arr { color: var(--cyan); font-weight: 700; }
+  .ok { color: var(--emerald); font-weight: 700; }
+  .note { border-left: 3px solid var(--cyan); background: rgba(34,211,238,.06); padding: 12px 16px; border-radius: 0 10px 10px 0; font-size: 13px; color: var(--fg2); margin: 16px 0; }
+  footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 11px; color: var(--fg2); }
+  .side { font-size: 12px; }
+  .shotrow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .shotrow { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="brand">
+    <img src="../../public/brand/logo.webp" alt="logo">
+    <b>KiwameroTracker</b>
+    <span class="badge" style="background:rgba(34,211,238,.14);color:var(--cyan)">RESEARCH REPORT</span>
+  </div>
+  <h1>Tracker サイト設計調査レポート</h1>
+  <p class="sub">2026-10-27 · 対象: tracker.gg / vtl.lol / tracker.valosmurf.net · 手法: Scrapling StealthyFetcher (Camoufox)</p>
+
+  <h2>1. スクレイプ結果サマリ</h2>
+  <div class="grid grid-3">
+    <div class="card">
+      <h4><span class="tag red">tracker.gg</span> Tracker Network</h4>
+      <ul>
+        <li>HTTP <b class="ok">200</b> — HTML 616KB</li>
+        <li>CSS変数 <b>482</b>、スタイルシート <b>56</b>枚</li>
+        <li>フォント: <b>Poppins</b> / Roboto</li>
+        <li>DataDome保護 → ステルスブラウザで突破</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4><span class="tag cyan">vtl.lol</span> ValoTool Lookup</h4>
+      <ul>
+        <li>HTTP <b class="ok">200</b> — HTML 4.7MB</li>
+        <li>SvelteKit + <b>Bootstrap 5</b> + Inter</li>
+        <li>直curlはCloudflare挑戦 → <b>ブラウザ内fetchで全CSS取得成功</b></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4><span class="tag blue">valosmurf</span> KiwameroTracker</h4>
+      <ul>
+        <li>Discord OAuth要 → <b>手動ログインで突破</b></li>
+        <li>Vinext (Vite系Next互換) + Tailwind v4</li>
+        <li>内部3ページ + <b>RSC埋め込みJSON全量</b></li>
+        <li>セッション永続化済 (再ログイン不要)</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>2. デザインシステム比較</h2>
+  <div class="grid grid-3">
+    <div class="card">
+      <h4>tracker.gg</h4>
+      <div class="swatch"><i style="background:#0F141A"></i><span>--color-background</span>#0F141A</div>
+      <div class="swatch"><i style="background:#0F1923"></i><span>--color-main-nav-background</span>#0F1923</div>
+      <div class="swatch"><i style="background:#000"></i><span>--color-game-bar-background</span>#000000</div>
+      <div class="swatch"><i style="background:#FF4655"></i><span>--color-action</span>#FF4655</div>
+      <div class="swatch"><i style="background:#efefef"></i><span>--color-text-primary</span>#efefef</div>
+      <div class="swatch"><i style="background:#99ABBF"></i><span>--color-text-secondary</span>#99ABBF</div>
+      <div class="swatch"><i style="background:#667280"></i><span>--color-text-tertiary</span>#667280</div>
+    </div>
+    <div class="card">
+      <h4>vtl.lol</h4>
+      <div class="swatch"><i style="background:#212529"></i><span>body bg (Bootstrap dark)</span>#212529</div>
+      <div class="swatch"><i style="background:#adb5bd"></i><span>text</span>#adb5bd</div>
+      <div class="swatch"><i style="background:#17a2b8"></i><span>bg-info (stat chip)</span>#17a2b8</div>
+      <div class="swatch"><i style="background:#28a745"></i><span>bg-success (+RR)</span>#28a745</div>
+      <div class="swatch"><i style="background:#dc3545"></i><span>bg-danger (-RR)</span>#dc3545</div>
+      <div class="swatch"><i style="background:#0d6efd"></i><span>btn-primary</span>#0d6efd</div>
+      <p class="side" style="margin-top:8px">角丸 6px / pill badge 併用</p>
+    </div>
+    <div class="card">
+      <h4>KiwameroTracker (自社)</h4>
+      <div class="swatch"><i style="background:#0a0a0b"></i><span>--background lab(2.73)</span>≈#0a0a0b</div>
+      <div class="swatch"><i style="background:#131316"></i><span>--card lab(5.68)</span>≈#131316</div>
+      <div class="swatch"><i style="background:#1f1f23"></i><span>--muted/secondary lab(11.8)</span>≈#1f1f23</div>
+      <div class="swatch"><i style="background:#28282d"></i><span>--border/input lab(14.1)</span>≈#28282d</div>
+      <div class="swatch"><i style="background:#fafafa"></i><span>--foreground/primary</span>#fafafa</div>
+      <div class="swatch"><i style="background:#a0a0a8"></i><span>--muted-foreground</span>≈#a0a0a8</div>
+      <div class="swatch"><i style="background:#5865f2"></i><span>Discord</span>#5865F2</div>
+    </div>
+  </div>
+  <div class="note">
+    フォント: tracker.gg=<b>Poppins</b> / vtl=<b>Inter</b> (self-hosted) / KiwameroTracker=<b>Outfit + Noto Sans JP + Geist + Geist Mono</b>。
+    共通思想: 真っ黒背景・カードUI・ランク/勝敗の色言語 (win=emerald, loss=red, info=cyan)。
+  </div>
+
+  <h2>3. 機能・レイアウト一覧</h2>
+  <table>
+    <thead><tr><th style="width:180px">機能</th><th>tracker.gg</th><th>vtl.lol</th><th>KiwameroTracker</th></tr></thead>
+    <tbody>
+      <tr><td><b>プロフィールヘッダ</b></td><td>エージェントスプラッシュ背景 + 丸アバター + 閲覧数 + SNS共有</td><td>バナー + バッジ群 (Lvl/地域/ランク/Elo)</td><td>プレイヤーカードwideart + 丸アバター + Lvl/リージョン + 3アクション</td></tr>
+      <tr><td><b>タブ</b></td><td>Overview/Matches/Performance/Agents/Maps/Weapons/Encounters/Customs/Crosshairs/Lineups</td><td>—</td><td>試合履歴/アナリティクス/シーズンランク/アカウント査定/スマーフ診断</td></tr>
+      <tr><td><b>スタッツ表示</b></td><td>大数字+ドーナツ+RRスパークライン+<b>Top X% パーセンタイル</b></td><td>チップ行 (K/D, HS%, ACS, ADR, Winrate, Matches W/L/D, Agent, Server)</td><td>勝率大数字 + K/D・ACS・ADR・HS率グリッド</td></tr>
+      <tr><td><b>試合カード</b></td><td>一覧テーブル型</td><td>マップ画像背景 + <b>+19/-16 RRバッジ</b> + 展開詳細</td><td>マップ画像背景 + 左勝敗バー + KDA/KDR/ACS/HS%/ランク + 展開</td></tr>
+      <tr><td><b>フィルタ</b></td><td>PC/Console・playlist・Act のセグメント</td><td>playlist/act セレクト</td><td>Gamemodes/Acts/Agents/Maps ドロップダウン</td></tr>
+      <tr><td><b>独自機能</b></td><td>Leaderboards, LFG, Insights, Crosshairs, OBS Overlay, Premium</td><td>PUUID click-copy, Tracker.ggリンク, Elo</td><td><b>監視対象・戦績カード共有・AA戦績コピー・査定・スマーフ診断・開発者API</b></td></tr>
+      <tr><td><b>認証</b></td><td>なし(公開)</td><td>なし(公開)</td><td>Discord OAuth必須</td></tr>
+    </tbody>
+  </table>
+
+  <h2>4. 本番スクリーンショット</h2>
+  <div class="grid grid-2">
+    <div class="card">
+      <h4>tracker.gg — Overview</h4>
+      <img class="shot" src="../screenshots/tracker-gg-desktop.png" alt="tracker.gg">
+      <p class="shot-cap">ヒーロー + タブ + プレイリストフィルタ + レーティング/スタッツパネル</p>
+    </div>
+    <div class="card">
+      <h4>vtl.lol — プレイヤー + 試合履歴</h4>
+      <img class="shot" src="../screenshots/vtl-desktop.png" alt="vtl.lol">
+      <p class="shot-cap">チップ行スタッツ + RR±バッジ付きマッチカード</p>
+    </div>
+  </div>
+  <div class="grid grid-2" style="margin-top:16px">
+    <div class="card">
+      <h4>valosmurf — 本番 tracker ページ</h4>
+      <img class="shot" src="../screenshots/valosmurf-app-main.png" alt="valosmurf main">
+      <p class="shot-cap">ヒーロー + 5タブ + Top Agents/メンバー + スタッツ + マッチカード</p>
+    </div>
+    <div class="card">
+      <h4>valosmurf — ログイン / ホーム</h4>
+      <img class="shot" src="../screenshots/valosmurf-login-desktop.png" alt="login">
+      <img class="shot" src="../screenshots/valosmurf-app-p0-root.png" alt="home" style="margin-top:12px">
+    </div>
+  </div>
+
+  <h2>5. ローカル実装 (kiwamero-tracker)</h2>
+  <div class="card">
+    <h4>スタック</h4>
+    <div class="flow">
+      <span class="step">Next.js 16</span><span class="arr">+</span>
+      <span class="step">TypeScript</span><span class="arr">+</span>
+      <span class="step">Tailwind v4</span><span class="arr">+</span>
+      <span class="step">lab() トークン完全再現</span><span class="arr">+</span>
+      <span class="step">lucide-react</span>
+    </div>
+    <table style="margin-top:14px">
+      <thead><tr><th>ページ</th><th>内容</th><th>状態</th></tr></thead>
+      <tbody>
+        <tr><td><code>/login</code></td><td>Discord OAuthカード (南京錠+blurpleボタン)</td><td><span class="tag green">再現済</span></td></tr>
+        <tr><td><code>/</code></td><td>ロゴ + Player#TAG/PUUID 検索</td><td><span class="tag green">再現済</span></td></tr>
+        <tr><td><code>/tracker/[name]/[tag]</code></td><td>ヒーロー/5タブ/Top Agents/よく組むメンバー/スタッツ/フィルタ/マッチカード(展開式ロスター)/ページネーション</td><td><span class="tag green">再現済</span></td></tr>
+        <tr><td><code>/developers</code></td><td>APIキー発行/プレイグラウンド/ドキュメント タブ</td><td><span class="tag green">再現済</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="grid grid-2" style="margin-top:16px">
+    <div class="card">
+      <h4>ローカル — tracker ページ</h4>
+      <img class="shot" src="../screenshots/local/tracker-final.png" alt="local tracker">
+      <p class="shot-cap">本番データ (Meiy#B3L 20試合/39シーズン/査定ログ) をシード</p>
+    </div>
+    <div class="card">
+      <h4>ローカル — ホーム</h4>
+      <img class="shot" src="../screenshots/local/home.png" alt="local home">
+    </div>
+  </div>
+
+  <h2>6. データ・アセット取得内訳</h2>
+  <table>
+    <thead><tr><th>種別</th><th>内容</th><th>保存先</th></tr></thead>
+    <tbody>
+      <tr><td>HTML</td><td>3サイト + 認証後3ページ (レンダリング済DOM)</td><td><code>docs/research/*.html</code></td></tr>
+      <tr><td>CSS</td><td>tracker.gg 56枚 / vtl 7枚 / valosmurf 2枚 + トークンJSON</td><td><code>docs/research/*-css-*.css</code> <code>*-tokens.json</code></td></tr>
+      <tr><td>構造化データ</td><td>HenrikDev形式マッチ×20・シーズン39・エージェント内訳15・査定/診断ログ</td><td><code>src/data/*.json</code></td></tr>
+      <tr><td>画像</td><td>エージェント29・マップ14・ロゴ (本番公開ディレクトリから)</td><td><code>public/{agents,maps,brand}/</code></td></tr>
+      <tr><td>セッション</td><td>valosmurf永続プロファイル + storage_state</td><td><code>tools/scrape/.valosmurf-profile</code> <code>docs/research/valosmurf-state.json</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>7. 残課題 / 次候補</h2>
+  <ul>
+    <li>tracker.gg式 <b>Top X% パーセンタイルチップ</b>、RRスパークライン、ドーナツチャート → 未実装</li>
+    <li>vtl式 <b>+RR/-RRバッジ</b>・Elo表示・PUUID click-copy → データ側にRR差分が必要</li>
+    <li>フィルタのドロップダウンはUIのみ (データ連携で有効化)</li>
+    <li>実API配線 (HenrikDev等) → 現在は本番シードデータ</li>
+  </ul>
+
+  <footer>
+    Generated 2026-10-27 · KiwameroTracker research · 資料: docs/research/, docs/screenshots/, plans/261027-1745-kiwamero-tracker-implementation/
+  </footer>
+</div>
+</body>
+</html>

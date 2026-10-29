@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Star } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 
 export function WatchlistButton({
@@ -12,6 +12,7 @@ export function WatchlistButton({
   addLabel,
   watchingLabel,
   signInLabel,
+  variant = "button",
 }: {
   riotName: string;
   riotTag: string;
@@ -19,6 +20,7 @@ export function WatchlistButton({
   addLabel: string;
   watchingLabel: string;
   signInLabel: string;
+  variant?: "button" | "icon";
 }) {
   const { data: session, isPending } = useSession();
   const [watching, setWatching] = useState(false);
@@ -48,12 +50,30 @@ export function WatchlistButton({
     setBusy(false);
   }
 
+  if (variant === "icon") {
+    return (
+      <button
+        onClick={toggle}
+        disabled={busy || isPending}
+        className="kt-icon-btn"
+        aria-label={watching ? watchingLabel : addLabel}
+        title={session ? (watching ? watchingLabel : addLabel) : signInLabel}
+      >
+        <Star size={20} fill={watching ? "currentColor" : "none"} color={watching ? "#cbb765" : "currentColor"} />
+      </button>
+    );
+  }
+
   if (isPending) {
-    return <button className="trn-button h-10 gap-2 text-sm opacity-60"><Eye className="size-4" />…</button>;
+    return (
+      <button className="kt-btn kt-btn--secondary gap-2 opacity-60">
+        <Eye className="size-4" />…
+      </button>
+    );
   }
   if (!session) {
     return (
-      <button onClick={toggle} className="trn-button h-10 gap-2 text-sm" title={signInLabel}>
+      <button onClick={toggle} className="kt-btn kt-btn--secondary gap-2" title={signInLabel}>
         <Eye className="size-4" />
         <span className="hidden lg:inline">{addLabel}</span>
       </button>
@@ -63,7 +83,7 @@ export function WatchlistButton({
     <button
       onClick={toggle}
       disabled={busy}
-      className={`trn-button h-10 gap-2 text-sm ${watching ? "trn-button--action" : ""}`}
+      className={`kt-btn ${watching ? "kt-btn--primary" : "kt-btn--secondary"} gap-2`}
     >
       {watching ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
       <span className="hidden lg:inline">{watching ? watchingLabel : addLabel}</span>

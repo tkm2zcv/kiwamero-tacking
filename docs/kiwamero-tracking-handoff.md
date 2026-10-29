@@ -54,14 +54,67 @@ Next.js 16 のコード変更前には `kiwamero-tracking/node_modules/next/dist
 - **Workers + D1 PoC 完了**: `@opennextjs/cloudflare@1.20.13` (Next 16.4対応)、`@prisma/adapter-d1@7.10.1`、wrangler 4.153。`wrangler.jsonc` の `DB` バインディング + `initOpenNextCloudflareForDev()` で `next dev` 内から Miniflare D1 を解決。`src/lib/prisma.ts` は遅延プロキシで D1/better-sqlite3 を自動切替。`prisma migrate diff` → `prisma/d1/schema.sql` → `wrangler d1 execute --local` で6テーブル作成済み。`[prisma] using D1 adapter` ログで実測確認。
 - **検証**: `npx tsc --noEmit` 0、`npm run lint` 0、`npm run build` 成功 (全ルート ƒ)。
 
+## UI parity の再現手順 (2026-10-27 追加)
+
+tracker.gg の見た目に合わせ直した際の手順。次にUIを触るときは同じ流れで確認する。
+
+1. 参照取得: `python tools/scrape/capture-reference.py`
+   → `docs/research/capture/` に 1920x1080 のスクショと `dom-1920.json`
+   (全要素の rect と computed style) が出力される。
+2. 参照の構造を読む: `python tools/scrape/inspect-dom.py outline --y0=120 --y1=660 --depth=22`
+   / `find "Current Rating"` / `path "..."` / `cls ".v3-card"`。
+3. ローカル起動: `cd kiwamero-tracking && npm run dev -- -p 3002`。
+4. ローカル撮影: `python tools/scrape/shoot-local.py`
+   (1920 / 390 の viewport + full page を `docs/research/capture/` に保存)。
+5. 座標の突き合わせ: `python tools/scrape/landmarks-local.py` で主要要素の rect を出力し、
+   参照の実測値 (hero 264,120 1392x320 / tabs 264,384 / 広告 264,464 / フィルタ 264,600 /
+   2 カラム 264,664 300|1068 / タイル 605,816 252.5x76.9) と比較する。
+6. 目視比較: `python tools/scrape/compare.py cmp-xxx.png x0 y0 x1 y1` で上下に並べて差分確認。
+
+スタイルは `kiwamero-tracking/src/app/tracker-ui.css` の `kt-` クラスに集約。
+
+### タブページ (2026-10-28 拡充)
+
+- タブバーは参照と同じ 10 タブ (Overview…Lineups、Encounters に NEW バッジ) +
+  独自機能の Diagnosis/Share を末尾に残置。
+- 集計タブは HenrikDev `/valorant/v1/by-puuid/stored-matches/{region}/{puuid}`
+  (全保存試合、mode フィルタ可) を `src/lib/stored-stats.ts` で正規化・集計。
+  Meiy は 2,125 試合が保存済みで、Agents/Maps/Performance は値が参照とほぼ一致する。
+- `matches`: サイドに ACTIVITY ヒートマップ (直近60日・週曜列) + TEAMMATES、
+  本体は Last N Matches + 4 フィルタ (Agent/Map/Teammate/Kills閾値)。
+- `performance`: BEST MATCHES (kills 順) + Lifetime 行 + アクト別行
+  (Episode/Act/Peak Rating は `by_season` MMR と結合)。
+- `agents`/`maps`: 全列ストアド試合の実集計 (KAST・Time Played はデータ無しで列ごと省略)。
+- `weapons`/`encounters`/`customs`/`crosshairs`/`lineups`: データ源が無いため
+  タブは残しつつ `EmptyTab` で「未対応」を明示 (偽値を出さない方針)。
+
 ## 残ブロッカー
 
-1. **Discord OAuth 本疎通**: `.env` は設定済みだが、ブラウザでのログイン→セッション書込み→監視リストCRUDの実流しは未検証 (D1 への書込み経路含む)。
-2. **監視基盤**: Workers Cron 未実装。毎時チェック・新規試合の重複排除・ユーザー別 Webhook 送信は未実装。
-3. **Win 率等の色付け/一部UI差分**: 本番 tracker.gg との細部差分 (パーセンタイル、モード名 `hurm` のラベル等) は未対応。
-4. **テスト未整備**: 正規化・エラー分岐の自動テストを追加する余地あり (現在は手動 curl + スクショ検証)。
-5. **デプロイ未実施**: 本番 D1 の `database_id` 発行、`wrangler secret` 投入、`opennextjs-cloudflare build/preview/deploy`、`tracking.kiwamero.dev` ルーティングはこれから。本番前に `d1-schema.sql` の再生成と `wrangler d1 migrations` 運用を決める。
-6. **README**: 古い create-next-app 文面が残っている。更新済みか再確認。
+1. **Discord OAuth 本疎通**: `.env` は設定済みだが、ブラウザでのログイン→セッション書込み→監視リストCRUDの実流しは未検証 (D1 への書込み経路含む)。本人が Discord の認可画面を操作する必要がある。
+2. ~~**監視基盤**~~ → **実装済み (2026-10-28)**。`src/lib/watch-core.ts` + `/api/cron/watch` +
+   Worker `scheduled` (毎時)、Webhook 保存時の直近1試合通知、`game_start` による重複排除、
+   システム全体100人上限、送信失敗時の再送。テストは `tests/watch-cycle.test.ts`。
+   Node (`next dev`) では完走確認済み。Workers 実行は下記 3 の制約に依存。
+3. **Prisma 7 は workerd で動作しない**: `Wasm code generation disallowed by embedder`。
+   ページ表示は Worker で動くが、認証/監視/APIキーの DB 操作は Node 専用。
+   D1 ネイティブ or Drizzle への移行判断が必要 (`docs/system-architecture.md` の決定ゲート)。
+4. **UI の細部**: パーセンタイル (`Top 6.0%`) は母集団が無いため標本数表示。KAST /
+   First Bloods / Flawless / Aces はラウンドデータ未取得で `-`。Premier Roster は
+   データ源が無くカード非表示。tracker.gg 側の「Live Update トグル」「実広告」は独自要素で代替。
+5. ~~**テスト未整備**~~ → **追加済み**。`npm test` (34 件) で Webhook 検証・新着判定・
+   監視サイクル・集計・正規化を網羅。`npm run check` で lint/typecheck/test/build を一括実行。
+6. **デプロイ未実施**: 本番 D1 の `database_id` 発行、`wrangler secret` 投入、
+   `tracking.kiwamero.dev` ルーティングはこれから。`npm run build:worker` と
+   `wrangler deploy --dry-run` は成功済み (gzip 3.3 MB で無料枠 3 MiB を僅かに超える点に注意)。
+7. ~~**README**~~ → 更新済み (セットアップ、スクリプト、監視通知、既知の制約)。
+
+## 2026-10-28 時点の状態
+
+- 実装: 監視通知一式、Webhook 設定 UI、D1 増分マイグレーション、単体テスト 34 件、
+  OpenNext バンドル、Worker 用 cron エントリ、Windows ビルド回避策。
+- 検証: `tsc` / `lint` / `test` / `next build` / `opennextjs-cloudflare build` /
+  `wrangler deploy --dry-run` / `wrangler dev` でのページ表示 200。全ルート 200。
+- 未了: Discord OAuth の実ログイン、本番デプロイ、Prisma→D1 ネイティブ移行。
 
 ## PSTACK の利用方法
 

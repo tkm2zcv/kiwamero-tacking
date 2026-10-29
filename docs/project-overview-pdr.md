@@ -2,7 +2,9 @@
 
 対象: `kiwamero-tracking/`。親ディレクトリの旧 `kiwamero-tracker` アプリとは別製品として扱う。
 根拠: ユーザーとのヒアリング、`docs/research/tracker-sites-analysis.md`、`plans/261027-1834-kiwamero-tracking/plan.md`。
-状態: プロダクト方針と本番の Workers + D1 は合意済み。実装方式と診断ロジックは未検証。
+状態: 初回リリースの機能 (R-01〜R-12) はローカル実装・検証済み。
+本番の Cloudflare Workers は Prisma 7 の Wasm 非対応により DB 機能のみ未移行
+(表示は Worker で動作)。デプロイと ORM 再選定はユーザー判断待ち。
 
 ## 1. 目的
 
@@ -89,8 +91,8 @@ LFG、OBS オーバーレイ、クロスヘア/ラインナップなどの同等
 通知、Cloudflare Workers + D1 とサブドメイン、VALORANT の PC 優先。
 tracker.gg の有料/ログイン限定機能は高度な統計・比較を最優先して独自開発する。
 
-未決: Workers 向け Next.js/ORM/認証の具体的な互換構成、
-HenrikDev キー/Discord OAuth 資格情報、API 契約と利用規約、
+未決: Workers で DB を扱う構成 (Prisma 7 は workerd 不可のため D1 ネイティブ/Drizzle への
+移行判断が必要)、HenrikDev キー/Discord OAuth 資格情報の本番投入、API 契約と利用規約、
 診断の算出式・誤判定の表現、所有者 Discord ID の設定、
 サイト全体の実ページ目録と各ページのデータ取得可能性。
 技術候補と移行条件は `docs/system-architecture.md` に記録する。

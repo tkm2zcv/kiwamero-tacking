@@ -79,6 +79,8 @@ export const UserScalarFieldEnum = {
   emailVerified: 'emailVerified',
   image: 'image',
   discordId: 'discordId',
+  webhookUrl: 'webhookUrl',
+  webhookUpdatedAt: 'webhookUpdatedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -137,7 +139,11 @@ export const WatchlistEntryScalarFieldEnum = {
   riotName: 'riotName',
   riotTag: 'riotTag',
   puuid: 'puuid',
+  region: 'region',
   note: 'note',
+  lastSeenGameStart: 'lastSeenGameStart',
+  lastNotifiedMatchId: 'lastNotifiedMatchId',
+  lastNotifiedAt: 'lastNotifiedAt',
   createdAt: 'createdAt'
 } as const
 

@@ -12,8 +12,14 @@ export interface Profile {
   elo?: number;
   peakRank: string;
   peakAct?: string;
+  peakRr?: number;
   radiantWins?: number;
   lastUpdated?: string;
+  /** Current act code reported by Riot's MMR payload, e.g. "e11a6". */
+  actCode?: string;
+  /** Competitive wins and games in the current act (season totals). */
+  seasonWins?: number;
+  seasonGames?: number;
 }
 
 export interface Summary {

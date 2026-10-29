@@ -9,7 +9,7 @@ export default async function DevelopersPage() {
   const t = await getDict();
   const session = await auth.api.getSession({ headers: await headers() }).catch(() => null);
   return (
-    <div className="py-10">
+    <div className="kt-container py-10">
       <h1 className="text-3xl font-black" style={{ fontFamily: "var(--font-display)" }}>
         {t.developers.title}
       </h1>

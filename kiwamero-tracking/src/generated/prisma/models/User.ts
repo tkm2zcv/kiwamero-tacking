@@ -31,6 +31,8 @@ export type UserMinAggregateOutputType = {
   emailVerified: boolean | null
   image: string | null
   discordId: string | null
+  webhookUrl: string | null
+  webhookUpdatedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -42,6 +44,8 @@ export type UserMaxAggregateOutputType = {
   emailVerified: boolean | null
   image: string | null
   discordId: string | null
+  webhookUrl: string | null
+  webhookUpdatedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -53,6 +57,8 @@ export type UserCountAggregateOutputType = {
   emailVerified: number
   image: number
   discordId: number
+  webhookUrl: number
+  webhookUpdatedAt: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -66,6 +72,8 @@ export type UserMinAggregateInputType = {
   emailVerified?: true
   image?: true
   discordId?: true
+  webhookUrl?: true
+  webhookUpdatedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -77,6 +85,8 @@ export type UserMaxAggregateInputType = {
   emailVerified?: true
   image?: true
   discordId?: true
+  webhookUrl?: true
+  webhookUpdatedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -88,6 +98,8 @@ export type UserCountAggregateInputType = {
   emailVerified?: true
   image?: true
   discordId?: true
+  webhookUrl?: true
+  webhookUpdatedAt?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -172,6 +184,8 @@ export type UserGroupByOutputType = {
   emailVerified: boolean
   image: string | null
   discordId: string | null
+  webhookUrl: string | null
+  webhookUpdatedAt: Date | null
   createdAt: Date
   updatedAt: Date
   _count: UserCountAggregateOutputType | null
@@ -204,6 +218,8 @@ export type UserWhereInput = {
   emailVerified?: Prisma.BoolFilter<"User"> | boolean
   image?: Prisma.StringNullableFilter<"User"> | string | null
   discordId?: Prisma.StringNullableFilter<"User"> | string | null
+  webhookUrl?: Prisma.StringNullableFilter<"User"> | string | null
+  webhookUpdatedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   sessions?: Prisma.SessionListRelationFilter
@@ -219,6 +235,8 @@ export type UserOrderByWithRelationInput = {
   emailVerified?: Prisma.SortOrder
   image?: Prisma.SortOrderInput | Prisma.SortOrder
   discordId?: Prisma.SortOrderInput | Prisma.SortOrder
+  webhookUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  webhookUpdatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   sessions?: Prisma.SessionOrderByRelationAggregateInput
@@ -237,6 +255,8 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   name?: Prisma.StringFilter<"User"> | string
   emailVerified?: Prisma.BoolFilter<"User"> | boolean
   image?: Prisma.StringNullableFilter<"User"> | string | null
+  webhookUrl?: Prisma.StringNullableFilter<"User"> | string | null
+  webhookUpdatedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   sessions?: Prisma.SessionListRelationFilter
@@ -252,6 +272,8 @@ export type UserOrderByWithAggregationInput = {
   emailVerified?: Prisma.SortOrder
   image?: Prisma.SortOrderInput | Prisma.SortOrder
   discordId?: Prisma.SortOrderInput | Prisma.SortOrder
+  webhookUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  webhookUpdatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
@@ -269,6 +291,8 @@ export type UserScalarWhereWithAggregatesInput = {
   emailVerified?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
   image?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   discordId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  webhookUrl?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  webhookUpdatedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
 }
@@ -280,6 +304,8 @@ export type UserCreateInput = {
   emailVerified?: boolean
   image?: string | null
   discordId?: string | null
+  webhookUrl?: string | null
+  webhookUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -295,6 +321,8 @@ export type UserUncheckedCreateInput = {
   emailVerified?: boolean
   image?: string | null
   discordId?: string | null
+  webhookUrl?: string | null
+  webhookUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -310,6 +338,8 @@ export type UserUpdateInput = {
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   discordId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -325,6 +355,8 @@ export type UserUncheckedUpdateInput = {
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   discordId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -340,6 +372,8 @@ export type UserCreateManyInput = {
   emailVerified?: boolean
   image?: string | null
   discordId?: string | null
+  webhookUrl?: string | null
+  webhookUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -351,6 +385,8 @@ export type UserUpdateManyMutationInput = {
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   discordId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -362,6 +398,8 @@ export type UserUncheckedUpdateManyInput = {
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   discordId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -373,6 +411,8 @@ export type UserCountOrderByAggregateInput = {
   emailVerified?: Prisma.SortOrder
   image?: Prisma.SortOrder
   discordId?: Prisma.SortOrder
+  webhookUrl?: Prisma.SortOrder
+  webhookUpdatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -384,6 +424,8 @@ export type UserMaxOrderByAggregateInput = {
   emailVerified?: Prisma.SortOrder
   image?: Prisma.SortOrder
   discordId?: Prisma.SortOrder
+  webhookUrl?: Prisma.SortOrder
+  webhookUpdatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -395,6 +437,8 @@ export type UserMinOrderByAggregateInput = {
   emailVerified?: Prisma.SortOrder
   image?: Prisma.SortOrder
   discordId?: Prisma.SortOrder
+  webhookUrl?: Prisma.SortOrder
+  webhookUpdatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -414,6 +458,10 @@ export type NullableStringFieldUpdateOperationsInput = {
 
 export type BoolFieldUpdateOperationsInput = {
   set?: boolean
+}
+
+export type NullableDateTimeFieldUpdateOperationsInput = {
+  set?: Date | string | null
 }
 
 export type DateTimeFieldUpdateOperationsInput = {
@@ -483,6 +531,8 @@ export type UserCreateWithoutSessionsInput = {
   emailVerified?: boolean
   image?: string | null
   discordId?: string | null
+  webhookUrl?: string | null
+  webhookUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
@@ -497,6 +547,8 @@ export type UserUncheckedCreateWithoutSessionsInput = {
   emailVerified?: boolean
   image?: string | null
   discordId?: string | null
+  webhookUrl?: string | null
+  webhookUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
@@ -527,6 +579,8 @@ export type UserUpdateWithoutSessionsInput = {
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   discordId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
@@ -541,6 +595,8 @@ export type UserUncheckedUpdateWithoutSessionsInput = {
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   discordId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
@@ -555,6 +611,8 @@ export type UserCreateWithoutAccountsInput = {
   emailVerified?: boolean
   image?: string | null
   discordId?: string | null
+  webhookUrl?: string | null
+  webhookUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -569,6 +627,8 @@ export type UserUncheckedCreateWithoutAccountsInput = {
   emailVerified?: boolean
   image?: string | null
   discordId?: string | null
+  webhookUrl?: string | null
+  webhookUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -599,6 +659,8 @@ export type UserUpdateWithoutAccountsInput = {
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   discordId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -613,6 +675,8 @@ export type UserUncheckedUpdateWithoutAccountsInput = {
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   discordId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -627,6 +691,8 @@ export type UserCreateWithoutWatchlistInput = {
   emailVerified?: boolean
   image?: string | null
   discordId?: string | null
+  webhookUrl?: string | null
+  webhookUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -641,6 +707,8 @@ export type UserUncheckedCreateWithoutWatchlistInput = {
   emailVerified?: boolean
   image?: string | null
   discordId?: string | null
+  webhookUrl?: string | null
+  webhookUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -671,6 +739,8 @@ export type UserUpdateWithoutWatchlistInput = {
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   discordId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -685,6 +755,8 @@ export type UserUncheckedUpdateWithoutWatchlistInput = {
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   discordId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -699,6 +771,8 @@ export type UserCreateWithoutApiKeysInput = {
   emailVerified?: boolean
   image?: string | null
   discordId?: string | null
+  webhookUrl?: string | null
+  webhookUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -713,6 +787,8 @@ export type UserUncheckedCreateWithoutApiKeysInput = {
   emailVerified?: boolean
   image?: string | null
   discordId?: string | null
+  webhookUrl?: string | null
+  webhookUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -743,6 +819,8 @@ export type UserUpdateWithoutApiKeysInput = {
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   discordId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -757,6 +835,8 @@ export type UserUncheckedUpdateWithoutApiKeysInput = {
   emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
   image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   discordId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -829,6 +909,8 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   emailVerified?: boolean
   image?: boolean
   discordId?: boolean
+  webhookUrl?: boolean
+  webhookUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
@@ -845,6 +927,8 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   emailVerified?: boolean
   image?: boolean
   discordId?: boolean
+  webhookUrl?: boolean
+  webhookUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["user"]>
@@ -856,6 +940,8 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   emailVerified?: boolean
   image?: boolean
   discordId?: boolean
+  webhookUrl?: boolean
+  webhookUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["user"]>
@@ -867,11 +953,13 @@ export type UserSelectScalar = {
   emailVerified?: boolean
   image?: boolean
   discordId?: boolean
+  webhookUrl?: boolean
+  webhookUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "email" | "emailVerified" | "image" | "discordId" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "email" | "emailVerified" | "image" | "discordId" | "webhookUrl" | "webhookUpdatedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
   accounts?: boolean | Prisma.User$accountsArgs<ExtArgs>
@@ -897,6 +985,8 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     emailVerified: boolean
     image: string | null
     discordId: string | null
+    webhookUrl: string | null
+    webhookUpdatedAt: Date | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["user"]>
@@ -1332,6 +1422,8 @@ export interface UserFieldRefs {
   readonly emailVerified: Prisma.FieldRef<"User", 'Boolean'>
   readonly image: Prisma.FieldRef<"User", 'String'>
   readonly discordId: Prisma.FieldRef<"User", 'String'>
+  readonly webhookUrl: Prisma.FieldRef<"User", 'String'>
+  readonly webhookUpdatedAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"User", 'DateTime'>
 }

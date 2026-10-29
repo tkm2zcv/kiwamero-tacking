@@ -44,18 +44,27 @@ tracker.ggのUIに極力近い独自ブランドを作り、取得可能な公�
 ## Phases
 | # | Phase | Status |
 |---|-------|--------|
-| 1 | Scaffold + tracker.gg tokens/fonts + nav shell | prototype (CSS ブロッカー) |
-| 2 | i18n辞書基盤 (en/ja) | prototype (翻訳漏れ・ブラウザ検証未了) |
-| 3 | HenrikDev APIクライアント + 保護された取得経路 | prototype (資格情報/認可/レート制限未了) |
-| 4 | プロフィール・試合一覧 | prototype (表示バグ、誤ったシードフォールバック) |
-| 5 | performance/agents/maps タブ | prototype |
-| 6 | Discord OAuth + D1 + 監視対象 | prototype (認証キー未設定、D1 未実装) |
-| 6b | Workers Cron + 新規試合差分検出 + ユーザー別 Discord Webhook | pending (上限100人/初回1試合、URLの安全な保管とAPI予算は未決) |
-| 7 | スマーフ診断+査定ページ | prototype (判定仕様未確定) |
-| 8 | 戦績カードURL共有 + /developers | prototype (URL共有の検証/所有者認可/安全な API キー管理は未実装。画像生成は初回対象外) |
-| 9 | Workers/D1 PoC・build/lint/ブラウザ検証・Cloudflare配信 | pending |
-| 10 | tracker.gg VALORANT 全ページ棚卸しと不足ルートの追加 | pending (デスクトップ優先) |
-| 11 | 高度統計・ランク推移・プレイヤー比較のデータ可能性と指標定義 | pending (パーセンタイル母集団を要確認) |
+| 1 | Scaffold + tracker.gg tokens/fonts + nav shell | done (2026-10-27 実測リビルド) |
+| 2 | i18n辞書基盤 (en/ja) | prototype (プロフィール画面は parity 優先で英語固定) |
+| 3 | HenrikDev APIクライアント + 保護された取得経路 | done (所有者専用 API + 正規化 + テスト) |
+| 4 | プロフィール・試合一覧 | done (実測準拠 UI) |
+| 5 | performance/agents/maps タブ | prototype (SeasonsTable は旧スタイル) |
+| 6 | Discord OAuth + D1 + 監視対象 | prototype (OAuth 実ログイン未検証) |
+| 6b | Workers Cron + 新規試合差分検出 + ユーザー別 Discord Webhook | **done (Node 検証済み)** / Workers 実行は Prisma 制約待ち |
+| 7 | スマーフ診断+査定ページ | prototype (参考スコアカードを独自実装) |
+| 8 | 戦績カードURL共有 + /developers | prototype (画像生成は対象外) |
+| 9 | Workers/D1 PoC・build/lint/ブラウザ検証・Cloudflare配信 | build/dry-run/dev まで完了。本番デプロイと Prisma 移行が残 |
+| 10 | tracker.gg VALORANT 全ページ棚卸しと不足ルートの追加 | partial (プロフィールのみ実測再現。ランキング等は未着手) |
+| 11 | 高度統計・ランク推移・プレイヤー比較のデータ可能性と指標定義 | partial (Score/Roles/Maps/Accuracy を独自指標で実装、パーセンタイルは未対応) |
+
+## 2026-10-28 の更新
+
+- 監視通知 (Phase 6b) を実装し、Node 上で完走確認。テスト 34 件を追加。
+- OpenNext ビルド + `wrangler deploy --dry-run` + `wrangler dev` での表示確認まで完了。
+- **Prisma 7 が workerd で動かない**ことが判明 (`Wasm code generation disallowed by embedder`)。
+  認証・監視・API キーの DB 操作は Node 専用。D1 ネイティブ / Drizzle への移行判断が必要で、
+  これは PDR の決定ゲート 3 に該当するためユーザー確認待ち。
+- 本番デプロイ (D1 `database_id` 発行、シークレット、DNS) は未実施。
 
 ## Risks
 - tracker.ggの実DOM構造・コンポーネント粒度はHTML 616KBから逆推 — pixel-perfectは限界あり、レイアウト/トークン完全一致を優先

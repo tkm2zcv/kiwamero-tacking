@@ -1,0 +1,144 @@
+{
+ "sections": [
+  {
+   "tag": "HEADER",
+   "t": "LOADOUTS",
+   "y": 664,
+   "x": 588
+  },
+  {
+   "tag": "H2",
+   "t": "LOADOUTS",
+   "y": 664,
+   "x": 588
+  },
+  {
+   "tag": "DIV",
+   "t": "Loadout\nK/D\nADR\nACS\nDDΔ\nKAST\nESR\nKills\nDeaths",
+   "y": 706,
+   "x": 589
+  },
+  {
+   "tag": "DIV",
+   "t": "Loadout",
+   "y": 706,
+   "x": 589
+  },
+  {
+   "tag": "DIV",
+   "t": "K/D",
+   "y": 706,
+   "x": 887
+  },
+  {
+   "tag": "DIV",
+   "t": "ADR",
+   "y": 706,
+   "x": 983
+  },
+  {
+   "tag": "DIV",
+   "t": "ACS",
+   "y": 706,
+   "x": 1079
+  },
+  {
+   "tag": "DIV",
+   "t": "DDΔ",
+   "y": 706,
+   "x": 1175
+  },
+  {
+   "tag": "DIV",
+   "t": "KAST",
+   "y": 706,
+   "x": 1271
+  },
+  {
+   "tag": "DIV",
+   "t": "ESR",
+   "y": 706,
+   "x": 1367
+  },
+  {
+   "tag": "DIV",
+   "t": "Kills",
+   "y": 706,
+   "x": 1463
+  },
+  {
+   "tag": "DIV",
+   "t": "Deaths",
+   "y": 706,
+   "x": 1559
+  },
+  {
+   "tag": "DIV",
+   "t": "WEAPONS",
+   "y": 1011,
+   "x": 588
+  },
+  {
+   "tag": "H2",
+   "t": "WEAPONS",
+   "y": 1011,
+   "x": 588
+  },
+  {
+   "tag": "DIV",
+   "t": "Weapon\nKills\nDeaths\nHS%\nADR\nKills/Round\nLongest Kill Distance",
+   "y": 1270,
+   "x": 589
+  },
+  {
+   "tag": "DIV",
+   "t": "Weapon",
+   "y": 1270,
+   "x": 589
+  },
+  {
+   "tag": "DIV",
+   "t": "Kills",
+   "y": 1270,
+   "x": 983
+  },
+  {
+   "tag": "DIV",
+   "t": "Deaths",
+   "y": 1270,
+   "x": 1079
+  },
+  {
+   "tag": "DIV",
+   "t": "HS%",
+   "y": 1270,
+   "x": 1175
+  },
+  {
+   "tag": "DIV",
+   "t": "ADR",
+   "y": 1270,
+   "x": 1271
+  },
+  {
+   "tag": "DIV",
+   "t": "Kills/Round",
+   "y": 1270,
+   "x": 1367
+  },
+  {
+   "tag": "DIV",
+   "t": "Longest Kill Distance",
+   "y": 1270,
+   "x": 1495
+  },
+  {
+   "tag": "SPAN",
+   "t": "GET THE MOBILE APP",
+   "y": 2786,
+   "x": 960
+  }
+ ],
+ "landmarks": {},
+ "mainText": " Live Update On\n373,060\nViews\nMeiy\n#B3L\ntwitter\ntwitch\nShare\nOverview\nMatches\nPerformance\nAgents\nMaps\nWeapons\nEncounters\nNEW\nCustoms\nCrosshairs\nLineups\nPremium users don't see ads.\nUpgrade for $3.99/mo\nPC\nConsole\nCompetitive\nPremier\nUnrated\nDeathmatch\nSwiftplay\nAll Acts\nV26: A6\nPremium users don't see ads.\nUpgrade for $3.99/mo\nLOADOUTS\nLoadout\nK/D\nADR\nACS\nDDΔ\nKAST\nESR\nKills\nDeaths\nSemi\n$ 1000-3900\n1.50\n189.1\n301.2\n+52\n76.0%\n61.8%\n513\n342\nFull\n>= $3900\n1.47\n194.6\n301.2\n+51\n77.7%\n67.8%\n429\n292\nEco\n$ 0-1000\n1.12\n157.9\n248.4\n+20\n69.1%\n47.8%\n170\n152\nPistol\n1st Round Atk/Def\n0.93\n113.2\n193.4\n-5\n60.7%\n57.9%\n83\n89\nWEAPONS\nVandal\nKills\n710\nHS%\n47.7%\n#\n1\nOperator\nKills\n88\nHS%\n5.7%\n#\n2\nPhantom\nKills\n81\nHS%\n40.4%\n#\n3\nAll Weapons\nSidearms\nShotguns\nSMGs\nAssault Rifles\nHeavy Weapons\nSniper Rifles\nMelee\nWeapon\nKills\nDeaths\nHS%\nADR\nKills/Round\nLongest Kill Distance\nVandal\nAssault Rifles\n710\n380\n47.7%\n169.9\n1.0\n46.41 m\nOperator\nSniper Rifles\n88\n39\n5.7%\n132.0\n0.8\n57.46 m\nPhantom\nAssault Rifles\n81\n161\n40.4%\n151.9\n1.0\n34.53 m\nClassic\nSidearms\n38\n27\n34.7%\n53.9\n0.5\n61.18 m\nGhost\nSidearms\n31\n38\n61.2%\n77.9\n0.7\n39.44 m\nShorty\nSidearms\n31\n4\n10.9%\n82.3\n0.6\n12.19 m\nBandit\nSidearms\n29\n22\n69.2%\n74.4\n0.5\n34.22 m\nMarshal\nSniper Rifles\n25\n10\n37.0%\n168.4\n1.1\n52.85 m\nStinger\nSMGs\n24\n9\n16.7%\n118.8\n0.8\n21.12 m\nOutlaw\nSniper Rifles\n23\n10\n7.1%\n269.3\n1.5\n42.18 m\nSheriff\nSidearms\n20\n72\n38.7%\n73.1\n0.5\n39.24 m\nBulldog\nAssault Rifles\n19\n5\n50.0%\n158.5\n1.2\n34.89 m\nGuardian\nAssault Rifles\n16\n26\n32.0%\n166.6\n1.0\n40.17 m\nOverdrive\nSpecial\n8\n2\n18.6%\n171.2\n1.3\n27.4 m\nBucky\nShotguns\n3\n3\n0.0%\n24.2\n0.2\n3.52 m\nTour De Force\nSpecial\n0\n8\n0.0%\n0.0\n0.0\n0 cm\nHeadhunter\nSpecial\n0\n27\n0.0%\n0.0\n0.0\n0 cm\nOdin\nHeavy Weapons\n0\n2\n0.0%\n0.0\n0.0\n0 cm\nSpectre\nSMGs\n0\n5\n0.0%\n0.0\n0.0\n0 cm\nFrenzy\nSidearms\n0\n1\n0.0%\n0.0\n0.0\n0 cm\nJudge\nShotguns\n0\n9\n0.0%\n0.0\n0.0\n0 cm\nWarden\nRifles\n0\n1\n0.0%\n0.0\n0.0\n0 cm\nPremium users don't see ads.\nUpgrade for $3.99/mo"
+}

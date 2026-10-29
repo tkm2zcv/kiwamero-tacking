@@ -1,5 +1,109 @@
 # Project Changelog
 
+## 2026-10-28 — 監視通知の実装 / テスト / Workers 検証 (docs 完走)
+
+`docs/` に残っていた未完了項目を通した回。UI は前回の実測リビルドのまま。
+
+### 監視通知 (R-07 / Phase 6b)
+- Prisma スキーマに `User.webhookUrl` / `User.webhookUpdatedAt`、
+  `WatchlistEntry.region` / `lastSeenGameStart` / `lastNotifiedMatchId` / `lastNotifiedAt`
+  と `(riotName, riotTag)` インデックスを追加。
+- `src/lib/watch-core.ts` — 純関数 + DB 非依存の `runWatchCycle`:
+  Webhook URL 検証 (discord.com のみ・トークン長・資格情報拒否)、難読化表示、
+  初回は最新1試合 / 以降は `game_start` 差分 / 1回5件上限、システム全体100人上限、
+  プレイヤー単位で HenrikDev 照会を共有、送信失敗時はカーソルを進めない。
+- `src/lib/watch-run.ts` — HenrikDev と fetch を注入する実運用結線。
+- `POST /api/cron/watch` (`Bearer CRON_SECRET`、開発時のみ認証不要) と
+  `GET` ヘルス。`src/worker.js` の `scheduled` + `wrangler.jsonc` の
+  `triggers.crons = ["0 * * * *"]` から毎時実行。
+- `/api/watchlist/webhook` (GET/POST/DELETE) と `/api/watchlist/webhook/test`。
+  保存直後に監視中プレイヤーの直近1試合を送信。URL は画面・API に再表示しない。
+- `/watchlist` に Webhook 設定 UI (保存/置換/削除/テスト送信/状態表示) を追加。
+  監視対象一覧にリージョンと最終通知時刻を表示。
+- `POST /api/watchlist` は 100 人上限を超える新規追加を 409 で拒否。
+- ローカル D1 と SQLite に増分マイグレーションを適用
+  (`prisma/d1/upgrade-2026-10-28.sql`, `tools/migrate-dev-db.mjs`)。
+
+### テスト
+- `node --test` (Node 24 の型ストリップ) で 34 件。`npm test` / `npm run check` を追加。
+- 対象: Webhook 検証・新着判定・Embed・上限、監視サイクル (初回/2回目/差分/失敗時の再送/
+  照会共有/上限/1件失敗でも継続)、`formatAct`・Overview/Accuracy/Roles/Maps/行の集計、
+  HenrikDev レスポンス正規化 (`all_players`/`map` オブジェクト/FFA/欠損)。
+- 正規化は `src/lib/match-normalize.ts` へ切り出してテスト可能にした。
+
+### Workers / デプロイ準備
+- `open-next.config.ts` を追加し `npm run build:worker` で `.open-next/worker.js` を生成。
+- `wrangler deploy --dry-run` 成功 (Worker 12.9 MB / gzip 3.3 MB、
+  `DB`/`ASSETS`/`APP_URL`、cron トリガー)。デプロイ自体は未実施。
+- `wrangler dev` でプロフィールページ 200・cron ヘルス 200 を確認。
+- **判明した制約**: Prisma 7 は workerd で動かない
+  (`CompileError: WebAssembly.Module(): Wasm code generation disallowed by embedder`)。
+  認証・監視リスト・Cron の DB 更新は Node 専用。移行方針は
+  `docs/system-architecture.md` の決定ゲートに記載 (D1 ネイティブ/Drizzle が本命)。
+- Windows では OpenNext のシンボリックリンク作成が EPERM になるため、
+  `tools/fs-symlink-fallback.cjs` を preload する `build:worker` を用意。
+
+### ドキュメント
+- README を現状 (スクリプト、監視通知の使い方、既知の制約) に更新。
+- `docs/system-architecture.md` に監視通知の実装・Workers 制約・決定ゲートを追記。
+- `.env` 例に `CRON_SECRET` を追加。
+
+## 2026-10-27 — tracker.gg UI を実測ベースで作り直し (parity rebuild)
+
+これまでの実装は tracker.gg の見た目から大きく外れていたため、
+`https://tracker.gg/valorant/profile/riot/Meiy%23B3L/overview?...&season=d816f426-...`
+を Scrapling で再取得し、**DOM の実測座標 + computed style** を仕様として UI を作り直した。
+
+### Observe (取得)
+- `tools/scrape/capture-reference.py` → StealthySession で 1920x1080 / DPR2 撮影、
+  `docs/research/capture/` に `ref-1920.png` / `ref-1920-full.png` / `dom-1920.json`
+  (要素ごとの rect と computed style) / `page-1920.html` / `assets.json` / `fonts.json` を保存。
+- 計測ツール: `tools/scrape/inspect-dom.py` (`outline` / `find` / `path` / `cls` / `sub`)、
+  `tools/scrape/landmarks-local.py` (ローカルの主要要素の rect を出力)、
+  `tools/scrape/compare.py` (参照とローカルを同じ矩形で上下に並べる)、
+  `tools/scrape/shoot-local.py` / `shoot-url.py` (スクショ)。
+
+### 参照から分かった確定値
+- viewport 1920 でコンテナ 1400 (内側 1392、左右 260 マージン)。hero 1392x320 / radius 16。
+- タブバーは hero 下端に密着 (高さ 56、背景 `rgba(44,63,82,.9)`、左に 144px のオフセット、
+  項目は 16px/500、有効タブは下辺 2px `#ff4655`)。
+- 広告帯 1392x112 (728 + 632 の 2 カラム)、フィルタ行 1392x40 (5 カラム gap16)、
+  本文は `300px / 1068px` の 2 カラム gap24。
+- カード見出しは Saira 20px/600 uppercase、本文は Roboto。数値は 18–32px/700。
+- Current Rating カード 300x225.7、Overview カード 1068x358.7 (highlighted 126、
+  4 タイル 252.5x76.9、二次指標 6 列 164.3x68.9)、Tracker Score 行 1068x79.2、
+  Top Agents 表 (行 56px)、Last 20 Matches カード。
+- 書体は Roboto + Saira (Poppins は別領域) — 既存の next/font 構成のままで一致。
+
+### Build (実装)
+- `src/app/tracker-ui.css` を新設し、`kt-` 名前空間で上記の実測値を再現
+  (globals.css の旧 `trn-` プロフィール CSS は他タブ用に残置)。
+- 新コンポーネント: `hero`, `filters-bar`, `ad-strip`, `rating-card`, `overview-card`,
+  `score-card`, `top-agents`, `matches-card`, `sidebar-cards` (Accuracy / Roles / Top Maps)。
+- 旧 `overview-panels` / `profile-hero` / `stats-grid` / `teammates` / `match-list` /
+  `match-row` / `match-detail` を削除 (未使用化)。
+- `src/lib/profile-stats.ts` を追加: 試合行、命中率、ロール別、マップ別、
+  Overview 集計、`formatAct()` (e11a6 → `V26: A6`) を純関数で提供。
+- `site-nav` を実測値 (ゲームバー 40px / サイトナビ 56px / 検索 149.6x36) に合わせて刷新。
+- データ拡張: `by_season` から現在アクトとシーズン戦績、`mmr-history` から peak RR を取得
+  (`ranking_in_tier` が正で `rr` ではない点を修正)。トラッカー上部の
+  `36 W / 20 L` と `56 Matches` はシーズン実績。
+- 「Top X%」パーセンタイルは母集団が無いため表示しない (標本数を併記)。
+  KAST / First Bloods / Flawless / Aces はラウンドデータ未取得のため `-`。
+
+### Compare (検証)
+- `docs/screenshots/parity/` に参照・ローカル・比較画像を保存。
+  hero / overview / matches の 3 領域で並べて差分を潰した。
+- 主要ランドマークの実測一致: hero `264,120 1392x320`、tabs `264,384 1392x56`、
+  広告 `264,464 1392x112`、フィルタ `264,600 1392x40`、2 カラム `264,664 300|1068`、
+  overview 本体 `589,706 1066x126`、タイル `605,816 252.5x76.9`。
+- 390px 幅のモバイルも確認 (ナビ/タブ/フィルタは横スクロール、主要指標は 2 カラム)。
+- `npx tsc --noEmit` / `npm run lint` / `npm run build` すべて成功。全ルート 200。
+
+### 未対応 (意図的)
+- Premier Roster カード: HenrikDev にプレミアロスターのデータが無いため非表示。
+- TRS / 有料フィルタのロック、Live Update トグル、広告枠の実広告は再現せず独自要素で置換。
+
 ## 2026-10-27 — Kiwamero Tracking requirements handoff
 
 - 新規アプリ `kiwamero-tracking/` の要件定義、技術選定、次セッション引き継ぎを `docs/` に追加。

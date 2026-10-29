@@ -6,7 +6,7 @@ import { Eye, LineChart, ShieldCheck } from "lucide-react";
 export default async function HomePage() {
   const t = await getDict();
   return (
-    <div className="py-16">
+    <div className="kt-container py-16">
       {/* hero */}
       <div className="mx-auto max-w-2xl text-center">
         <Image src="/brand/logo.webp" alt="" width={84} height={84} className="mx-auto rounded-2xl" />

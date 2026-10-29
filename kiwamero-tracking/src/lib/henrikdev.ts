@@ -65,19 +65,30 @@ export async function getAccount(name: string, tag: string) {
 }
 
 export interface HDMmrData {
-  currenttier: number;
-  currenttier_patched: string;
-  ranking_in_tier: number;
-  mmr_change_to_last_game: number;
-  elo: number;
-  games_needed_for_rating?: number;
-  leaderboard_rank?: number;
-  images?: { small: string; large: string };
-  peak?: { tier?: { id: number; patched: string }; season?: { short: string } };
+  current_data?: {
+    currenttier: number;
+    currenttierpatched: string;
+    ranking_in_tier: number;
+    mmr_change_to_last_game: number;
+    elo: number;
+    games_needed_for_rating?: number;
+    images?: { small: string; large: string };
+    old?: boolean;
+  };
+  highest_rank?: { tier: number; patched_tier: string; season: string; old?: boolean };
+  by_season?: Record<string, {
+    tier?: number;
+    patched_tier?: string;
+    wins?: number;
+    number_of_games?: number;
+    final_rank?: number;
+    final_rank_patched?: string;
+    act_rank_wins?: { tier: number; patched_tier: string }[];
+  }>;
 }
 
 export async function getMmr(region: string, puuid: string) {
-  return call<HDMmrData>(`/valorant/v3/by-puuid/mmr/${region}/${puuid}`);
+  return call<HDMmrData>(`/valorant/v2/by-puuid/mmr/${region}/${puuid}`);
 }
 
 export interface HDMatchPlayer {
@@ -163,16 +174,60 @@ export async function getMatches(region: string, puuid: string, opts?: { mode?: 
   );
 }
 
+export interface HDStoredMatch {
+  meta: {
+    id: string;
+    map: { id: string; name: string };
+    version?: string;
+    mode: string;
+    started_at: string;
+    season: { id: string; short: string };
+    region?: string;
+    cluster?: string;
+  };
+  stats: {
+    puuid: string;
+    name?: string;
+    tag?: string;
+    team?: string;
+    level?: number;
+    character: { id: string; name: string };
+    tier?: number;
+    score: number;
+    kills: number;
+    deaths: number;
+    assists: number;
+    shots?: { head?: number; body?: number; leg?: number };
+    damage?: { made?: number; received?: number };
+  };
+  teams?: { red?: number; blue?: number };
+}
+
+export async function getStoredMatches(region: string, puuid: string, opts?: { mode?: string }) {
+  const params = new URLSearchParams();
+  if (opts?.mode) params.set("mode", opts.mode);
+  const q = params.toString();
+  // Without `size` the endpoint returns every stored record — large payload, skip data-cache.
+  return call<HDStoredMatch[]>(
+    `/valorant/v1/by-puuid/stored-matches/${region}/${puuid}${q ? `?${q}` : ""}`,
+    { cache: "no-store" }
+  );
+}
+
 export interface HDMmrHistoryEntry {
   match_id?: string;
-  tier?: { id: number; name: string };
-  map?: { id: string; name: string };
-  season?: { id: string; short: string };
-  rr?: number;
-  last_change?: number;
+  currenttier?: number;
+  currenttierpatched?: string;
+  ranking_in_tier?: number;
+  mmr_change_to_last_game?: number;
   elo?: number;
+  map?: { id: string; name: string };
+  season_id?: string;
   date?: string;
   date_raw?: number;
+  tier?: { id: number; name: string };
+  season?: { id: string; short: string };
+  rr?: number;
 }
 
 export async function getMmrHistory(region: string, puuid: string) {

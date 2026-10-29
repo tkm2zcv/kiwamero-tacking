@@ -909,6 +909,8 @@ export const UserScalarFieldEnum = {
   emailVerified: 'emailVerified',
   image: 'image',
   discordId: 'discordId',
+  webhookUrl: 'webhookUrl',
+  webhookUpdatedAt: 'webhookUpdatedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -967,7 +969,11 @@ export const WatchlistEntryScalarFieldEnum = {
   riotName: 'riotName',
   riotTag: 'riotTag',
   puuid: 'puuid',
+  region: 'region',
   note: 'note',
+  lastSeenGameStart: 'lastSeenGameStart',
+  lastNotifiedMatchId: 'lastNotifiedMatchId',
+  lastNotifiedAt: 'lastNotifiedAt',
   createdAt: 'createdAt'
 } as const
 
@@ -1033,6 +1039,13 @@ export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel
  * Reference to a field of type 'Int'
  */
 export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
+    
+
+
+/**
+ * Reference to a field of type 'Float'
+ */
+export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
     
 
 /**

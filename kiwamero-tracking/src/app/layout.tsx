@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { Roboto, Poppins } from "next/font/google";
+import { Roboto, Saira } from "next/font/google";
 import "./globals.css";
+import "./tracker-ui.css";
+import "./trn-v3.css";
 import { getLocale, getDict } from "@/lib/i18n/server";
 import { I18nProvider } from "@/lib/i18n/client";
 import { SiteNav } from "@/components/site-nav";
@@ -11,10 +13,10 @@ const roboto = Roboto({
   weight: ["400", "500", "700", "900"],
   variable: "--font-roboto",
 });
-const poppins = Poppins({
+const saira = Saira({
   subsets: ["latin"],
-  weight: ["600", "700", "800"],
-  variable: "--font-poppins",
+  weight: ["500", "600", "700", "800"],
+  variable: "--font-saira",
 });
 
 export const metadata: Metadata = {
@@ -26,12 +28,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const locale = await getLocale();
   const dict = await getDict();
   return (
-    <html lang={locale}>
-      <body className={`${roboto.variable} ${poppins.variable} antialiased`}>
+    <html lang={locale} className={`${roboto.variable} ${saira.variable}`}>
+      <body className="antialiased">
         <I18nProvider locale={locale} dict={dict}>
-          <SiteNav />
-          <main className="mx-auto min-h-[70vh] w-full max-w-[1400px] px-4">{children}</main>
-          <SiteFooter />
+          <div className="kt-shell">
+            <SiteNav />
+            <main className="kt-main">{children}</main>
+            <SiteFooter />
+          </div>
         </I18nProvider>
       </body>
     </html>

@@ -1,0 +1,71 @@
+﻿body  [0,0 1920x1080]  {fontSize:15px color:rgb(239, 239, 239)}
+  div#app-container  [0,0 1920x4262.8]  {fontSize:15px color:rgb(239, 239, 239)}
+    div#app  [0,0 1920x4262.8]  {display:flex fontSize:15px color:rgb(239, 239, 239)}
+      div.trn-scroll-peek  [0,0 1920x1080]  {fontSize:15px color:rgb(239, 239, 239)}
+      div.trn-wrapper  [0,40 1920x4222.8]  {display:flex fontSize:15px color:rgb(239, 239, 239)}
+        div.trn-navigation.pointer-events-none.sticky.left-0.top-0.z-nav.w-full  [0,40 1920x56]  {fontSize:15px color:rgb(239, 239, 239)}
+          div.trn-site-nav.z-nav.pointer-events-auto.border-b.border-surface-2  [0,40 1920x56]  {fontSize:15px color:rgb(239, 239, 239) backgroundColor:rgb(15, 25, 35)}
+                  div.-mb-6.flex.w-full.items-center.overflow-hidden.pb-6  [181.6,40 1589.4x79]  {display:flex fontSize:15px color:rgb(239, 239, 239)}
+                      li.item.flex.item--more.item-more  [-9999,40 101.2x56]  {display:flex fontSize:15px color:rgb(153, 171, 191)}
+          div.pointer-events-auto.w-full#trn-teleport-nav-subnav  [0,96 1920x0]  {fontSize:15px color:rgb(239, 239, 239)}
+        div.trn-container  [0,96 1920x4166.8]  {fontSize:15px color:rgb(239, 239, 239) backgroundColor:rgb(15, 20, 26)}
+          div.trn-content  [0,96 1920x4166.8]  {display:flex fontSize:15px color:rgb(239, 239, 239)}
+            main  [0,96 1920x3832.8]  {display:flex fontSize:15px color:rgb(239, 239, 239)}
+              div.trn-sticky-content-top  [0,96 1920x0]  {fontSize:15px color:rgb(239, 239, 239)}
+                div#trn-teleport-sticky-top  [0,96 1920x0]  {fontSize:15px color:rgb(239, 239, 239)}
+                  div.updater  [1724.9,104 187.1x42]  {display:flex fontSize:14px color:rgb(239, 239, 239) borderRadius:8px}
+                    div.updater__content  [1724.9,105 147.1x40.1]  {display:flex fontSize:14px color:rgb(239, 239, 239)}
+                      span.updater__message.updater__message--live  [1740.9,117 115.1x16.1]  {fontSize:14px color:rgb(239, 239, 239)}  "Live Update On"
+                    div.updater__refresh.updater__refresh--live  [1872,104 40x42]  {fontSize:14px fontWeight:500 color:rgb(239, 239, 239) backgroundColor:rgba(255, 255, 255, 0.15)}
+                      svg  [1880,112 24x24]  {display:inline fontSize:14px fontWeight:500 color:rgb(239, 239, 239)}
+              div.min-h-[80vh].flex.flex-col  [0,96 1920x3832.8]  {display:flex fontSize:15px color:rgb(239, 239, 239)}
+                div.content.no-card-margin  [0,96 1920x3832.8]  {fontSize:15px color:rgb(239, 239, 239)}
+                  div.relative.@container  [0,96 1920x504]  {fontSize:15px color:rgb(239, 239, 239)}
+                    div.gradient-image.grid.gradient-image--blur.pointer-events-none.absolute.left-0.top-0.h-124.w-full.object-cover.object-top.@max-8x:hidden  [0,96 1920x496]  {display:grid fontSize:15px color:rgb(239, 239, 239)}
+                      img.pointer-events-none.absolute.left-0.top-0.h-124.w-full.object-cover.object-top.@max-8x:hidden.object-cover  [0,96 1920x496]  {fontSize:15px color:rgb(239, 239, 239)}  <img https://imgsvc.trackercdn.com/url/max-width(2100),quality(70)/https%3A%2F%2Ftrackercdn.com>
+                    div.@8x:v3-site-container.v3-grid.mb-4.@8x:my-6  [260,120 1400x456]  {display:grid fontSize:15px color:rgb(239, 239, 239) gap:24px gridTemplateColumns:1392px}
+                      header.relative.flex.h-50.flex-col.justify-between.shadow-card.shadow-black/25.@8x:h-80.@8x:rounded-4  [264,120 1392x320]  {display:flex fontSize:15px color:rgb(239, 239, 239) borderRadius:16px}
+                      div.bordered-davert.z-1.m-0.max-ml:p-0  [264,464 1392x112]  {display:grid fontSize:15px color:rgb(239, 239, 239) backgroundColor:rgba(0, 0, 0, 0.33) gap:10px gridTemplateColumns:728px 632px borderRadius:8px}
+                  div.v3-site-container.v3-grid.pb-6  [260,600 1400x3328.8]  {display:grid fontSize:15px color:rgb(239, 239, 239) gap:24px gridTemplateColumns:1392px}
+                    div.relative.hidden.items-center.gap-4.tl:grid.grid-cols-5.tl:grid  [264,600 1392x40]  {display:grid fontSize:15px color:rgb(239, 239, 239) gap:16px gridTemplateColumns:265.594px 265.594px 265.594px 265.594px 265.609px}
+                      div  [264,600 265.6x40]  {fontSize:15px color:rgb(239, 239, 239)}
+                      div.col-span-3  [545.6,600 828.8x40]  {fontSize:15px color:rgb(239, 239, 239)}
+                      div  [1390.4,600 265.6x40]  {fontSize:15px color:rgb(239, 239, 239)}
+                    div.min-h-100  [264,664 1392x3104.8]  {fontSize:15px color:rgb(239, 239, 239)}
+                      div.v3-grid.container  [264,664 1392x3104.8]  {display:grid fontSize:15px color:rgb(239, 239, 239) gap:24px gridTemplateColumns:300px 1068px}
+              div.trn-sticky-content-bottom  [0,1080 1920x0]  {fontSize:15px color:rgb(239, 239, 239)}
+                div#trn-teleport-sticky-bottom  [0,1080 1920x0]  {fontSize:15px color:rgb(239, 239, 239)}
+        div#primis_playerSekindoSPlayer6ae0b20737dd4  [1619,910 300x169]  {fontSize:16px color:rgb(0, 0, 0) borderRadius:1px}
+          div#Player-Div-SekindoSPlayer6ae0b20737dd4  [1619,910 300x169]  {fontSize:16px color:rgb(0, 0, 0)}
+            div#closeContainer  [1619,889 300x21]  {fontSize:16px color:rgb(0, 0, 0)}
+              div#closeIcon  [1903,889 16x16]  {fontSize:16px color:rgb(0, 0, 0)}
+                div  [1903,889 16x16]  {fontSize:16px color:rgb(0, 0, 0)}
+                svg#Layer_1  [1903,889 16x16]  {display:inline fontSize:16px color:rgb(0, 0, 0)}
+                  circle  [1903.9,889.9 14.2x14.2]  {display:inline fontSize:16px color:rgb(0, 0, 0)}
+                  g  [1903,889 16x16]  {display:inline fontSize:16px color:rgb(0, 0, 0)}
+                    path  [1903,889 16x16]  {display:inline fontSize:16px color:rgb(0, 0, 0)}
+                    path  [1907.3,893.3 7.3x7.3]  {display:inline fontSize:16px color:rgb(0, 0, 0)}
+                div#closeIconHit  [1903,889 16x16]  {fontSize:16px color:rgb(0, 0, 0)}
+            div#Video-Div-SekindoSPlayer6ae0b20737dd4  [1619,910 300x169]  {fontSize:16px color:rgb(0, 0, 0)}
+              div#Video-iFrame-SekindoSPlayer6ae0b20737dd4  [1619,910 300x169]  {fontSize:16px color:rgb(0, 0, 0)}
+                div#videoContainerDiv  [1619,910 300x169]  {fontSize:16px color:rgb(0, 0, 0) backgroundColor:rgb(0, 0, 0)}
+                  div  [1619,910 300x169]  {fontSize:16px color:rgb(0, 0, 0)}
+                    video  [1619,910 300x169]  {fontSize:16px color:rgb(0, 0, 0)}
+                div#layoutContainerDiv  [1619,910 300x169]  {fontSize:16px color:rgb(0, 0, 0)}
+                  div#layoutDesign  [1619,910 300x169]  {fontSize:16px color:rgb(0, 0, 0)}
+                    div#transparentCover  [1619,910 300x169]  {fontSize:16px color:rgb(0, 0, 0)}
+                      div#transparentInner  [1619,910 300x169]  {fontSize:16px color:rgb(0, 0, 0)}
+                    div#viewsElements  [1632,945 92.1x20]  {fontSize:16px color:rgb(0, 0, 0)}
+                      div#viewsIcon  [1632,943 14x14]  {fontSize:16px color:rgb(255, 255, 255)}
+                      div#viewsNum  [1654,944 42.6x12]  {fontSize:12px color:rgb(255, 255, 255)}  "600.3M"
+                      div#likesIcon  [1716.6,941 14x14]  {fontSize:16px color:rgb(0, 0, 0)}
+                      div#likesNum  [1740.6,944 21.5x20]  {fontSize:12px color:rgb(255, 255, 255)}  "253"
+                    div#topLeftElements  [1619,910 210x0]  {fontSize:16px color:rgb(0, 0, 0)}
+                      div#titleObj  [1630,920 210x24]  {display:flex fontSize:13px color:rgb(255, 255, 255)}
+                    img#publisherLogo  [1632,1046 52.8x23]  {fontSize:16px color:rgb(0, 0, 0)}  <img https://video.primis.tech/uploads/video/users/logo/30773/logo_10830.png?cbuster=1624452860>
+                    div#primisVastIconsContainer  [1619,910 8x8]  {display:flex fontSize:16px color:rgb(0, 0, 0)}
+                div#adBreakDiv  [1619,910 300x169]  {fontSize:16px color:rgb(0, 0, 0)}
+                  div#adBreakPreloader  [1619,910 300x0]  {fontSize:16px color:rgb(0, 0, 0)}
+  div  [1750,540 160x600]  {color:rgb(239, 239, 239)}
+    div.na-rail-right#Tracker.gg_Desktop_Content_160x600_right  [1750,540 160x600]  {color:rgb(239, 239, 239)}
+      iframe  [1750,540 160x600]  {color:rgb(239, 239, 239)}

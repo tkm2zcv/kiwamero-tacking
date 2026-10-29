@@ -12,7 +12,23 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated build output / local Cloudflare artifacts:
+    ".open-next/**",
+    ".worker-build/**",
+    ".wrangler/**",
+    ".wrangler-config/**",
+    ".d1-local/**",
+    ".tmp/**",
+    "src/generated/**",
+    // Standalone node scripts (CommonJS/ESM tooling, not app code):
+    "tools/**",
   ]),
+  {
+    files: ["**/*.cjs"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

@@ -1,8 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "kiwamero-tracking",
-  // OpenNext build output (run `opennextjs-cloudflare build` to produce .open-next/)
-  "main": ".open-next/worker.js",
+  // Custom entry: OpenNext handler + hourly cron (see src/worker.js).
+  "main": "src/worker.js",
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
@@ -17,5 +17,12 @@
       // D1 database_id from `wrangler d1 create kiwamero-tracking` before deploy.
       "database_id": "00000000-0000-0000-0000-000000000000"
     }
-  ]
+  ],
+  // Hourly watch cycle (Cloudflare Cron Trigger). Requires CRON_SECRET.
+  "triggers": {
+    "crons": ["0 * * * *"]
+  },
+  "vars": {
+    "APP_URL": "https://tracking.kiwamero.dev"
+  }
 }

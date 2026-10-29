@@ -28,9 +28,14 @@ html,
 body {
   background: var(--color-background);
   color: var(--color-text-primary);
-  font-family: var(--font-sans);
+  font-family: var(--font-roboto), sans-serif;
   font-size: 15px;
   min-height: 100vh;
+}
+
+body {
+  background-image: radial-gradient(ellipse 50% 36% at 86% 18%, rgb(52 44 89 / 21%), transparent 80%);
+  background-attachment: fixed;
 }
 
 /* shared primitives */
@@ -86,32 +91,62 @@ body {
   border-bottom-color: var(--color-action);
 }
 
-/* match row */
+/* match row — v3-match-row spec extracted from tracker.gg production CSS */
 .match-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto auto auto auto;
+  --notch: #e4485d;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
-  padding: 0.5rem 1rem;
+  min-height: 4.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
   border-radius: var(--border-radius);
-  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-3);
+  background: var(--color-surface-2);
   position: relative;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
+.match-row:hover { background: color-mix(in srgb, var(--row-bg, var(--color-surface-2)) 95%, #fff); }
 .match-row::before {
   content: "";
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  border-radius: 4px 0 0 4px;
-  background: var(--color-valorant-team-2);
+  left: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 2.5rem;
+  width: 0.25rem;
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+  background: var(--notch);
+  box-shadow: var(--notch-glow, none);
 }
-.match-row--win::before { background: var(--color-valorant-team-1); }
+.match-row--win { --row-bg: #5ee79026; background: #5ee79026; border-color: #5ee79059; --notch: #5ee790; --notch-glow: 0 0 1rem 0 #5ee790; }
+.match-row--loss { --notch: #e4485d; }
+.match-row--draw { --notch: #cbb765; }
+.match-row--1st { --row-bg: #ccb86626; background: #ccb86626; border-color: #ccb86659; --notch: #cbb765; --notch-glow: 0 0 1rem 0 #cbb765; }
+.match-row--2nd { border-color: #99b0cc59; --notch: #99b0cc; --notch-glow: 0 0 1rem 0 #99b0cc; }
+.match-row--3rd { --notch: #a86243; }
+.match-row--top { --notch: #5ee790; }
+
+.mr-main { display: flex; align-items: center; gap: 1rem; min-width: 0; flex: 1 1 11rem; }
+.mr-agent { width: 3rem; height: 3rem; border-radius: var(--border-radius); flex: none; }
+.mr-meta { display: flex; flex-direction: column; min-width: 0; }
+.mr-meta-sub { font-size: 0.75rem; font-weight: 500; line-height: 1.25; color: var(--color-text-secondary); }
+.mr-meta-sub > :not([hidden]) ~ :not([hidden])::before { content: "//"; margin: 0 0.3em; color: var(--color-text-secondary); }
+.mr-map { font-size: 1.125rem; font-weight: 700; color: var(--color-text-primary); text-transform: capitalize; line-height: 1.3; white-space: nowrap; }
+.mr-chip {
+  display: inline-flex; align-items: center; height: 1rem; padding: 0 0.25rem; margin-left: 0.5rem;
+  border: 1px solid color-mix(in srgb, currentColor 50%, transparent); border-radius: 0.25rem;
+  font-size: 0.625rem; font-weight: 500; line-height: 1; vertical-align: 0.15em;
+}
+.mr-chip--silver { color: #99b0cc; }
+.mr-chip--gold { color: #cbb765; }
 
 .stat-block { display: flex; flex-direction: column; }
-.stat-block .name { font-size: 0.75rem; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
-.stat-block .value { font-size: 1rem; font-weight: 600; color: var(--color-text-primary); }
+.stat-block .name { font-size: 0.75rem; font-weight: 500; line-height: 1.25; color: var(--color-text-secondary); }
+.stat-block .value { font-size: 1rem; font-weight: 500; line-height: 1.25; color: var(--color-text-primary); }
+.match-row__dots { color: rgb(239 239 239 / 0.5); flex: none; transition: color 0.15s ease; }
+.match-row:hover .match-row__dots { color: var(--color-text-primary); }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--color-surface-3); border-radius: 8px; }

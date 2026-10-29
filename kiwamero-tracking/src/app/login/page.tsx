@@ -5,7 +5,7 @@ import { Lock } from "lucide-react";
 export default async function LoginPage() {
   const t = await getDict();
   return (
-    <div className="flex min-h-[60vh] items-center justify-center py-16">
+    <div className="kt-container flex min-h-[60vh] items-center justify-center py-16">
       <div className="trn-card w-full max-w-sm p-8 text-center">
         <div className="mx-auto flex size-12 items-center justify-center rounded-full" style={{ background: "var(--color-surface-2)" }}>
           <Lock className="size-5 text-secondary" />

@@ -75,6 +75,8 @@ const en = {
     unavailablePrivate: "This profile is private or cannot be retrieved.",
     unavailableRateLimited: "The stats API is rate-limited right now. Please try again shortly.",
     unavailableUpstream: "Stats are temporarily unavailable. Please try again later.",
+    notAvailableTitle: "Not available yet",
+    notAvailableBody: "Kiwamero Tracking doesn't have the data source for this section yet — nothing is shown rather than fake stats.",
   },
   side: {
     topAgents: "Top Agents",
@@ -202,6 +204,8 @@ const ja: Dict = {
     unavailablePrivate: "このプロフィールは非公開、または取得できない状態です。",
     unavailableRateLimited: "統計APIがレート制限中です。しばらくしてから再試行してください。",
     unavailableUpstream: "戦績データを一時的に取得できません。時間をおいて再試行してください。",
+    notAvailableTitle: "未対応",
+    notAvailableBody: "このセクションのデータソースはKiwamero Trackingにまだありません。偽の値は表示しません。",
   },
   side: {
     topAgents: "トップエージェント",

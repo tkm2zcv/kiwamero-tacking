@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getDict } from "@/lib/i18n/server";
 import { Eye, Trash2 } from "lucide-react";
 import { WatchlistRemoveButton } from "@/components/watchlist-remove";
+import { WatchlistWebhook } from "@/components/watchlist-webhook";
 
 export const metadata = { title: "Watchlist" };
 
@@ -14,7 +15,7 @@ export default async function WatchlistPage() {
 
   if (!session) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
+      <div className="kt-container flex min-h-[50vh] items-center justify-center">
         <div className="trn-card max-w-sm p-8 text-center">
           <Eye className="mx-auto size-8 text-tertiary" />
           <p className="mt-4 text-secondary">{t.watchlist.signInCta}</p>
@@ -32,16 +33,26 @@ export default async function WatchlistPage() {
   });
 
   return (
-    <div className="py-8">
-      <h1 className="text-2xl font-black" style={{ fontFamily: "var(--font-display)" }}>{t.watchlist.title}</h1>
+    <div className="kt-container py-8" style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 1000 }}>
+      <h1 style={{ fontFamily: "var(--kt-title)", fontSize: 28, margin: 0 }}>{t.watchlist.title}</h1>
+
+      <WatchlistWebhook />
+
       {!entries.length ? (
-        <p className="mt-6 text-secondary">{t.watchlist.empty}</p>
+        <p className="text-secondary">{t.watchlist.empty}</p>
       ) : (
-        <div className="mt-6 grid gap-2">
+        <div className="grid gap-2">
           {entries.map((e) => (
-            <div key={e.id} className="trn-card flex items-center gap-4 p-4">
+            <div key={e.id} className="trn-card flex flex-wrap items-center gap-4 p-4">
               <div className="flex-1 font-bold">
-                {e.riotName}<span className="text-tertiary">#{e.riotTag}</span>
+                {e.riotName}
+                <span className="text-tertiary">#{e.riotTag}</span>
+                <div className="mt-1 text-xs" style={{ color: "var(--kt-text-2)" }}>
+                  {e.region ? `${e.region.toUpperCase()} · ` : ""}
+                  {e.lastNotifiedAt
+                    ? `last alert ${new Date(e.lastNotifiedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`
+                    : "no alert yet"}
+                </div>
               </div>
               <Link
                 href={`/valorant/profile/riot/${encodeURIComponent(`${e.riotName}#${e.riotTag}`)}/overview`}

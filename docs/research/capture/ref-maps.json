@@ -1,0 +1,84 @@
+{
+ "sections": [
+  {
+   "tag": "DIV",
+   "t": "MAPS",
+   "y": 664,
+   "x": 588
+  },
+  {
+   "tag": "H2",
+   "t": "MAPS",
+   "y": 664,
+   "x": 588
+  },
+  {
+   "tag": "DIV",
+   "t": "Map Name\nTop Agents\nWin %\nWins\nLosses\nK/D\nADR\nACS\nDDΔ",
+   "y": 706,
+   "x": 589
+  },
+  {
+   "tag": "DIV",
+   "t": "Map Name",
+   "y": 706,
+   "x": 589
+  },
+  {
+   "tag": "DIV",
+   "t": "Top Agents",
+   "y": 706,
+   "x": 751
+  },
+  {
+   "tag": "DIV",
+   "t": "Win %",
+   "y": 706,
+   "x": 879
+  },
+  {
+   "tag": "DIV",
+   "t": "Wins",
+   "y": 706,
+   "x": 991
+  },
+  {
+   "tag": "DIV",
+   "t": "Losses",
+   "y": 706,
+   "x": 1087
+  },
+  {
+   "tag": "DIV",
+   "t": "K/D",
+   "y": 706,
+   "x": 1183
+  },
+  {
+   "tag": "DIV",
+   "t": "ADR",
+   "y": 706,
+   "x": 1279
+  },
+  {
+   "tag": "DIV",
+   "t": "ACS",
+   "y": 706,
+   "x": 1391
+  },
+  {
+   "tag": "DIV",
+   "t": "DDΔ",
+   "y": 706,
+   "x": 1503
+  },
+  {
+   "tag": "SPAN",
+   "t": "GET THE MOBILE APP",
+   "y": 1352,
+   "x": 960
+  }
+ ],
+ "landmarks": {},
+ "mainText": " Live Update On\n373,060\nViews\nMeiy\n#B3L\ntwitter\ntwitch\nShare\nOverview\nMatches\nPerformance\nAgents\nMaps\nWeapons\nEncounters\nNEW\nCustoms\nCrosshairs\nLineups\nPremium users don't see ads.\nUpgrade for $3.99/mo\nPC\nConsole\nCompetitive\nPremier\nUnrated\nDeathmatch\nSwiftplay\nAll Acts\nV26: A6\nPremium users don't see ads.\nUpgrade for $3.99/mo\nMAPS\nMap Name\nTop Agents\nWin %\nWins\nLosses\nK/D\nADR\nACS\nDDΔ\nSummit\n100%\n67%\n83.3%\n5\n1\n1.44\n194.2\n309.8\n+52\nHaven\n100%\n100%\n80.0%\n4\n1\n1.15\n166.1\n259.5\n+22\nAbyss\n60%\n62.5%\n5\n3\n1.38\n191.6\n309.7\n+47\nCorrode\n60%\n62.5%\n5\n3\n1.35\n173.8\n275.6\n+36\nSunset\n60%\n50%\n61.5%\n8\n5\n1.37\n170.3\n270.8\n+36\nBind\n50%\n57.1%\n4\n3\n1.35\n177.3\n272.3\n+46\nLotus\n50%\n55.6%\n5\n4\n1.46\n182.3\n284.2\n+47\nPremium users don't see ads.\nUpgrade for $3.99/mo"
+}

@@ -52,3 +52,10 @@ next-env.d.ts
 .wrangler/
 .dev.vars
 worker-configuration.d.ts
+
+# local wrangler/dev artifacts
+/.wrangler-config/
+/.d1-local/
+/.tmp/
+
+/.worker-build/

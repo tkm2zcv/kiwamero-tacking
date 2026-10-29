@@ -20,8 +20,18 @@ export type WatchlistEntryModel = runtime.Types.Result.DefaultSelection<Prisma.$
 
 export type AggregateWatchlistEntry = {
   _count: WatchlistEntryCountAggregateOutputType | null
+  _avg: WatchlistEntryAvgAggregateOutputType | null
+  _sum: WatchlistEntrySumAggregateOutputType | null
   _min: WatchlistEntryMinAggregateOutputType | null
   _max: WatchlistEntryMaxAggregateOutputType | null
+}
+
+export type WatchlistEntryAvgAggregateOutputType = {
+  lastSeenGameStart: number | null
+}
+
+export type WatchlistEntrySumAggregateOutputType = {
+  lastSeenGameStart: number | null
 }
 
 export type WatchlistEntryMinAggregateOutputType = {
@@ -30,7 +40,11 @@ export type WatchlistEntryMinAggregateOutputType = {
   riotName: string | null
   riotTag: string | null
   puuid: string | null
+  region: string | null
   note: string | null
+  lastSeenGameStart: number | null
+  lastNotifiedMatchId: string | null
+  lastNotifiedAt: Date | null
   createdAt: Date | null
 }
 
@@ -40,7 +54,11 @@ export type WatchlistEntryMaxAggregateOutputType = {
   riotName: string | null
   riotTag: string | null
   puuid: string | null
+  region: string | null
   note: string | null
+  lastSeenGameStart: number | null
+  lastNotifiedMatchId: string | null
+  lastNotifiedAt: Date | null
   createdAt: Date | null
 }
 
@@ -50,11 +68,23 @@ export type WatchlistEntryCountAggregateOutputType = {
   riotName: number
   riotTag: number
   puuid: number
+  region: number
   note: number
+  lastSeenGameStart: number
+  lastNotifiedMatchId: number
+  lastNotifiedAt: number
   createdAt: number
   _all: number
 }
 
+
+export type WatchlistEntryAvgAggregateInputType = {
+  lastSeenGameStart?: true
+}
+
+export type WatchlistEntrySumAggregateInputType = {
+  lastSeenGameStart?: true
+}
 
 export type WatchlistEntryMinAggregateInputType = {
   id?: true
@@ -62,7 +92,11 @@ export type WatchlistEntryMinAggregateInputType = {
   riotName?: true
   riotTag?: true
   puuid?: true
+  region?: true
   note?: true
+  lastSeenGameStart?: true
+  lastNotifiedMatchId?: true
+  lastNotifiedAt?: true
   createdAt?: true
 }
 
@@ -72,7 +106,11 @@ export type WatchlistEntryMaxAggregateInputType = {
   riotName?: true
   riotTag?: true
   puuid?: true
+  region?: true
   note?: true
+  lastSeenGameStart?: true
+  lastNotifiedMatchId?: true
+  lastNotifiedAt?: true
   createdAt?: true
 }
 
@@ -82,7 +120,11 @@ export type WatchlistEntryCountAggregateInputType = {
   riotName?: true
   riotTag?: true
   puuid?: true
+  region?: true
   note?: true
+  lastSeenGameStart?: true
+  lastNotifiedMatchId?: true
+  lastNotifiedAt?: true
   createdAt?: true
   _all?: true
 }
@@ -125,6 +167,18 @@ export type WatchlistEntryAggregateArgs<ExtArgs extends runtime.Types.Extensions
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: WatchlistEntryAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: WatchlistEntrySumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: WatchlistEntryMinAggregateInputType
@@ -155,6 +209,8 @@ export type WatchlistEntryGroupByArgs<ExtArgs extends runtime.Types.Extensions.I
   take?: number
   skip?: number
   _count?: WatchlistEntryCountAggregateInputType | true
+  _avg?: WatchlistEntryAvgAggregateInputType
+  _sum?: WatchlistEntrySumAggregateInputType
   _min?: WatchlistEntryMinAggregateInputType
   _max?: WatchlistEntryMaxAggregateInputType
 }
@@ -165,9 +221,15 @@ export type WatchlistEntryGroupByOutputType = {
   riotName: string
   riotTag: string
   puuid: string | null
+  region: string | null
   note: string | null
+  lastSeenGameStart: number | null
+  lastNotifiedMatchId: string | null
+  lastNotifiedAt: Date | null
   createdAt: Date
   _count: WatchlistEntryCountAggregateOutputType | null
+  _avg: WatchlistEntryAvgAggregateOutputType | null
+  _sum: WatchlistEntrySumAggregateOutputType | null
   _min: WatchlistEntryMinAggregateOutputType | null
   _max: WatchlistEntryMaxAggregateOutputType | null
 }
@@ -196,7 +258,11 @@ export type WatchlistEntryWhereInput = {
   riotName?: Prisma.StringFilter<"WatchlistEntry"> | string
   riotTag?: Prisma.StringFilter<"WatchlistEntry"> | string
   puuid?: Prisma.StringNullableFilter<"WatchlistEntry"> | string | null
+  region?: Prisma.StringNullableFilter<"WatchlistEntry"> | string | null
   note?: Prisma.StringNullableFilter<"WatchlistEntry"> | string | null
+  lastSeenGameStart?: Prisma.IntNullableFilter<"WatchlistEntry"> | number | null
+  lastNotifiedMatchId?: Prisma.StringNullableFilter<"WatchlistEntry"> | string | null
+  lastNotifiedAt?: Prisma.DateTimeNullableFilter<"WatchlistEntry"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"WatchlistEntry"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
 }
@@ -207,7 +273,11 @@ export type WatchlistEntryOrderByWithRelationInput = {
   riotName?: Prisma.SortOrder
   riotTag?: Prisma.SortOrder
   puuid?: Prisma.SortOrderInput | Prisma.SortOrder
+  region?: Prisma.SortOrderInput | Prisma.SortOrder
   note?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastSeenGameStart?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastNotifiedMatchId?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastNotifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
 }
@@ -222,7 +292,11 @@ export type WatchlistEntryWhereUniqueInput = Prisma.AtLeast<{
   riotName?: Prisma.StringFilter<"WatchlistEntry"> | string
   riotTag?: Prisma.StringFilter<"WatchlistEntry"> | string
   puuid?: Prisma.StringNullableFilter<"WatchlistEntry"> | string | null
+  region?: Prisma.StringNullableFilter<"WatchlistEntry"> | string | null
   note?: Prisma.StringNullableFilter<"WatchlistEntry"> | string | null
+  lastSeenGameStart?: Prisma.IntNullableFilter<"WatchlistEntry"> | number | null
+  lastNotifiedMatchId?: Prisma.StringNullableFilter<"WatchlistEntry"> | string | null
+  lastNotifiedAt?: Prisma.DateTimeNullableFilter<"WatchlistEntry"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"WatchlistEntry"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
 }, "id" | "userId_riotName_riotTag">
@@ -233,11 +307,17 @@ export type WatchlistEntryOrderByWithAggregationInput = {
   riotName?: Prisma.SortOrder
   riotTag?: Prisma.SortOrder
   puuid?: Prisma.SortOrderInput | Prisma.SortOrder
+  region?: Prisma.SortOrderInput | Prisma.SortOrder
   note?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastSeenGameStart?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastNotifiedMatchId?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastNotifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.WatchlistEntryCountOrderByAggregateInput
+  _avg?: Prisma.WatchlistEntryAvgOrderByAggregateInput
   _max?: Prisma.WatchlistEntryMaxOrderByAggregateInput
   _min?: Prisma.WatchlistEntryMinOrderByAggregateInput
+  _sum?: Prisma.WatchlistEntrySumOrderByAggregateInput
 }
 
 export type WatchlistEntryScalarWhereWithAggregatesInput = {
@@ -249,7 +329,11 @@ export type WatchlistEntryScalarWhereWithAggregatesInput = {
   riotName?: Prisma.StringWithAggregatesFilter<"WatchlistEntry"> | string
   riotTag?: Prisma.StringWithAggregatesFilter<"WatchlistEntry"> | string
   puuid?: Prisma.StringNullableWithAggregatesFilter<"WatchlistEntry"> | string | null
+  region?: Prisma.StringNullableWithAggregatesFilter<"WatchlistEntry"> | string | null
   note?: Prisma.StringNullableWithAggregatesFilter<"WatchlistEntry"> | string | null
+  lastSeenGameStart?: Prisma.IntNullableWithAggregatesFilter<"WatchlistEntry"> | number | null
+  lastNotifiedMatchId?: Prisma.StringNullableWithAggregatesFilter<"WatchlistEntry"> | string | null
+  lastNotifiedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"WatchlistEntry"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"WatchlistEntry"> | Date | string
 }
 
@@ -258,7 +342,11 @@ export type WatchlistEntryCreateInput = {
   riotName: string
   riotTag: string
   puuid?: string | null
+  region?: string | null
   note?: string | null
+  lastSeenGameStart?: number | null
+  lastNotifiedMatchId?: string | null
+  lastNotifiedAt?: Date | string | null
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutWatchlistInput
 }
@@ -269,7 +357,11 @@ export type WatchlistEntryUncheckedCreateInput = {
   riotName: string
   riotTag: string
   puuid?: string | null
+  region?: string | null
   note?: string | null
+  lastSeenGameStart?: number | null
+  lastNotifiedMatchId?: string | null
+  lastNotifiedAt?: Date | string | null
   createdAt?: Date | string
 }
 
@@ -278,7 +370,11 @@ export type WatchlistEntryUpdateInput = {
   riotName?: Prisma.StringFieldUpdateOperationsInput | string
   riotTag?: Prisma.StringFieldUpdateOperationsInput | string
   puuid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   note?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenGameStart?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  lastNotifiedMatchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastNotifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutWatchlistNestedInput
 }
@@ -289,7 +385,11 @@ export type WatchlistEntryUncheckedUpdateInput = {
   riotName?: Prisma.StringFieldUpdateOperationsInput | string
   riotTag?: Prisma.StringFieldUpdateOperationsInput | string
   puuid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   note?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenGameStart?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  lastNotifiedMatchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastNotifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -299,7 +399,11 @@ export type WatchlistEntryCreateManyInput = {
   riotName: string
   riotTag: string
   puuid?: string | null
+  region?: string | null
   note?: string | null
+  lastSeenGameStart?: number | null
+  lastNotifiedMatchId?: string | null
+  lastNotifiedAt?: Date | string | null
   createdAt?: Date | string
 }
 
@@ -308,7 +412,11 @@ export type WatchlistEntryUpdateManyMutationInput = {
   riotName?: Prisma.StringFieldUpdateOperationsInput | string
   riotTag?: Prisma.StringFieldUpdateOperationsInput | string
   puuid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   note?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenGameStart?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  lastNotifiedMatchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastNotifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -318,7 +426,11 @@ export type WatchlistEntryUncheckedUpdateManyInput = {
   riotName?: Prisma.StringFieldUpdateOperationsInput | string
   riotTag?: Prisma.StringFieldUpdateOperationsInput | string
   puuid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   note?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenGameStart?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  lastNotifiedMatchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastNotifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -344,8 +456,16 @@ export type WatchlistEntryCountOrderByAggregateInput = {
   riotName?: Prisma.SortOrder
   riotTag?: Prisma.SortOrder
   puuid?: Prisma.SortOrder
+  region?: Prisma.SortOrder
   note?: Prisma.SortOrder
+  lastSeenGameStart?: Prisma.SortOrder
+  lastNotifiedMatchId?: Prisma.SortOrder
+  lastNotifiedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+}
+
+export type WatchlistEntryAvgOrderByAggregateInput = {
+  lastSeenGameStart?: Prisma.SortOrder
 }
 
 export type WatchlistEntryMaxOrderByAggregateInput = {
@@ -354,7 +474,11 @@ export type WatchlistEntryMaxOrderByAggregateInput = {
   riotName?: Prisma.SortOrder
   riotTag?: Prisma.SortOrder
   puuid?: Prisma.SortOrder
+  region?: Prisma.SortOrder
   note?: Prisma.SortOrder
+  lastSeenGameStart?: Prisma.SortOrder
+  lastNotifiedMatchId?: Prisma.SortOrder
+  lastNotifiedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -364,8 +488,16 @@ export type WatchlistEntryMinOrderByAggregateInput = {
   riotName?: Prisma.SortOrder
   riotTag?: Prisma.SortOrder
   puuid?: Prisma.SortOrder
+  region?: Prisma.SortOrder
   note?: Prisma.SortOrder
+  lastSeenGameStart?: Prisma.SortOrder
+  lastNotifiedMatchId?: Prisma.SortOrder
+  lastNotifiedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+}
+
+export type WatchlistEntrySumOrderByAggregateInput = {
+  lastSeenGameStart?: Prisma.SortOrder
 }
 
 export type WatchlistEntryCreateNestedManyWithoutUserInput = {
@@ -410,12 +542,24 @@ export type WatchlistEntryUncheckedUpdateManyWithoutUserNestedInput = {
   deleteMany?: Prisma.WatchlistEntryScalarWhereInput | Prisma.WatchlistEntryScalarWhereInput[]
 }
 
+export type NullableIntFieldUpdateOperationsInput = {
+  set?: number | null
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
+}
+
 export type WatchlistEntryCreateWithoutUserInput = {
   id?: string
   riotName: string
   riotTag: string
   puuid?: string | null
+  region?: string | null
   note?: string | null
+  lastSeenGameStart?: number | null
+  lastNotifiedMatchId?: string | null
+  lastNotifiedAt?: Date | string | null
   createdAt?: Date | string
 }
 
@@ -424,7 +568,11 @@ export type WatchlistEntryUncheckedCreateWithoutUserInput = {
   riotName: string
   riotTag: string
   puuid?: string | null
+  region?: string | null
   note?: string | null
+  lastSeenGameStart?: number | null
+  lastNotifiedMatchId?: string | null
+  lastNotifiedAt?: Date | string | null
   createdAt?: Date | string
 }
 
@@ -462,7 +610,11 @@ export type WatchlistEntryScalarWhereInput = {
   riotName?: Prisma.StringFilter<"WatchlistEntry"> | string
   riotTag?: Prisma.StringFilter<"WatchlistEntry"> | string
   puuid?: Prisma.StringNullableFilter<"WatchlistEntry"> | string | null
+  region?: Prisma.StringNullableFilter<"WatchlistEntry"> | string | null
   note?: Prisma.StringNullableFilter<"WatchlistEntry"> | string | null
+  lastSeenGameStart?: Prisma.IntNullableFilter<"WatchlistEntry"> | number | null
+  lastNotifiedMatchId?: Prisma.StringNullableFilter<"WatchlistEntry"> | string | null
+  lastNotifiedAt?: Prisma.DateTimeNullableFilter<"WatchlistEntry"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"WatchlistEntry"> | Date | string
 }
 
@@ -471,7 +623,11 @@ export type WatchlistEntryCreateManyUserInput = {
   riotName: string
   riotTag: string
   puuid?: string | null
+  region?: string | null
   note?: string | null
+  lastSeenGameStart?: number | null
+  lastNotifiedMatchId?: string | null
+  lastNotifiedAt?: Date | string | null
   createdAt?: Date | string
 }
 
@@ -480,7 +636,11 @@ export type WatchlistEntryUpdateWithoutUserInput = {
   riotName?: Prisma.StringFieldUpdateOperationsInput | string
   riotTag?: Prisma.StringFieldUpdateOperationsInput | string
   puuid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   note?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenGameStart?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  lastNotifiedMatchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastNotifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -489,7 +649,11 @@ export type WatchlistEntryUncheckedUpdateWithoutUserInput = {
   riotName?: Prisma.StringFieldUpdateOperationsInput | string
   riotTag?: Prisma.StringFieldUpdateOperationsInput | string
   puuid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   note?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenGameStart?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  lastNotifiedMatchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastNotifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -498,7 +662,11 @@ export type WatchlistEntryUncheckedUpdateManyWithoutUserInput = {
   riotName?: Prisma.StringFieldUpdateOperationsInput | string
   riotTag?: Prisma.StringFieldUpdateOperationsInput | string
   puuid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  region?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   note?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenGameStart?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  lastNotifiedMatchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastNotifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -510,7 +678,11 @@ export type WatchlistEntrySelect<ExtArgs extends runtime.Types.Extensions.Intern
   riotName?: boolean
   riotTag?: boolean
   puuid?: boolean
+  region?: boolean
   note?: boolean
+  lastSeenGameStart?: boolean
+  lastNotifiedMatchId?: boolean
+  lastNotifiedAt?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["watchlistEntry"]>
@@ -521,7 +693,11 @@ export type WatchlistEntrySelectCreateManyAndReturn<ExtArgs extends runtime.Type
   riotName?: boolean
   riotTag?: boolean
   puuid?: boolean
+  region?: boolean
   note?: boolean
+  lastSeenGameStart?: boolean
+  lastNotifiedMatchId?: boolean
+  lastNotifiedAt?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["watchlistEntry"]>
@@ -532,7 +708,11 @@ export type WatchlistEntrySelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   riotName?: boolean
   riotTag?: boolean
   puuid?: boolean
+  region?: boolean
   note?: boolean
+  lastSeenGameStart?: boolean
+  lastNotifiedMatchId?: boolean
+  lastNotifiedAt?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["watchlistEntry"]>
@@ -543,11 +723,15 @@ export type WatchlistEntrySelectScalar = {
   riotName?: boolean
   riotTag?: boolean
   puuid?: boolean
+  region?: boolean
   note?: boolean
+  lastSeenGameStart?: boolean
+  lastNotifiedMatchId?: boolean
+  lastNotifiedAt?: boolean
   createdAt?: boolean
 }
 
-export type WatchlistEntryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "riotName" | "riotTag" | "puuid" | "note" | "createdAt", ExtArgs["result"]["watchlistEntry"]>
+export type WatchlistEntryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "riotName" | "riotTag" | "puuid" | "region" | "note" | "lastSeenGameStart" | "lastNotifiedMatchId" | "lastNotifiedAt" | "createdAt", ExtArgs["result"]["watchlistEntry"]>
 export type WatchlistEntryInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
@@ -569,7 +753,11 @@ export type $WatchlistEntryPayload<ExtArgs extends runtime.Types.Extensions.Inte
     riotName: string
     riotTag: string
     puuid: string | null
+    region: string | null
     note: string | null
+    lastSeenGameStart: number | null
+    lastNotifiedMatchId: string | null
+    lastNotifiedAt: Date | null
     createdAt: Date
   }, ExtArgs["result"]["watchlistEntry"]>
   composites: {}
@@ -1000,7 +1188,11 @@ export interface WatchlistEntryFieldRefs {
   readonly riotName: Prisma.FieldRef<"WatchlistEntry", 'String'>
   readonly riotTag: Prisma.FieldRef<"WatchlistEntry", 'String'>
   readonly puuid: Prisma.FieldRef<"WatchlistEntry", 'String'>
+  readonly region: Prisma.FieldRef<"WatchlistEntry", 'String'>
   readonly note: Prisma.FieldRef<"WatchlistEntry", 'String'>
+  readonly lastSeenGameStart: Prisma.FieldRef<"WatchlistEntry", 'Int'>
+  readonly lastNotifiedMatchId: Prisma.FieldRef<"WatchlistEntry", 'String'>
+  readonly lastNotifiedAt: Prisma.FieldRef<"WatchlistEntry", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"WatchlistEntry", 'DateTime'>
 }
     

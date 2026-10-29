@@ -3,6 +3,7 @@ import type {
   Match, MatchPlayer, ProfileBundle, SeasonRank, Summary, TopAgent, Teammate,
 } from "./types";
 import { getAccount, getMatches, getMmr, getMmrHistory, HenrikDevError, tierIcon } from "./henrikdev";
+import { normalizeHDMatch } from "./match-normalize";
 import seedProfile from "@/data/profile.json";
 import seedMatches from "@/data/matches.json";
 
@@ -20,81 +21,12 @@ function mapImage(map: string) {
 }
 export { mapImage };
 
-function hdMatchPlayers(m: import("./henrikdev").HDMatch): import("./henrikdev").HDMatchPlayer[] {
-  const pl = m.players;
-  if (Array.isArray(pl)) return pl;
-  return pl?.all_players ?? [];
-}
-
-function normalizeHDMatch(m: import("./henrikdev").HDMatch): Match {
-  return {
-    metadata: {
-      map: typeof m.metadata.map === "string" ? m.metadata.map : m.metadata.map.name,
-      game_length: m.metadata.game_length ?? 0,
-      game_start: m.metadata.game_start,
-      game_start_patched: m.metadata.game_start_patched,
-      rounds_played: m.metadata.rounds_played,
-      mode: m.metadata.mode,
-      mode_id: m.metadata.mode_id,
-      queue: m.metadata.queue,
-      season_id: m.metadata.season_id,
-      platform: m.metadata.platform,
-      matchid: m.metadata.matchid,
-      region: m.metadata.region,
-      cluster: m.metadata.cluster,
-    },
-    teams: {
-      red: {
-        has_won: m.teams.red?.has_won ?? m.teams.red?.won ?? false,
-        rounds_won: m.teams.red?.rounds_won ?? m.teams.red?.rounds?.won ?? 0,
-        rounds_lost: m.teams.red?.rounds_lost ?? m.teams.red?.rounds?.lost ?? 0,
-      },
-      blue: {
-        has_won: m.teams.blue?.has_won ?? m.teams.blue?.won ?? false,
-        rounds_won: m.teams.blue?.rounds_won ?? m.teams.blue?.rounds?.won ?? 0,
-        rounds_lost: m.teams.blue?.rounds_lost ?? m.teams.blue?.rounds?.lost ?? 0,
-      },
-    },
-    players: hdMatchPlayers(m).map((p) => ({
-      puuid: p.puuid,
-      name: p.name,
-      tag: p.tag,
-      team_id: p.team ?? p.team_id,
-      level: p.level,
-      character: p.character,
-      currenttier: p.currenttier ?? p.tier,
-      player_card: p.player_card,
-      party_id: p.party_id,
-      stats: {
-        score: p.stats.score ?? 0,
-        kills: p.stats.kills ?? 0,
-        deaths: p.stats.deaths ?? 0,
-        assists: p.stats.assists ?? 0,
-        headshots: p.stats.headshots,
-        bodyshots: p.stats.bodyshots,
-        legshots: p.stats.legshots,
-      },
-      damage_made: p.damage_made ?? p.stats.damage,
-      damage_received: p.damage_received,
-      ability_casts: p.ability_casts ?? (p.stats.c_casts !== undefined
-        ? Object.fromEntries(
-            Object.entries({
-              c: p.stats.c_casts, q: p.stats.q_casts, e: p.stats.e_casts, x: p.stats.x_casts,
-            }).filter((e): e is [string, number] => e[1] !== undefined)
-          )
-        : undefined),
-      assets: p.assets,
-    })),
-    rounds: m.rounds,
-  };
-}
-
 function teamOf(m: Match, p: MatchPlayer) {
   const id = p.team_id?.toLowerCase();
   return id === "red" || id === "blue" ? m.teams[id] : undefined;
 }
 
-function summarize(matches: Match[], puuid: string): Summary {
+export function summarize(matches: Match[], puuid: string): Summary {
   let wins = 0, losses = 0, kills = 0, deaths = 0, assists = 0, score = 0, dmg = 0, hs = 0, shots = 0;
   for (const m of matches) {
     const me = m.players.find((p) => p.puuid === puuid);
@@ -102,14 +34,16 @@ function summarize(matches: Match[], puuid: string): Summary {
     const team = teamOf(m, me);
     if (team?.has_won) wins++; else if (team) losses++;
     kills += me.stats.kills; deaths += me.stats.deaths; assists += me.stats.assists;
-    score += me.stats.score; dmg += me.damage_made ?? 0;
+    if (m.metadata.rounds_played > 1) {
+      score += me.stats.score; dmg += me.damage_made ?? 0;
+    }
     hs += me.stats.headshots ?? 0;
     shots += (me.stats.headshots ?? 0) + (me.stats.bodyshots ?? 0) + (me.stats.legshots ?? 0);
   }
   const n = matches.length || 1;
-  const totalRounds = matches.reduce((a, m) => a + (m.metadata.rounds_played || 1), 0) || 1;
+  const totalRounds = matches.reduce((a, m) => a + (m.metadata.rounds_played > 1 ? m.metadata.rounds_played : 0), 0) || 1;
   return {
-    winRate: (wins / n) * 100,
+    winRate: wins + losses ? (wins / (wins + losses)) * 100 : 0,
     matches: n, wins, losses,
     kd: deaths ? kills / deaths : kills,
     kills: kills / n, deaths: deaths / n, assists: assists / n,
@@ -175,35 +109,59 @@ function buildTeammates(matches: Match[], puuid: string): Teammate[] {
     }));
 }
 
-async function loadFromHenrikDev(name: string, tag: string): Promise<ProfileBundle> {
+async function loadFromHenrikDev(name: string, tag: string, opts?: { mode?: string }): Promise<ProfileBundle> {
     const account = await getAccount(name, tag);
     const region = account.region;
     const [mmr, hdMatches, history] = await Promise.all([
       getMmr(region, account.puuid).catch(() => null),
-      getMatches(region, account.puuid, { size: 20 }).catch(() => [] as import("./henrikdev").HDMatch[]),
+      getMatches(region, account.puuid, { size: 25, mode: opts?.mode }).catch(() => [] as import("./henrikdev").HDMatch[]),
       getMmrHistory(region, account.puuid).catch(() => [] as import("./henrikdev").HDMmrHistoryEntry[]),
     ]);
     const matches = hdMatches.map(normalizeHDMatch);
-    const seasons: SeasonRank[] = dedupeSeasons(history).map((s) => ({
-      episode: s.season.short.startsWith("e") ? `Episode ${s.season.short.slice(1).replace("a", " Act ")}` : s.season.short,
-      act: s.season.short.toUpperCase(),
-      actCode: s.season.short,
-      peakRank: s.tier.name,
-      peakTier: s.tier.id,
-      rankIcon: tierIcon(s.tier.id),
-    }));
+    const bySeason = mmr?.by_season ?? {};
+    const seasonCodes = Object.keys(bySeason);
+    const seasons: SeasonRank[] = seasonCodes
+      .map((code) => {
+        const s = bySeason[code];
+        const wins = s.wins ?? 0;
+        const games = s.number_of_games ?? 0;
+        const tier = s.final_rank ?? s.tier ?? 0;
+        return {
+          episode: code,
+          act: code.toUpperCase(),
+          actCode: code,
+          peakRank: s.final_rank_patched ?? s.patched_tier ?? "Unranked",
+          peakTier: tier,
+          rankIcon: tierIcon(tier),
+          wins,
+          games,
+          winRate: games ? `${((wins / games) * 100).toFixed(1)}%` : undefined,
+        } satisfies SeasonRank;
+      })
+      .reverse();
+    // Current act (last key of by_season) and its competitive totals.
+    const actCode = seasonCodes[seasonCodes.length - 1];
+    const actStats = actCode ? bySeason[actCode] : undefined;
+    const peakRr = history.reduce<number | undefined>((best, h) => {
+      const rr = h.ranking_in_tier ?? h.rr;
+      if (typeof rr !== "number") return best;
+      return best === undefined || rr > best ? rr : best;
+    }, undefined);
     const bundle: ProfileBundle = {
       profile: {
         name: account.name, tag: account.tag, puuid: account.puuid,
         level: account.account_level, region,
         cardId: account.card?.id,
-        currentRank: mmr?.currenttier_patched ?? "Unrated",
-        currentTier: mmr?.currenttier ?? 0,
-        rr: mmr?.ranking_in_tier ?? 0,
-        rankPosition: mmr?.leaderboard_rank,
-        elo: mmr?.elo,
-        peakRank: mmr?.peak?.tier?.patched ?? mmr?.currenttier_patched ?? "Unrated",
-        peakAct: mmr?.peak?.season?.short,
+        currentRank: mmr?.current_data?.currenttierpatched ?? "Unrated",
+        currentTier: mmr?.current_data?.currenttier ?? 0,
+        rr: mmr?.current_data?.ranking_in_tier ?? 0,
+        elo: mmr?.current_data?.elo,
+        peakRank: mmr?.highest_rank?.patched_tier ?? mmr?.current_data?.currenttierpatched ?? "Unrated",
+        peakAct: mmr?.highest_rank?.season,
+        peakRr,
+        actCode,
+        seasonWins: actStats?.wins,
+        seasonGames: actStats?.number_of_games,
         lastUpdated: account.last_update,
       },
       summary: summarize(matches, account.puuid),
@@ -219,17 +177,6 @@ async function loadFromHenrikDev(name: string, tag: string): Promise<ProfileBund
     return bundle;
 }
 
-function dedupeSeasons(history: import("./henrikdev").HDMmrHistoryEntry[]) {
-  const best = new Map<string, { tier: { id: number; name: string }; season: { id: string; short: string } }>();
-  for (const h of history) {
-    const key = h.season?.id;
-    if (!key || !h.tier) continue;
-    const cur = best.get(key);
-    if (!cur || h.tier.id > cur.tier.id) best.set(key, h as { tier: { id: number; name: string }; season: { id: string; short: string } });
-  }
-  return [...best.values()];
-}
-
 // Seed matches store players as { all_players, red, blue } — flatten to MatchPlayer[].
 function normalizeSeedMatches(raw: unknown): Match[] {
   return (raw as Record<string, unknown>[]).map((m) => {
@@ -243,9 +190,9 @@ export type ProfileResult =
   | { ok: true; bundle: ProfileBundle }
   | { ok: false; reason: "not_found" | "private" | "rate_limited" | "upstream" };
 
-export async function loadProfile(name: string, tag: string): Promise<ProfileResult> {
+export async function loadProfile(name: string, tag: string, opts?: { mode?: string }): Promise<ProfileResult> {
   try {
-    return { ok: true, bundle: await loadFromHenrikDev(name, tag) };
+    return { ok: true, bundle: await loadFromHenrikDev(name, tag, opts) };
   } catch (e) {
     console.error(`loadProfile(${name}#${tag}) failed:`, e);
     const status = e instanceof HenrikDevError ? e.status : null;

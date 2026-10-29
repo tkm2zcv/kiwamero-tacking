@@ -67,7 +67,7 @@ export function pickNewMatches<T extends WatchMatch>(
   const sorted = [...matches].sort((a, b) => b.game_start - a.game_start);
   if (lastSeenGameStart == null) return [sorted[0]];
   const fresh = sorted.filter((m) => m.game_start > lastSeenGameStart);
-  return fresh.slice(0, limit).reverse();
+  return fresh.reverse().slice(0, limit);
 }
 
 /** Stable key for the dedupe table across users. */
@@ -197,7 +197,6 @@ export async function runWatchCycle(
     },
     include: { user: { select: { webhookUrl: true } } },
     orderBy: { createdAt: "asc" },
-    take: MAX_WATCHED_PLAYERS * 20,
   });
 
   const byPlayer = new Map<string, WatchEntryRow[]>();

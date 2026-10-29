@@ -78,8 +78,8 @@ test("pickNewMatches caps the batch to avoid webhook spam", () => {
   const matches = Array.from({ length: 12 }, (_, i) => ({ matchid: `m${i}`, game_start: i + 1 }));
   const picked = pickNewMatches(matches, 0);
   assert.equal(picked.length, 5);
-  // The 5 newest, still ascending.
-  assert.deepEqual(picked.map((m) => m.matchid), ["m7", "m8", "m9", "m10", "m11"]);
+  // Drain the oldest unseen matches before advancing the cursor.
+  assert.deepEqual(picked.map((m) => m.matchid), ["m0", "m1", "m2", "m3", "m4"]);
 });
 
 test("playerKey is case insensitive", () => {

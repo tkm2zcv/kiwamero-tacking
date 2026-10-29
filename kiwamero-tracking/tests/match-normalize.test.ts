@@ -2,6 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { normalizeHDMatch } from "../src/lib/match-normalize.ts";
 import type { HDMatch } from "../src/lib/henrikdev.ts";
+import { tierName } from "../src/lib/henrikdev.ts";
+
+test("tierName uses Riot's tier numbering for every ranked division", () => {
+  const groups = ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Ascendant", "Immortal"];
+  for (const [index, group] of groups.entries()) {
+    for (let division = 1; division <= 3; division++) {
+      assert.equal(tierName(3 + index * 3 + division - 1), `${group} ${division}`);
+    }
+  }
+  assert.equal(tierName(27), "Radiant");
+  assert.equal(tierName(0), "");
+  assert.equal(tierName(99), "");
+});
 
 function hd(overrides: Record<string, unknown> = {}): HDMatch {
   return {
@@ -72,6 +85,7 @@ test("normalizeHDMatch flattens players and keeps team/round data", () => {
   assert.equal(m.teams.red.rounds_won, 13);
   assert.equal(m.players.length, 1);
   assert.equal(m.players[0].team_id, "Red");
+  assert.equal(m.players[0].currenttier_patched, "Radiant");
   assert.equal(m.players[0].damage_made, 4100);
   assert.deepEqual(m.players[0].ability_casts, { c: 3, q: 4, e: 5, x: 1 });
 });

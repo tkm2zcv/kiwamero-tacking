@@ -9,11 +9,30 @@ import {
   formatAct,
   groupByDay,
   playtimeLabel,
+  summarize,
   timeAgo,
 } from "../src/lib/profile-stats.ts";
 import type { Match } from "../src/lib/types.ts";
 
 const ME = "me-puuid";
+
+test("an empty sample does not invent a match", () => {
+  const summary = summarize([], ME);
+  assert.equal(summary.matches, 0);
+  assert.equal(summary.totalMatches, 0);
+  assert.ok(Object.values(summary).every((v) => Number.isFinite(v) && v === 0));
+});
+
+test("summary counts only retrieved matches containing this player", () => {
+  const sample = [match({ matchid: "recent", kills: 20, deaths: 10 })];
+  const other = match({ matchid: "not-this-player" });
+  other.players = [];
+  const summary = summarize([...sample, other], ME);
+  assert.equal(summary.matches, 1);
+  assert.equal(summary.totalMatches, 1);
+  assert.equal(summary.kills, 20);
+  assert.equal(summary.kd, 2);
+});
 
 function match(overrides: {
   matchid: string;

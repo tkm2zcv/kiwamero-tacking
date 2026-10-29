@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ActMenu, type ActMenuItem } from "@/components/profile/act-menu";
+import { profileFilterHref } from "@/lib/profile-filters";
 
 const MODES = [
   ["competitive", "Competitive"],
@@ -24,6 +25,7 @@ export function FiltersBar({
   playlist,
   act,
   acts,
+  played,
 }: {
   basePath: string;
   /** Current tab path segment — filters keep the user on the same tab (tracker.gg behavior). */
@@ -33,10 +35,11 @@ export function FiltersBar({
   act: string;
   /** Acts available on this profile, newest first (from the player's first act). */
   acts: FiltersAct[];
+  played?: "with" | "against";
 }) {
   const tabPath = tab === "overview" ? "overview" : tab;
   const url = (mode: string, season: string) =>
-    `${basePath}/${tabPath}?platform=pc&playlist=${mode}&season=${season}`;
+    profileFilterHref(basePath, tabPath, mode, season, played);
 
   // tracker.gg shows "All Acts" + one act button + a `⋯` overflow menu.
   // The second button is the selected act — or the latest act when "all"/"latest".

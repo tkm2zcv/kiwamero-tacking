@@ -1,6 +1,8 @@
 // HenrikDev unofficial VALORANT API client (server-only).
 // https://docs.henrikdev.xyz — free key at henrikdev.xyz, ~30 req/min free tier.
 
+import { HenrikDevError, henrikCall } from "./henrik-client.ts";
+
 const TIER_TABLE_UUID = "03621f52-342b-cf4e-4f86-9350a49c6d04";
 
 export function tierIcon(tier: number, size: "small" | "large" = "large") {
@@ -15,7 +17,7 @@ export function tierName(tier: number): string {
   if (tier <= 0) return "";
   const group = TIER_GROUPS[Math.floor(tier / 3)] ?? "";
   if (group === "Unrated" || group === "Radiant") return group;
-  return `${group} ${((tier - 1) % 3) + 1}`;
+  return group ? `${group} ${(tier % 3) + 1}` : "";
 }
 
 export function playerCardArt(cardId: string, variant: "wideart" | "largeart" | "smallart" = "wideart") {
@@ -25,7 +27,6 @@ export function playerCardArt(cardId: string, variant: "wideart" | "largeart" | 
 // HTTP layer (cache, in-flight dedupe, key rotation) lives in henrik-client.ts.
 // TTLs below keep every tab/page re-render free of upstream calls within the
 // window; `fresh` bypasses for callers that need the newest data (watch cycle).
-import { HenrikDevError, henrikCall } from "./henrik-client";
 export { HenrikDevError };
 
 const TTL_ACCOUNT = 600_000;

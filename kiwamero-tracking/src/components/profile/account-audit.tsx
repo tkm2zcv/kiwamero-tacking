@@ -32,9 +32,9 @@ export async function AccountAudit({
     { label: "Rank Rating", value: profile.rr != null ? `${profile.rr} RR` : "—" },
     { label: "Peak Rating", value: profile.peakRank ? `${profile.peakRank}${profile.peakAct ? ` (${formatAct(profile.peakAct)})` : ""}` : "—" },
     { label: "First Act Seen", value: firstAct ? formatAct(firstAct.actCode) : "—" },
-    { label: "Lifetime Matches", value: summary.totalMatches || summary.matches || "—" },
-    { label: "Lifetime Win Rate", value: summary.matches ? `${summary.winRate.toFixed(1)}%` : "—" },
-    { label: "Lifetime K/D", value: summary.matches ? summary.kd.toFixed(2) : "—" },
+    { label: t.audit.sampleMatches, value: summary.matches },
+    { label: t.audit.sampleWinRate, value: summary.matches ? `${summary.winRate.toFixed(1)}%` : "—" },
+    { label: t.audit.sampleKd, value: summary.matches ? summary.kd.toFixed(2) : "—" },
     { label: "Last Updated", value: profile.lastUpdated || new Date(capturedAt).toLocaleDateString("en-US", { dateStyle: "medium" }) },
   ];
   return (
@@ -43,6 +43,7 @@ export async function AccountAudit({
         <h2 className="v3-card__title">{t.diagnosis.accountAudit}</h2>
       </header>
       <div className="v3-card__body v3-card__body--v2.5">
+        <p className="mb-4 text-12 text-secondary">{t.audit.sampleNote}</p>
         <div className="grid gap-y-px rounded-4 overflow-hidden">
           <div className="row relative flex min-h-14 bg-[--row-color] items-center">
             <div className="relative flex items-center px-4 bg-inherit">

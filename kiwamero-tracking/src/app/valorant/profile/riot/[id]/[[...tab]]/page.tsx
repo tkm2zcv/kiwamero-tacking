@@ -4,7 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { loadProfile } from "@/lib/data";
 import { formatAct } from "@/lib/profile-stats";
-import { getStoredMatches, playerCardArt, tierIcon } from "@/lib/henrikdev";
+import { createActFilter, filterProfileMatches, profileFilterHref } from "@/lib/profile-filters";
+import { playerCardArt, tierIcon } from "@/lib/henrikdev";
 import {
   activityByDay,
   aggregate,
@@ -126,8 +127,7 @@ async function ProfileContent({
 
   // Stored match history powers the aggregation tabs (matches/performance/agents/maps)
   // and the hero banner art (tracker.gg uses a per-agent "hero" image).
-  const stored = await getStoredMatches(profile.region, profile.puuid, { mode }).catch(() => []);
-  const storedAll = stored.map(normalizeStoredMatch);
+  const storedAll = result.storedMatches.map(normalizeStoredMatch);
   const latestHeroSeason = storedAll.reduce(
     (best, r) => (r.startedAt > best.ts && r.seasonId ? { id: r.seasonId, ts: r.startedAt } : best),
     { id: "", ts: 0 },
@@ -139,6 +139,10 @@ async function ProfileContent({
     : null;
   const latestStoredSeason = storedAll.reduce(
     (best, r) => (r.startedAt > best.ts && r.seasonId ? { id: r.seasonId, ts: r.startedAt } : best),
+    { id: "", ts: 0 },
+  ).id || matches.reduce(
+    (best, match) => match.metadata.game_start > best.ts && match.metadata.season_id
+      ? { id: match.metadata.season_id, ts: match.metadata.game_start } : best,
     { id: "", ts: 0 },
   ).id;
 
@@ -199,27 +203,9 @@ async function ProfileContent({
       : dataActCodes.includes(actParam)
         ? actParam
         : uuidToShort.get(actParam);
-  const resolvedUuid =
-    resolvedShort != null
-      ? seasonUuid.get(resolvedShort)
-      : act === "all" || act === "latest"
-        ? undefined
-        : act;
-  const inSelectedAct = (seasonId?: string, seasonShort?: string): boolean => {
-    if (act === "all") return true;
-    if (act === "latest") return latestStoredSeason ? seasonId === latestStoredSeason : true;
-    return (
-      (resolvedUuid != null && seasonId === resolvedUuid) ||
-      (resolvedShort != null && seasonShort?.toLowerCase() === resolvedShort) ||
-      seasonId === act
-    );
-  };
+  const inSelectedAct = createActFilter(act, seasonUuid, uuidToShort, latestStoredSeason);
   const storedScoped = storedAll.filter((r) => inSelectedAct(r.seasonId, r.seasonShort));
-  const visibleMatches = matches.filter(
-    (match) =>
-      (playlist === "all" || match.metadata.mode_id.toLowerCase().replace(/[^a-z]/g, "") === playlist) &&
-      inSelectedAct(match.metadata.season_id, uuidToShort.get(match.metadata.season_id?.toLowerCase() ?? "")),
-  );
+  const visibleMatches = filterProfileMatches(matches, playlist, inSelectedAct, uuidToShort);
   const shown = visibleMatches;
 
   const latestActLabel = formatAct(profile.actCode ?? lastActCode ?? seasons[0]?.actCode);
@@ -247,11 +233,6 @@ async function ProfileContent({
           <>
             <TeammatesCard teammates={teammates} basePath={basePath} />
             <ActivityCard counts={activityByDay(storedAll, 60, Date.parse(capturedAt))} capturedAt={capturedAt} />
-            {source === "seed" ? (
-              <div className="kt-card-body" style={{ padding: 12, fontSize: 12, color: "#e6d28c" }}>
-                Live data is unavailable; showing a cached sample for Meiy#B3L.
-              </div>
-            ) : null}
           </>
         );
       case "matches":
@@ -313,16 +294,12 @@ async function ProfileContent({
       case "maps":
         return <MapsTable maps={groupByMap(storedScoped)} />;
       case "encounters": {
-        // v3 match rosters only cover the most recent matches; encounters aggregate
-        // everyone met across them (playlist filter applies, season filter cannot).
-        const scoped = matches.filter((match) =>
-          playlist === "all" || match.metadata.mode_id.toLowerCase().replace(/[^a-z]/g, "") === playlist
-        );
-        const playedHref = (p: string) =>
-          `${basePath}/encounters?platform=pc&playlist=${playlist}${p === "against" ? "&played=against" : ""}`;
+        // Only the retrieved recent rosters are available, but both filters still apply.
+        const playedHref = (p: "with" | "against") =>
+          profileFilterHref(basePath, "encounters", playlist, act, p);
         return (
           <EncountersTable
-            encounters={buildEncounters(scoped, name, tag)}
+            encounters={buildEncounters(shown, name, tag)}
             mode={played}
             filterItems={[
               { label: "Played With", href: playedHref("with"), active: played === "with" },
@@ -347,7 +324,7 @@ async function ProfileContent({
       case "overview":
         return (
           <>
-            <OverviewCard profile={profile} matches={shown} actLabel={actLabel} playlist={playlist} basePath={basePath} />
+            <OverviewCard profile={profile} matches={shown} stats={aggregate(storedScoped)} actLabel={actLabel} playlist={playlist} basePath={basePath} />
             <MatchesCard profile={profile} matches={shown} basePath={basePath} capturedAt={capturedAt} bare />
             <p style={{ fontSize: 12, lineHeight: "18px", color: "var(--kt-dim)", margin: 0 }}>
               Kiwamero Tracking isn&apos;t endorsed by Riot Games and doesn&apos;t reflect the views or opinions of
@@ -399,8 +376,14 @@ async function ProfileContent({
         playlist={playlist}
         act={act}
         acts={acts}
+        played={played}
       />
 
+      {source === "seed" ? (
+        <p role="status" style={{ padding: 12, fontSize: 12, color: "#e6d28c" }}>
+          Live data is unavailable; showing a cached sample for Meiy#B3L.
+        </p>
+      ) : null}
       <div className={`kt-columns${sidebar ? "" : " kt-columns--full"}`}>
         {sidebar ? <aside className="kt-sidebar">{sidebar}</aside> : null}
         <div className="kt-maincol">{main}</div>

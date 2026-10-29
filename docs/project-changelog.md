@@ -1,5 +1,45 @@
 # Project Changelog
 
+## 2026-10-29 — Act selector fix + Encounters party semantics (deployed)
+
+- High: Overview stats (ADR/K-D/HS/Win tiles, W/L donut, match count) now come
+  from the act-filtered stored match history instead of the 25 most recent v3
+  matches and the always-current-act MMR totals. Selecting a past act previously
+  showed zeroed tiles plus the current act's donut; it now shows that act's real
+  aggregate (verified on production: e10a1 → 134 matches / 64W-46L / K-D 1.40).
+- High: Encounters "Played With" now counts premade party members identified by
+  HenrikDev `party_id`, not every same-team player. Same team + different party
+  no longer counts; `played_against` unchanged.
+- Playtime is omitted on the Overview header when act-scoped stored stats are
+  used (stored history has no match duration); the match count is the act total.
+- Matches/Encounters tabs remain recent-roster-only for past acts (documented
+  limitation — full rosters are only available in the recent matches endpoint).
+- Verification: 82 tests, lint, typecheck, Worker build; deployed and verified
+  on tracking.kiwamero.dev (all → 2909 matches lifetime totals).
+
+## 2026-10-29 - Review fixes (local, not deployed)
+
+- High: notification batches now drain the oldest unseen matches first; advancing
+  the cursor no longer permanently skips older matches when a batch exceeds five.
+- High: profile loading classifies recent/stored history, MMR and MMR-history
+  failures instead of converting quota/private/upstream errors to empty data.
+  A genuine history 404 remains empty; empty samples count as zero matches.
+- High: preserve `currenttier_patched` and correct Riot tier division numbering.
+- Medium: admit watched players in one conditional INSERT/UPSERT so concurrent
+  registrations cannot exceed 100 distinct players. No schema migration required.
+- Medium: remove implicit subscriber row limits before player deduplication.
+- Medium: Account Audit labels statistics as a recent retrieved sample, not
+  lifetime totals; the seed fallback also recomputes its sample summary.
+- Medium: Encounters shares the Act/playlist filtering used by match history;
+  Act and Played Against links preserve each other's query state.
+- Medium: initial locale uses quality-ranked Accept-Language, with a valid
+  explicit language cookie taking precedence.
+- Verification: 81 tests, lint, typecheck, Next production build and OpenNext
+  Worker build passed. Local HTTP smoke checks used an isolated fixture upstream
+  (no real API calls or webhook sends): locale/cookie precedence, audit labels,
+  encounter filter URLs, rate-limited/private unavailable states.
+- Deployment, real Discord login and real webhook delivery were not performed.
+
 ## 2026-10-28 — 監視通知の実装 / テスト / Workers 検証 (docs 完走)
 
 `docs/` に残っていた未完了項目を通した回。UI は前回の実測リビルドのまま。

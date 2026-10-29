@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Match, Profile } from "@/lib/types";
 import { tierIcon } from "@/lib/henrikdev";
 import { deriveOverview, playtimeLabel, type OverviewStats } from "@/lib/profile-stats";
+import type { StatAggregate } from "@/lib/stored-stats";
 
 function Donut({ wins, losses }: { wins: number; losses: number }) {
   const total = Math.max(wins + losses, 1);
@@ -60,19 +61,25 @@ export function OverviewCard({
   actLabel,
   playlist,
   basePath,
+  stats,
 }: {
   profile: Profile;
   matches: Match[];
   actLabel: string;
   playlist: string;
   basePath: string;
+  /** Act-scoped aggregate from stored match history (covers all acts, unlike `matches` which is recent-only). */
+  stats?: StatAggregate;
 }) {
-  const s: OverviewStats = deriveOverview(matches, profile.puuid);
+  const recent: OverviewStats = deriveOverview(matches, profile.puuid);
+  const s = stats ?? recent;
   const sample = `${s.matches} matches`;
-  const donutWins = profile.seasonWins ?? s.wins;
-  const donutLosses = profile.seasonGames != null && profile.seasonWins != null
-    ? Math.max(0, profile.seasonGames - profile.seasonWins)
-    : s.losses;
+  const donutWins = stats ? stats.wins : (profile.seasonWins ?? recent.wins);
+  const donutLosses = stats
+    ? stats.losses
+    : profile.seasonGames != null && profile.seasonWins != null
+      ? Math.max(0, profile.seasonGames - profile.seasonWins)
+      : recent.losses;
 
   return (
     <section className="kt-card" aria-label="Competitive overview">
@@ -81,8 +88,8 @@ export function OverviewCard({
           {actLabel} {playlist === "all" ? "All Modes" : playlist} Overview
         </h2>
         <div className="kt-card-desc">
-          <span>{playtimeLabel(matches)}</span>
-          <span className="kt-sep">{profile.seasonGames ?? s.matches} Matches</span>
+          {stats ? null : <span>{playtimeLabel(matches)}</span>}
+          <span className="kt-sep">{stats ? stats.matches : (profile.seasonGames ?? s.matches)} Matches</span>
         </div>
           <Link href={`${basePath}/performance`} className="kt-card-action">
             Show More

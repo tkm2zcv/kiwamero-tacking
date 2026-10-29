@@ -1,4 +1,19 @@
-import type { Match, MatchPlayer } from "./types";
+import type { Match, MatchPlayer, Summary } from "./types";
+
+/** Summary of the retrieved sample, not lifetime totals. */
+export function summarize(matches: Match[], puuid: string): Summary {
+  const sample = matches.filter((m) => m.players.some((p) => p.puuid === puuid));
+  const stats = deriveOverview(sample, puuid);
+  const n = sample.length;
+  return {
+    winRate: stats.winRate, matches: n, totalMatches: n,
+    wins: stats.wins, losses: stats.losses, kd: stats.kd,
+    kills: n ? stats.kills / n : 0,
+    deaths: n ? stats.deaths / n : 0,
+    assists: n ? stats.assists / n : 0,
+    acs: stats.acs, adr: stats.adr, hs: stats.hs,
+  };
+}
 
 /** Agent → role. Used for the Roles card (tracker.gg shows the same split). */
 const AGENT_ROLES: Record<string, RoleKey> = {

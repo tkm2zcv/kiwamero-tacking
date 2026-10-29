@@ -1,5 +1,6 @@
 import { execute, queryAll } from "./db.ts";
-import type { WatchDb, WatchEntryRow } from "./watch-core";
+import { MAX_WATCHED_PLAYERS, type WatchDb, type WatchEntryRow } from "./watch-core.ts";
+import type { WatchlistEntryRow } from "./db-schema";
 
 interface WatchJoinRow {
   id: string;
@@ -28,9 +29,8 @@ export const watchDb: WatchDb = {
          FROM "WatchlistEntry" e
          JOIN "User" u ON u."id" = e."userId"
          WHERE u."webhookUrl" IS NOT NULL ${where?.userId ? `AND e."userId" = ?` : ""}
-         ORDER BY e."createdAt" ASC
-         LIMIT ?`,
-        [...(where?.userId ? [where.userId] : []), take ?? 10_000],
+         ORDER BY e."createdAt" ASC ${take != null ? "LIMIT ?" : ""}`,
+        [...(where?.userId ? [where.userId] : []), ...(take != null ? [take] : [])],
       );
       return rows.map((r) => ({
         id: r.id,
@@ -72,3 +72,37 @@ export const watchDb: WatchDb = {
     },
   },
 };
+
+const distinctPlayersSql = `SELECT lower("riotName"), lower("riotTag")
+  FROM "WatchlistEntry" GROUP BY lower("riotName"), lower("riotTag")`;
+
+/** Admission and insert are one SQLite/D1 statement, so concurrent callers cannot oversubscribe. */
+export async function upsertWatchlistEntry(input: {
+  userId: string;
+  riotName: string;
+  riotTag: string;
+  puuid?: string;
+  region?: string;
+}): Promise<WatchlistEntryRow | null> {
+  const rows = await queryAll<WatchlistEntryRow>(
+    `INSERT INTO "WatchlistEntry" ("id", "userId", "riotName", "riotTag", "puuid", "region", "createdAt")
+     SELECT ?, ?, ?, ?, ?, ?, ?
+     WHERE EXISTS (
+       SELECT 1 FROM "WatchlistEntry" WHERE lower("riotName") = lower(?) AND lower("riotTag") = lower(?)
+     ) OR (SELECT count(*) FROM (${distinctPlayersSql})) < ?
+     ON CONFLICT ("userId", "riotName", "riotTag")
+     DO UPDATE SET "puuid" = excluded."puuid", "region" = excluded."region"
+     RETURNING *`,
+    [
+      crypto.randomUUID(), input.userId, input.riotName, input.riotTag,
+      input.puuid ?? null, input.region ?? null, new Date(),
+      input.riotName, input.riotTag, MAX_WATCHED_PLAYERS,
+    ],
+  );
+  return rows[0] ?? null;
+}
+
+export async function watchedPlayerCount(): Promise<number> {
+  const [row] = await queryAll<{ count: number }>(`SELECT count(*) AS count FROM (${distinctPlayersSql})`);
+  return row.count;
+}

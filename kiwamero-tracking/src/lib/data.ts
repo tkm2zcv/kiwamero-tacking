@@ -1,9 +1,11 @@
 import "server-only";
 import type {
-  Match, MatchPlayer, ProfileBundle, SeasonRank, Summary, TopAgent, Teammate,
+  Match, MatchPlayer, ProfileBundle, SeasonRank, TopAgent, Teammate,
 } from "./types";
-import { getAccount, getMatches, getMmr, getMmrHistory, HenrikDevError, tierIcon } from "./henrikdev";
+import { getAccount, getMatches, getMmr, getMmrHistory, getStoredMatches, tierIcon, type HDStoredMatch } from "./henrikdev";
 import { normalizeHDMatch } from "./match-normalize";
+import { loadProfileSource, type ProfileFailure, type ProfileSourceData } from "./profile-source";
+import { summarize } from "./profile-stats";
 import seedProfile from "@/data/profile.json";
 import seedMatches from "@/data/matches.json";
 
@@ -24,34 +26,6 @@ export { mapImage };
 function teamOf(m: Match, p: MatchPlayer) {
   const id = p.team_id?.toLowerCase();
   return id === "red" || id === "blue" ? m.teams[id] : undefined;
-}
-
-export function summarize(matches: Match[], puuid: string): Summary {
-  let wins = 0, losses = 0, kills = 0, deaths = 0, assists = 0, score = 0, dmg = 0, hs = 0, shots = 0;
-  for (const m of matches) {
-    const me = m.players.find((p) => p.puuid === puuid);
-    if (!me) continue;
-    const team = teamOf(m, me);
-    if (team?.has_won) wins++; else if (team) losses++;
-    kills += me.stats.kills; deaths += me.stats.deaths; assists += me.stats.assists;
-    if (m.metadata.rounds_played > 1) {
-      score += me.stats.score; dmg += me.damage_made ?? 0;
-    }
-    hs += me.stats.headshots ?? 0;
-    shots += (me.stats.headshots ?? 0) + (me.stats.bodyshots ?? 0) + (me.stats.legshots ?? 0);
-  }
-  const n = matches.length || 1;
-  const totalRounds = matches.reduce((a, m) => a + (m.metadata.rounds_played > 1 ? m.metadata.rounds_played : 0), 0) || 1;
-  return {
-    winRate: wins + losses ? (wins / (wins + losses)) * 100 : 0,
-    matches: n, wins, losses,
-    kd: deaths ? kills / deaths : kills,
-    kills: kills / n, deaths: deaths / n, assists: assists / n,
-    acs: (score / n) / (totalRounds / n),
-    adr: dmg / totalRounds,
-    hs: shots ? (hs / shots) * 100 : 0,
-    totalMatches: n,
-  };
 }
 
 function buildTopAgents(matches: Match[], puuid: string): TopAgent[] {
@@ -113,14 +87,8 @@ function buildTeammates(matches: Match[], puuid: string): Teammate[] {
     }));
 }
 
-async function loadFromHenrikDev(name: string, tag: string, opts?: { mode?: string }): Promise<ProfileBundle> {
-    const account = await getAccount(name, tag);
+function buildLiveBundle({ account, mmr, hdMatches, history }: ProfileSourceData): ProfileBundle {
     const region = account.region;
-    const [mmr, hdMatches, history] = await Promise.all([
-      getMmr(region, account.puuid).catch(() => null),
-      getMatches(region, account.puuid, { size: 25, mode: opts?.mode }).catch(() => [] as import("./henrikdev").HDMatch[]),
-      getMmrHistory(region, account.puuid).catch(() => [] as import("./henrikdev").HDMmrHistoryEntry[]),
-    ]);
     const matches = hdMatches.map(normalizeHDMatch);
     const bySeason = mmr?.by_season ?? {};
     const seasonCodes = Object.keys(bySeason);
@@ -200,28 +168,27 @@ function normalizeSeedMatches(raw: unknown): Match[] {
 }
 
 export type ProfileResult =
-  | { ok: true; bundle: ProfileBundle }
-  | { ok: false; reason: "not_found" | "private" | "rate_limited" | "upstream" };
+  | { ok: true; bundle: ProfileBundle; storedMatches: HDStoredMatch[] }
+  | { ok: false; reason: ProfileFailure };
 
 export async function loadProfile(name: string, tag: string, opts?: { mode?: string }): Promise<ProfileResult> {
-  try {
-    return { ok: true, bundle: await loadFromHenrikDev(name, tag, opts) };
-  } catch (e) {
-    console.error(`loadProfile(${name}#${tag}) failed:`, e);
-    const status = e instanceof HenrikDevError ? e.status : null;
-    if (status === 404) return { ok: false, reason: "not_found" };
-
-    // Seed fallback only when the upstream API itself is unreachable —
-    // and only for the exact bundled identity, never for arbitrary IDs.
-    const seed = seedProfile as unknown as Omit<ProfileBundle, "matches" | "source">;
-    const isSeedIdentity =
-      seed.profile.name.toLowerCase() === name.toLowerCase() &&
-      seed.profile.tag.toLowerCase() === tag.toLowerCase();
-    if (isSeedIdentity) {
-      return { ok: true, bundle: { ...seed, matches: normalizeSeedMatches(seedMatches), source: "seed" } };
-    }
-    if (status === 429) return { ok: false, reason: "rate_limited" };
-    if (status === 401 || status === 403) return { ok: false, reason: "private" };
-    return { ok: false, reason: "upstream" };
+  const result = await loadProfileSource(
+    { getAccount, getMatches, getMmr, getMmrHistory, getStoredMatches }, name, tag, opts,
+  );
+  if (result.ok) {
+    return { ok: true, bundle: buildLiveBundle(result.data), storedMatches: result.data.storedMatches };
   }
+  // A labelled seed is allowed on upstream outages, never on private/quota/not-found responses.
+  const seed = seedProfile as unknown as Omit<ProfileBundle, "matches" | "source">;
+  if (result.reason === "upstream" &&
+      seed.profile.name.toLowerCase() === name.toLowerCase() &&
+      seed.profile.tag.toLowerCase() === tag.toLowerCase()) {
+    const matches = normalizeSeedMatches(seedMatches);
+    return {
+      ok: true,
+      bundle: { ...seed, matches, summary: summarize(matches, seed.profile.puuid), source: "seed" },
+      storedMatches: [],
+    };
+  }
+  return result;
 }

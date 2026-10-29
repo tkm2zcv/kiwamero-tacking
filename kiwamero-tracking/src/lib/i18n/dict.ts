@@ -98,6 +98,12 @@ const en = {
     levelVsSkill: "Level vs Skill",
     consistency: "Performance Consistency",
   },
+  audit: {
+    sampleMatches: "Recent Matches (Sample)",
+    sampleWinRate: "Recent Win Rate",
+    sampleKd: "Recent K/D",
+    sampleNote: "Statistics cover the retrieved recent matches for the selected playlist, not lifetime totals.",
+  },
   watchlist: {
     title: "Watchlist",
     empty: "No players in your watchlist yet.",
@@ -228,6 +234,12 @@ const ja: Dict = {
     playtime: "アカウント年齢 / プレイ時間",
     levelVsSkill: "レベル vs 実力",
     consistency: "パフォーマンス一貫性",
+  },
+  audit: {
+    sampleMatches: "直近の取得試合数（標本）",
+    sampleWinRate: "直近の勝率",
+    sampleKd: "直近のK/D",
+    sampleNote: "統計は選択したモードで取得できた直近試合の標本です。生涯成績ではありません。",
   },
   watchlist: {
     title: "監視対象リスト",

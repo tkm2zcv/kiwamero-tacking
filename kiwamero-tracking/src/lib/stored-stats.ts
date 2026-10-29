@@ -248,7 +248,7 @@ export interface EncounterStat {
   agent: string;
   tier: number;
   tierPatched: string;
-  playedWith: number; // matches on the same team
+  playedWith: number; // matches queued together (same party_id)
   playedAgainst: number; // matches on the opposing team
   encounters: number; // matches in either team
   winsWith: number;
@@ -290,9 +290,19 @@ export function buildEncounters(matches: Match[], selfName: string, selfTag: str
         last: 0, lastDay: "",
       };
       e.all++;
-      if (self && p.team_id?.toLowerCase() === self.team_id?.toLowerCase()) {
+      const selfParty = self?.party_id;
+      const sameParty = Boolean(selfParty) && p.party_id === selfParty;
+      const sameTeam = Boolean(
+        self && self.team_id && p.team_id?.toLowerCase() === self.team_id.toLowerCase(),
+      );
+      if (sameParty) {
+        // "Played With" means premade (duo/trio/stack) — same party_id.
         e.with_++;
         if (selfWon) e.winsWith++;
+        e.kills += p.stats?.kills ?? 0;
+        e.deaths += p.stats?.deaths ?? 0;
+      } else if (sameTeam) {
+        // Same team but not queued together — still a teammate stat-wise.
         e.kills += p.stats?.kills ?? 0;
         e.deaths += p.stats?.deaths ?? 0;
       } else if (self) {

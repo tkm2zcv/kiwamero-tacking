@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { execute, queryAll } from "@/lib/db";
 import type { WatchlistEntryRow } from "@/lib/db-schema";
-import { MAX_WATCHED_PLAYERS, playerKey } from "@/lib/watch-core";
+import { MAX_WATCHED_PLAYERS } from "@/lib/watch-core";
+import { upsertWatchlistEntry, watchedPlayerCount } from "@/lib/watch-db";
 
 async function userId(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -28,35 +29,28 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const uid = await userId(req);
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const { riotName, riotTag, puuid, region } = (await req.json().catch(() => ({}))) as {
+  const { riotName, riotTag, puuid, region } = (await req.json().catch(() => null) ?? {}) as {
     riotName?: string;
     riotTag?: string;
     puuid?: string;
     region?: string;
   };
-  if (!riotName || !riotTag) return NextResponse.json({ error: "bad request" }, { status: 400 });
-
-  // System-wide cap on distinct watched players (shared queries).
-  const all = await queryAll<Pick<WatchlistEntryRow, "riotName" | "riotTag">>(
-    `SELECT "riotName", "riotTag" FROM "WatchlistEntry"`,
-  );
-  const distinct = new Set(all.map((e) => playerKey(e.riotName, e.riotTag)));
-  if (!distinct.has(playerKey(riotName, riotTag)) && distinct.size >= MAX_WATCHED_PLAYERS) {
+  if (typeof riotName !== "string" || !riotName.trim() || riotName.length > 100 ||
+      typeof riotTag !== "string" || !riotTag.trim() || riotTag.length > 20 ||
+      (puuid != null && typeof puuid !== "string") || (region != null && typeof region !== "string")) {
+    return NextResponse.json({ error: "bad request" }, { status: 400 });
+  }
+  const entry = await upsertWatchlistEntry({
+    userId: uid, riotName: riotName.trim(), riotTag: riotTag.trim(), puuid, region,
+  });
+  if (!entry) {
     return NextResponse.json(
       { error: "watchlist_full", message: `Monitoring is limited to ${MAX_WATCHED_PLAYERS} players system-wide.` },
       { status: 409 },
     );
   }
 
-  const rows = await queryAll<WatchlistEntryRow>(
-    `INSERT INTO "WatchlistEntry" ("id", "userId", "riotName", "riotTag", "puuid", "region", "createdAt")
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT ("userId", "riotName", "riotTag")
-     DO UPDATE SET "puuid" = excluded."puuid", "region" = excluded."region"
-     RETURNING *`,
-    [crypto.randomUUID(), uid, riotName, riotTag, puuid ?? null, region ?? null, new Date()],
-  );
-  return NextResponse.json({ entry: rows[0], players: distinct.size });
+  return NextResponse.json({ entry, players: await watchedPlayerCount() });
 }
 
 export async function DELETE(req: NextRequest) {

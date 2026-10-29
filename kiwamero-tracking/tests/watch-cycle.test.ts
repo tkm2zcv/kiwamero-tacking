@@ -20,7 +20,10 @@ function fakeDb(rows: WatchEntryRow[]) {
   const updates: { id: string; data: Record<string, unknown> }[] = [];
   const db: WatchDb = {
     watchlistEntry: {
-      findMany: async () => rows.map((r) => ({ ...r })),
+      findMany: async (args) => {
+        const { take } = args as { take?: number };
+        return rows.slice(0, take).map((r) => ({ ...r }));
+      },
       update: async (args) => {
         const { where, data } = args as { where: { id: string }; data: Record<string, unknown> };
         updates.push({ id: where.id, data });
@@ -163,4 +166,31 @@ test("a failing player does not abort the whole cycle", async () => {
   assert.equal(summary.matchesSent, 1);
   assert.equal(summary.errors.length, 1);
   assert.match(summary.errors[0], /HTTP 404/);
+});
+
+test("a backlog larger than one batch drains without losing older matches", async () => {
+  const rows = [entry({ id: "backlog", lastSeenGameStart: 0 })];
+  const { db } = fakeDb(rows);
+  const { deps: d, sent } = deps(Array.from({ length: 8 }, (_, i) => rawMatch(`m${i + 1}`, i + 1)));
+
+  assert.equal((await runWatchCycle(db, d)).matchesSent, 5);
+  assert.equal(rows[0].lastSeenGameStart, 5);
+  assert.equal((await runWatchCycle(db, d)).matchesSent, 3);
+  assert.equal(rows[0].lastSeenGameStart, 8);
+  assert.equal((await runWatchCycle(db, d)).matchesSent, 0);
+  assert.equal((sent as { embeds: unknown[] }[]).flatMap((p) => p.embeds).length, 8);
+});
+
+test("subscriber count does not hide later players after the first 2000 rows", async () => {
+  const rows = [
+    ...Array.from({ length: 2000 }, (_, i) => entry({ id: `shared-${i}`, userId: `u${i}` })),
+    entry({ id: "later-player", riotName: "Other" }),
+  ];
+  const { db, updates } = fakeDb(rows);
+  const { deps: d } = deps([rawMatch("m1", 100)]);
+  const summary = await runWatchCycle(db, d);
+
+  assert.equal(summary.playersChecked, 2);
+  assert.equal(summary.entriesProcessed, 2001);
+  assert.ok(updates.some((u) => u.id === "later-player"));
 });

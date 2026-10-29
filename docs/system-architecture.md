@@ -2,6 +2,23 @@
 
 対象は `kiwamero-tracking/`。これは「実装済み」と「本番推奨」を混同しないためのメモ。
 
+## Review Corrections (2026-10-29, Not Deployed)
+
+- Profile acquisition is coordinated by `profile-source.ts`: account first, then
+  recent matches, stored matches, rating and rating history in parallel. Failures
+  remain typed unavailable states; a history/rating 404 alone means no records.
+- Account Audit reports recent-sample statistics, not lifetime statistics.
+- `profile-filters.ts` supplies the same Act predicate to recent rosters and
+  stored rows; Encounters preserves Act/Played Against query state.
+- Watchlist admission uses one conditional INSERT/UPSERT with the distinct-player
+  limit in its WHERE clause; no application read/check/write race or new schema.
+  Subscriber reads have no implicit row cap before player deduplication.
+- Unseen notifications are selected oldest-first, at most five per player/run.
+  The cursor advances only through the selected delivered batch. Upstream recent
+  history retention and overlapping-cycle delivery remain separate limitations.
+- Language precedence: supported `lang` cookie, then supported Accept-Language
+  preferences by quality, then English.
+
 ## 技術選定
 
 | 領域 | 現在のプロトタイプ | 本番への方針・検証項目 |

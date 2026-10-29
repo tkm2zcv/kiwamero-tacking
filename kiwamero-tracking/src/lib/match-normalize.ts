@@ -54,6 +54,7 @@ export function normalizeHDMatch(m: HDMatch): Match {
       level: p.level,
       character: p.character,
       currenttier: p.currenttier ?? p.tier,
+      currenttier_patched: p.currenttier_patched,
       player_card: p.player_card,
       party_id: p.party_id,
       stats: {

@@ -7,6 +7,21 @@
 Next.js 16 のコード変更前には `kiwamero-tracking/node_modules/next/dist/docs/` の
 該当ガイドを確認すること (`AGENTS.md`)。
 
+## 2026-10-29 Review Fixes (Not Deployed)
+
+- Eight reviewed defects fixed locally; see `project-changelog.md` for details.
+- `profile-source.ts` loads recent/stored histories together and preserves
+  unavailable states. A history/rating 404 is the only empty-data fallback.
+- `profile-filters.ts` shares Act predicates and query generation with Encounters.
+- Watch admission uses a single conditional SQL statement, without schema changes.
+  Cron no longer truncates subscribers at 2,000/10,000 rows.
+- 81 tests, lint/typecheck and both Next/OpenNext production builds passed.
+  Local HTTP checks used fixtures, not the production HenrikDev/Discord services.
+- Notifications still depend on the recent matches returned by upstream; this
+  change does not recover matches absent from that response or serialize
+  overlapping Cron/webhook-registration cycles.
+- No deployment or production DB changes in this review-fix session.
+
 ## 決まったこと
 
 - 名称: Kiwamero Tracking。tracker.gg の VALORANT 領域全体の

@@ -1,10 +1,10 @@
-import { cookies } from "next/headers";
-import { dicts, defaultLocale, locales, type Dict, type Locale } from "./dict";
+import { cookies, headers } from "next/headers";
+import { dicts, type Dict, type Locale } from "./dict";
+import { resolveLocale } from "./locale";
 
 export async function getLocale(): Promise<Locale> {
-  const store = await cookies();
-  const v = store.get("lang")?.value;
-  return locales.includes(v as Locale) ? (v as Locale) : defaultLocale;
+  const [store, requestHeaders] = await Promise.all([cookies(), headers()]);
+  return resolveLocale(store.get("lang")?.value, requestHeaders.get("accept-language"));
 }
 
 export async function getDict(): Promise<Dict> {

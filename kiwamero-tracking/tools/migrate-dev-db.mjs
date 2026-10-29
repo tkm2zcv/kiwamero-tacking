@@ -1,10 +1,11 @@
 // Apply the incremental schema upgrade to the local better-sqlite3 database.
+// Fresh environments can apply db/schema.sql instead.
 // Usage: node tools/migrate-dev-db.mjs
 import Database from "better-sqlite3";
 import fs from "node:fs";
 
-const dbPath = "prisma/dev.db";
-const sqlPath = "prisma/d1/upgrade-2026-10-28.sql";
+const dbPath = "db/dev.db";
+const sqlPath = "db/upgrade-2026-10-28.sql";
 if (!fs.existsSync(dbPath)) {
   console.log("no dev.db yet — nothing to upgrade");
   process.exit(0);

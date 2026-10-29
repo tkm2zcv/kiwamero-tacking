@@ -1,4 +1,4 @@
-/** tracker.gg matches-tab ACTIVITY card: GitHub-style matches-per-day heatmap. */
+/** tracker.gg ACTIVITY card — verbatim v3-card/heatmap DOM (Playtime only). */
 export function ActivityCard({
   counts,
   capturedAt,
@@ -8,24 +8,24 @@ export function ActivityCard({
 }) {
   const end = new Date(capturedAt);
   end.setUTCHours(0, 0, 0, 0);
-  // Show the last 8 weeks (56 days) ending on the most recent Saturday.
   const start = new Date(end);
   start.setUTCDate(start.getUTCDate() - 62);
   start.setUTCDate(start.getUTCDate() - start.getUTCDay()); // back to Sunday
 
-  const weeks: { key: string; count: number; month: string }[][] = [];
+  const weeks: { key: string; count: number; month: string; inRange: boolean }[][] = [];
   const cursor = new Date(start);
+  const windowStart = new Date(end);
+  windowStart.setUTCDate(windowStart.getUTCDate() - 59);
   while (cursor <= end) {
-    const week: { key: string; count: number; month: string }[] = [];
+    const week: { key: string; count: number; month: string; inRange: boolean }[] = [];
     for (let d = 0; d < 7; d++) {
-      if (cursor <= end) {
-        const key = cursor.toISOString().slice(0, 10);
-        week.push({
-          key,
-          count: counts.get(key) ?? 0,
-          month: cursor.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }),
-        });
-      }
+      const key = cursor.toISOString().slice(0, 10);
+      week.push({
+        key,
+        count: counts.get(key) ?? 0,
+        month: cursor.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }),
+        inRange: cursor >= windowStart && cursor <= end,
+      });
       cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
     weeks.push(week);
@@ -39,53 +39,67 @@ export function ActivityCard({
     else months.push({ label, span: 1 });
   }
 
+  const max = Math.max(1, ...weeks.flat().map((cell) => cell.count));
+  const opacityFor = (count: number) => (count > 0 ? 0.25 + 0.75 * (count / max) : 0.25);
+  const dayBg = (count: number) => (count > 0 ? "var(--color-action)" : "rgb(204, 204, 204)");
+
+  const legendStops = [0, ...new Set([max * 0.2, max * 0.5, max * 0.7, max].map((v) => Math.round(v)))];
+
   return (
-    <div className="v3-card">
+    <div className="v3-card activity-heatmaps" title-slug="valorant">
       <header className="v3-card__header">
-        <h2 className="v3-card__title">Activity</h2>
-        <p className="v3-card__description">Last 60 days.</p>
+        <h2 className="v3-card__title"> Activity </h2>
+        <span className="v3-card__description">Last 60 days.</span>
       </header>
-      <div className="v3-card__body kt-activity">
-        <div className="kt-heat-months">
-          {months.map((m, i) => (
-            <span key={`${m.label}-${i}`} style={{ gridColumn: `span ${m.span}` }}>{m.label}</span>
-          ))}
-        </div>
-        <div className="kt-heat">
-          <div className="kt-heat-days">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <span key={d}>{d}</span>)}
-          </div>
-          <div className="kt-heat-grid">
-            {weeks.map((week, i) => (
-              <div className="kt-heat-col" key={i}>
-                {week.map((cell) => (
-                  <span
-                    key={cell.key}
-                    className={`kt-heat-cell kt-heat-${intensity(cell.count)}`}
-                    title={`${cell.key}: ${cell.count} matches`}
-                  />
+      <div className="v3-card__body v3-card__body--v2.5">
+        <div className="heatmap pb-8">
+          <div className="heatmap__grid">
+            <div className="grid">
+              <div className="month-info" style={{ marginLeft: 32 }}>
+                {months.map((m, i) => (
+                  <div key={`${m.label}-${i}`} style={{ width: m.span * 24 }}>
+                    {m.label}
+                  </div>
                 ))}
+              </div>
+              <div className="container">
+                <div className="day-info">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+                    <div key={d}>{d}</div>
+                  ))}
+                </div>
+                <div className="blocks">
+                  {weeks.map((week, i) => (
+                    <div className="week" key={i}>
+                      {week.map((cell) =>
+                        cell.inRange ? (
+                          <div
+                            className="day"
+                            key={cell.key}
+                            title={`${cell.key}: ${cell.count} matches`}
+                            style={{ background: dayBg(cell.count), opacity: opacityFor(cell.count) }}
+                          />
+                        ) : (
+                          <div className="day day--empty" key={cell.key} />
+                        ),
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="color-info">
+            <span>Matches Played</span>
+            {legendStops.map((stop) => (
+              <div key={stop}>
+                <div className="day" style={{ background: dayBg(stop), opacity: opacityFor(stop) }} />
+                <span>{stop}</span>
               </div>
             ))}
           </div>
         </div>
-        <div className="kt-heat-legend">
-          <span>Matches Played</span>
-          <span className="kt-heat-scale">
-            <i className="kt-heat-cell kt-heat-0" /><i className="kt-heat-cell kt-heat-2" /><i className="kt-heat-cell kt-heat-3" /><i className="kt-heat-cell kt-heat-4" /><i className="kt-heat-cell kt-heat-5" />
-          </span>
-          <span className="kt-heat-nums">0&nbsp;&nbsp;3&nbsp;&nbsp;5&nbsp;&nbsp;8&nbsp;&nbsp;11</span>
-        </div>
       </div>
     </div>
   );
-}
-
-function intensity(count: number): number {
-  if (count <= 0) return 0;
-  if (count <= 2) return 1;
-  if (count <= 4) return 2;
-  if (count <= 6) return 3;
-  if (count <= 9) return 4;
-  return 5;
 }

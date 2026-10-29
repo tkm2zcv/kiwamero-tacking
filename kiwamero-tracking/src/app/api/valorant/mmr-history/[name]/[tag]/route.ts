@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAccount, getMmrHistory } from "@/lib/henrikdev";
-import { hasOwnerAccess } from "@/lib/owner-access";
+import { resolveOwnerAccess } from "@/lib/owner-access";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ name: string; tag: string }> }) {
-  if (!(await hasOwnerAccess(req.headers))) {
+  const access = await resolveOwnerAccess(req.headers);
+  if (!access) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
+  const rate = checkRateLimit(access.rateLimitKey);
+  if (!rate.ok) return rateLimitResponse(rate);
   const { name, tag } = await ctx.params;
   try {
     const acc = await getAccount(name, tag);

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { queryAll } from "@/lib/db";
+import type { WatchlistEntryRow } from "@/lib/db-schema";
 import { getDict } from "@/lib/i18n/server";
 import { Eye, Trash2 } from "lucide-react";
 import { WatchlistRemoveButton } from "@/components/watchlist-remove";
@@ -27,10 +28,10 @@ export default async function WatchlistPage() {
     );
   }
 
-  const entries = await prisma.watchlistEntry.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-  });
+  const entries = await queryAll<WatchlistEntryRow>(
+    `SELECT * FROM "WatchlistEntry" WHERE "userId" = ? ORDER BY "createdAt" DESC`,
+    [session.user.id],
+  );
 
   return (
     <div className="kt-container py-8" style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 1000 }}>

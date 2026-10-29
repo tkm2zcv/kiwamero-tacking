@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { loadProfile } from "@/lib/data";
 import { formatAct } from "@/lib/profile-stats";
-import { getStoredMatches, playerCardArt } from "@/lib/henrikdev";
+import { getStoredMatches, playerCardArt, tierIcon } from "@/lib/henrikdev";
 import {
   activityByDay,
   aggregate,
@@ -18,11 +19,9 @@ import {
 import { getDict } from "@/lib/i18n/server";
 import { ProfileHero, type ProfileTab } from "@/components/profile/hero";
 import { FiltersBar } from "@/components/profile/filters-bar";
-import { RatingCard } from "@/components/profile/rating-card";
 import { OverviewCard } from "@/components/profile/overview-card";
-import { TopAgentsCard } from "@/components/profile/top-agents";
 import { MatchesCard } from "@/components/profile/matches-card";
-import { AccuracyCard, RolesCard, TopMapsCard } from "@/components/profile/sidebar-cards";
+
 import { ActivityCard } from "@/components/profile/activity-card";
 import { TeammatesCard } from "@/components/profile/teammates-card";
 import { BestMatchesCard } from "@/components/profile/best-matches-card";
@@ -30,6 +29,7 @@ import { AgentsTable } from "@/components/profile/agents-table";
 import { MapsTable } from "@/components/profile/maps-table";
 import { PerformanceTable } from "@/components/profile/performance-table";
 import { EncountersTable } from "@/components/profile/encounters-table";
+import { AccountAudit } from "@/components/profile/account-audit";
 import { EmptyTab } from "@/components/profile/empty-tab";
 import { DiagnosisPanel } from "@/components/profile/diagnosis-panel";
 import { ShareCard } from "@/components/profile/share-card";
@@ -37,7 +37,7 @@ import { headers } from "next/headers";
 
 const VALID_TABS = new Set([
   "overview", "matches", "performance", "agents", "maps",
-  "weapons", "encounters", "customs", "crosshairs", "lineups",
+  "weapons", "encounters", "assessment", "customs", "crosshairs", "lineups",
   "diagnosis", "share",
 ]);
 
@@ -53,7 +53,7 @@ export default async function ProfilePage({
   searchParams,
 }: {
   params: Promise<{ id: string; tab?: string[] }>;
-  searchParams: Promise<{ playlist?: string; act?: string; season?: string }>;
+  searchParams: Promise<{ playlist?: string; act?: string; season?: string; played?: string }>;
 }) {
   const { id, tab } = await params;
   const decoded = decodeURIComponent(id);
@@ -66,11 +66,12 @@ export default async function ProfilePage({
   const playlist = ["competitive", "premier", "unrated", "deathmatch", "swiftplay", "all"].includes(query.playlist ?? "")
     ? query.playlist! : "competitive";
   const seasonParam = query.season ?? query.act;
-  const act = seasonParam === "all" || seasonParam == null ? seasonParam ?? "latest" : seasonParam;
+  const act = seasonParam ?? "all";
+  const played = query.played === "against" ? "against" : "with";
 
   return (
     <Suspense fallback={<ProfileSkeleton />}>
-      <ProfileContent name={m[1]} tag={m[2]} activeTab={activeTab} basePath={basePath} playlist={playlist} act={act} />
+      <ProfileContent name={m[1]} tag={m[2]} activeTab={activeTab} basePath={basePath} playlist={playlist} act={act} played={played} />
     </Suspense>
   );
 }
@@ -82,6 +83,7 @@ async function ProfileContent({
   basePath,
   playlist,
   act,
+  played,
 }: {
   name: string;
   tag: string;
@@ -89,6 +91,7 @@ async function ProfileContent({
   basePath: string;
   playlist: string;
   act: string;
+  played: "with" | "against";
 }) {
   const t = await getDict();
   const mode = playlist === "all" ? undefined : playlist;
@@ -118,14 +121,6 @@ async function ProfileContent({
   }
 
   const { profile, summary, topAgents, seasons, matches, diagnosis, teammates, capturedAt, source } = result.bundle;
-  const latestSeason = matches[0]?.metadata.season_id;
-  const targetSeason = act === "all" ? "" : act === "latest" ? latestSeason : act;
-  const visibleMatches = matches.filter((match) =>
-    (playlist === "all" || match.metadata.mode_id.toLowerCase().replace(/[^a-z]/g, "") === playlist) &&
-    (!targetSeason || match.metadata.season_id === targetSeason)
-  );
-  const shown = visibleMatches;
-  const actLabel = formatAct(profile.actCode ?? seasons[0]?.actCode);
   const banner = profile.cardId ? playerCardArt(profile.cardId, "wideart") : null;
   const cardArt = profile.cardId ? playerCardArt(profile.cardId, "smallart") : null;
 
@@ -146,12 +141,96 @@ async function ProfileContent({
     (best, r) => (r.startedAt > best.ts && r.seasonId ? { id: r.seasonId, ts: r.startedAt } : best),
     { id: "", ts: 0 },
   ).id;
-  const storedScoped = act === "all"
-    ? storedAll
-    : storedAll.filter((r) => r.seasonId === (act === "latest" ? latestStoredSeason : act));
+
+  // Season/act selector: tracker.gg lists every canonical act from the player's
+  // FIRST act through the current one, newest first. Act codes are "e{n}a{m}"
+  // (episodes 1–9 have 3 acts, the yearly seasons e10+ have 6).
+  const actCodeOrder = (code: string) => {
+    const m = code.toLowerCase().match(/^e(\d+)a(\d+)$/);
+    return m ? Number(m[1]) * 100 + Number(m[2]) : -1;
+  };
+  const seasonUuid = new Map<string, string>();
+  const uuidToShort = new Map<string, string>();
+  for (const r of storedAll) {
+    const short = r.seasonShort?.toLowerCase();
+    if (short && r.seasonId) {
+      seasonUuid.set(short, r.seasonId);
+      uuidToShort.set(r.seasonId.toLowerCase(), short);
+    }
+  }
+  const dataActCodes = seasons
+    .map((s) => s.actCode.toLowerCase())
+    .filter((c) => actCodeOrder(c) >= 0)
+    .sort((a, b) => actCodeOrder(a) - actCodeOrder(b));
+  const firstAct = dataActCodes[0];
+  const lastActCode = dataActCodes[dataActCodes.length - 1];
+  const canonical: string[] = [];
+  if (firstAct && lastActCode) {
+    const dataSet = new Set(dataActCodes);
+    const lastEp = Number(lastActCode.match(/^e(\d+)a/)?.[1] ?? 0);
+    for (let ep = 1; ep <= lastEp; ep++) {
+      const maxData = Math.max(
+        0,
+        ...[...dataSet]
+          .filter((c) => c.startsWith(`e${ep}a`))
+          .map((c) => Number(c.split("a")[1])),
+      );
+      const actsInEp = Math.max(ep < 10 ? 3 : 6, maxData);
+      for (let a = 1; a <= actsInEp; a++) {
+        const code = `e${ep}a${a}`;
+        if (actCodeOrder(code) >= actCodeOrder(firstAct) && actCodeOrder(code) <= actCodeOrder(lastActCode)) {
+          canonical.push(code);
+        }
+      }
+    }
+  }
+  // Prefer the season uuid for the URL (matches tracker.gg's `?season=<uuid>`);
+  // fall back to the act code when no stored match exposes its uuid yet.
+  const acts = canonical
+    .map((code) => ({ code, param: seasonUuid.get(code) ?? code, label: formatAct(code) }))
+    .reverse();
+
+  // Resolve the `act` param ("all" | "latest" | season uuid | act code) to a
+  // predicate shared by v3 matches (uuid only) and stored matches (uuid+short).
+  const actParam = act.toLowerCase();
+  const resolvedShort =
+    act === "all" || act === "latest"
+      ? undefined
+      : dataActCodes.includes(actParam)
+        ? actParam
+        : uuidToShort.get(actParam);
+  const resolvedUuid =
+    resolvedShort != null
+      ? seasonUuid.get(resolvedShort)
+      : act === "all" || act === "latest"
+        ? undefined
+        : act;
+  const inSelectedAct = (seasonId?: string, seasonShort?: string): boolean => {
+    if (act === "all") return true;
+    if (act === "latest") return latestStoredSeason ? seasonId === latestStoredSeason : true;
+    return (
+      (resolvedUuid != null && seasonId === resolvedUuid) ||
+      (resolvedShort != null && seasonShort?.toLowerCase() === resolvedShort) ||
+      seasonId === act
+    );
+  };
+  const storedScoped = storedAll.filter((r) => inSelectedAct(r.seasonId, r.seasonShort));
+  const visibleMatches = matches.filter(
+    (match) =>
+      (playlist === "all" || match.metadata.mode_id.toLowerCase().replace(/[^a-z]/g, "") === playlist) &&
+      inSelectedAct(match.metadata.season_id, uuidToShort.get(match.metadata.season_id?.toLowerCase() ?? "")),
+  );
+  const shown = visibleMatches;
+
+  const latestActLabel = formatAct(profile.actCode ?? lastActCode ?? seasons[0]?.actCode);
+  const selectedActItem =
+    act === "all" || act === "latest"
+      ? acts[0]
+      : acts.find((a) => a.param.toLowerCase() === actParam || a.code === resolvedShort);
+  const actLabel = selectedActItem?.label ?? latestActLabel;
 
   const shareOrigin = activeTab === "share" ? await origin() : "";
-  const seasonStats = groupBySeason(storedAll);
+  const seasonStats = groupBySeason(storedScoped);
   const lifetime: SeasonStat = {
     seasonId: "", seasonShort: "",
     stats: aggregate(storedAll),
@@ -162,13 +241,12 @@ async function ProfileContent({
     switch (activeTab) {
       case "overview":
       case "diagnosis":
+      case "assessment":
       case "share":
         return (
           <>
-            <RatingCard profile={profile} />
-            <AccuracyCard matches={shown} puuid={profile.puuid} />
-            <RolesCard matches={shown} puuid={profile.puuid} />
-            <TopMapsCard matches={shown} puuid={profile.puuid} basePath={basePath} />
+            <TeammatesCard teammates={teammates} basePath={basePath} />
+            <ActivityCard counts={activityByDay(storedAll, 60, Date.parse(capturedAt))} capturedAt={capturedAt} />
             {source === "seed" ? (
               <div className="kt-card-body" style={{ padding: 12, fontSize: 12, color: "#e6d28c" }}>
                 Live data is unavailable; showing a cached sample for Meiy#B3L.
@@ -179,12 +257,33 @@ async function ProfileContent({
       case "matches":
         return (
           <>
+            <TeammatesCard teammates={teammates} basePath={basePath} />
             <ActivityCard counts={activityByDay(storedAll, 60, Date.parse(capturedAt))} capturedAt={capturedAt} />
-            <TeammatesCard teammates={teammates} />
           </>
         );
       case "performance":
-        return <BestMatchesCard rows={bestMatchesByKills(storedAll)} now={Date.parse(capturedAt)} />;
+        return (
+          <>
+            {/* tracker.gg's TOTAL PLAYTIME card — session playtime isn't available
+                from our match data, so render the card with an honest dash. */}
+            <div className="playtime-summary trn-card">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 19.949 19.97" className="playtime-summary__icon" aria-hidden="true">
+                <path d="M10.95 0v2.02a8 8 0 0 1 0 15.88v2a10 10 0 0 0 0-19.9m-2 .03a9.83 9.83 0 0 0-5.33 2.2l1.43 1.48a8 8 0 0 1 3.9-1.68zM2.21 3.64A9.9 9.9 0 0 0 0 8.97h2a8 8 0 0 1 1.64-3.9zm-2.2 7.33a10.04 10.04 0 0 0 2.21 5.33l1.42-1.43a8 8 0 0 1-1.63-3.9zm5.04 5.37-1.43 1.37a10 10 0 0 0 5.33 2.26v-2a8 8 0 0 1-3.9-1.63m5.4-11.37v5.25l4.5 2.67-.75 1.23-5.25-3.15v-6Z" />
+              </svg>
+              <div className="playtime-summary__meta">
+                <div>
+                  <div className="label">Total Playtime</div>
+                  <div className="value">-</div>
+                </div>
+                <div>
+                  <div className="label">All Modes</div>
+                  <div className="value">&nbsp;</div>
+                </div>
+              </div>
+            </div>
+            <BestMatchesCard rows={bestMatchesByKills(storedScoped)} now={Date.parse(capturedAt)} />
+          </>
+        );
       default:
         return null;
     }
@@ -193,14 +292,18 @@ async function ProfileContent({
   const main = (() => {
     switch (activeTab) {
       case "matches":
-        return <MatchesCard profile={profile} matches={shown} limit={20} basePath={basePath} capturedAt={capturedAt} showAllLink={false} />;
+        return <MatchesCard profile={profile} matches={shown} limit={20} basePath={basePath} capturedAt={capturedAt} showAllLink={false} bare />;
       case "performance":
         return (
           <PerformanceTable
             seasons={seasonStats}
             lifetime={lifetime}
             ranks={seasons}
-            actLabel={actLabel}
+            actItems={acts.map((a) => ({
+              label: a.label,
+              href: `${basePath}/performance?platform=pc&playlist=${playlist}&season=${a.param}`,
+              active: a.param.toLowerCase() === actParam || a.code === resolvedShort,
+            }))}
             currentRr={profile.rr}
             currentActCode={profile.actCode}
           />
@@ -215,8 +318,21 @@ async function ProfileContent({
         const scoped = matches.filter((match) =>
           playlist === "all" || match.metadata.mode_id.toLowerCase().replace(/[^a-z]/g, "") === playlist
         );
-        return <EncountersTable encounters={buildEncounters(scoped, name, tag)} withOnly={false} />;
+        const playedHref = (p: string) =>
+          `${basePath}/encounters?platform=pc&playlist=${playlist}${p === "against" ? "&played=against" : ""}`;
+        return (
+          <EncountersTable
+            encounters={buildEncounters(scoped, name, tag)}
+            mode={played}
+            filterItems={[
+              { label: "Played With", href: playedHref("with"), active: played === "with" },
+              { label: "Played Against", href: playedHref("against"), active: played === "against" },
+            ]}
+          />
+        );
       }
+      case "assessment":
+        return <AccountAudit profile={profile} seasons={seasons} summary={summary} capturedAt={capturedAt} />;
       case "diagnosis":
         return <DiagnosisPanel diagnosis={diagnosis} />;
       case "share":
@@ -232,14 +348,7 @@ async function ProfileContent({
         return (
           <>
             <OverviewCard profile={profile} matches={shown} actLabel={actLabel} playlist={playlist} basePath={basePath} />
-            <TopAgentsCard
-              agents={topAgents}
-              matches={shown}
-              puuid={profile.puuid}
-              actLabel={actLabel}
-              basePath={basePath}
-            />
-            <MatchesCard profile={profile} matches={shown} basePath={basePath} capturedAt={capturedAt} />
+            <MatchesCard profile={profile} matches={shown} basePath={basePath} capturedAt={capturedAt} bare />
             <p style={{ fontSize: 12, lineHeight: "18px", color: "var(--kt-dim)", margin: 0 }}>
               Kiwamero Tracking isn&apos;t endorsed by Riot Games and doesn&apos;t reflect the views or opinions of
               Riot Games or anyone officially involved in producing or managing Riot Games properties. Data captured{" "}
@@ -266,9 +375,31 @@ async function ProfileContent({
         basePath={basePath}
         banner={heroArt ?? banner}
         cardArt={cardArt}
+        tabLabels={t.tabs as Record<string, string>}
+        heroExtra={
+          <div className="kt-hero-peak">
+            <h3>Peak Rating</h3>
+            <div className="kt-rating-entry">
+              <Image src={tierIcon(profile.currentTier || 0)} alt="" width={40} height={40} className="kt-rank-icon" />
+              <div className="kt-rank-info">
+                <div className="kt-rank-value">
+                  {profile.peakRank}
+                  {profile.peakRr ? <span className="kt-mmr">{profile.peakRr.toLocaleString("en-US")}<sup>RR</sup></span> : null}
+                </div>
+                {profile.peakAct ? <div className="kt-rank-sub">{formatAct(profile.peakAct)}</div> : null}
+              </div>
+            </div>
+          </div>
+        }
       />
 
-      <FiltersBar basePath={basePath} playlist={playlist} act={act} actLabel={actLabel} />
+      <FiltersBar
+        basePath={basePath}
+        tab={activeTab}
+        playlist={playlist}
+        act={act}
+        acts={acts}
+      />
 
       <div className={`kt-columns${sidebar ? "" : " kt-columns--full"}`}>
         {sidebar ? <aside className="kt-sidebar">{sidebar}</aside> : null}

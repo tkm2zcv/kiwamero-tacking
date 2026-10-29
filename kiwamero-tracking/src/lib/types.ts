@@ -61,6 +61,7 @@ export interface Teammate {
   losses: number;
   winRate: number;
   kd: number;
+  avgPlace: number;
 }
 
 export interface SeasonRank {
@@ -71,6 +72,8 @@ export interface SeasonRank {
   peakRank: string;
   peakTier: number;
   rankIcon: string;
+  /** Highest rank rating reached within this act (from MMR history). */
+  rr?: number;
   playtimeHours?: number;
   wins?: number;
   games?: number;

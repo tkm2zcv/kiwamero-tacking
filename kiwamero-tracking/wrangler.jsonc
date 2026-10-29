@@ -13,16 +13,17 @@
     {
       "binding": "DB",
       "database_name": "kiwamero-tracking",
-      // Placeholder ID is fine for local dev (Miniflare). Replace with the real
-      // D1 database_id from `wrangler d1 create kiwamero-tracking` before deploy.
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      "database_id": "a8f05616-d3ce-4c36-8674-7c5890204561"
     }
   ],
+  // Custom domain (requires kiwamero.dev zone on this account).
+  "routes": [{ "pattern": "tracking.kiwamero.dev", "custom_domain": true }],
   // Hourly watch cycle (Cloudflare Cron Trigger). Requires CRON_SECRET.
   "triggers": {
     "crons": ["0 * * * *"]
   },
   "vars": {
-    "APP_URL": "https://tracking.kiwamero.dev"
+    "APP_URL": "https://tracking.kiwamero.dev",
+    "BETTER_AUTH_URL": "https://tracking.kiwamero.dev"
   }
 }

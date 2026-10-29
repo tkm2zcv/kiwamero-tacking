@@ -1,19 +1,20 @@
 import Image from "next/image";
-import type { CSSProperties } from "react";
+import { Fragment, type CSSProperties } from "react";
 import { agentColor25, type SeasonStat } from "@/lib/stored-stats";
 import type { SeasonRank } from "@/lib/types";
+import { ActMenu, type ActMenuItem } from "@/components/profile/act-menu";
 
 const EPISODE_PALETTE = ["#648FFF", "#DC267F", "#FFB000", "#FE6100", "#785EF0", "#29A634"];
 
-/** tracker.gg labels e11+ acts by year: e11a1-3 → "Season 2025", e11a4-6 → "Season 2026". */
+/** tracker.gg labels: e1-9 → "Episode N" / "E<n>: A<m>", e10+ → "Season 20<ep+15>" / "V<ep+15>: A<m>" (e10=V25, e11=V26). */
 function episodeInfo(short: string): { ep: number; cls: number; label: string; act: number } | null {
   const e = short.toLowerCase().match(/^e(\d+)a(\d+)$/);
   if (e) {
     const ep = Number(e[1]);
     const act = Number(e[2]);
-    if (ep < 11) return { ep, cls: ep, label: `Episode ${ep}`, act };
-    const yr = 25 + (ep - 11) * 2 + Math.floor((act - 1) / 3);
-    return { ep: yr - 15, cls: yr, label: `Season 20${yr}`, act };
+    if (ep < 10) return { ep, cls: ep, label: `Episode ${ep}`, act };
+    const yr = ep + 15;
+    return { ep, cls: yr, label: `Season 20${yr}`, act };
   }
   const v = short.toLowerCase().match(/^v(\d+)a(\d+)$/);
   if (v) {
@@ -36,14 +37,15 @@ export function PerformanceTable({
   seasons,
   lifetime,
   ranks,
-  actLabel: actFilterLabel,
+  actItems,
   currentRr,
   currentActCode,
 }: {
   seasons: SeasonStat[];
   lifetime: SeasonStat;
   ranks: SeasonRank[];
-  actLabel: string;
+  /** Items for the card's "Act" dropdown (every act on the profile). */
+  actItems: ActMenuItem[];
   currentRr?: number;
   currentActCode?: string;
 }) {
@@ -67,13 +69,8 @@ export function PerformanceTable({
         <h2 className="v3-card__title">Performance</h2>
       </header>
       <div className="v3-card__filters">
-        <div className="v3-filters">
-          <span className="relative inline-flex">
-            <button type="button" className="v3-filter">
-              {actFilterLabel}
-              <svg viewBox="0 0 4 16" aria-hidden="true"><circle cx="2" cy="2" r="2" /><circle cx="2" cy="8" r="2" /><circle cx="2" cy="14" r="2" /></svg>
-            </button>
-          </span>
+        <div className="filters -mb-6 -ml-4 flex select-none items-center gap-4 overflow-auto pb-6 pl-4 font-medium no-scrollbar tl:overflow-hidden">
+          <ActMenu variant="filter" label="Act" items={actItems} />
         </div>
       </div>
       <div className="v3-card__body v3-card__body--v2.5">
@@ -83,7 +80,7 @@ export function PerformanceTable({
               <span>Lifetime</span>
               <div className="stats">
                 <div className="value">-</div>
-                <div className="value">{lifetime.stats.matches.toLocaleString()}</div>
+                <div className="value">{lifetime.stats.wins.toLocaleString()}</div>
                 <div className="value">{lifetime.stats.winRate.toFixed(1)}%</div>
                 <div className="value">{lifetime.stats.kd.toFixed(2)}</div>
                 <div className="value">{lifetime.stats.hs.toFixed(1)}%</div>
@@ -102,11 +99,11 @@ export function PerformanceTable({
                   <div className="st__item st-header__item st-header__item--align-left st-header__item--sortable st__item--align-left st-entry-episode" style={{ "--st-base-width": "8rem" } as CSSProperties}>
                     <span className="label">Episode</span>
                   </div>
-                  <div className="st__item st-header__item st-header__item--active st-header__item--align-left st__item--align-left st__item--wide" style={{ "--st-base-width": "8rem" } as CSSProperties}>
-                    <span className="label">Act</span>
+                  <div className="st__item st-header__item st-header__item--active st-header__item--align-left st-header__item--sortable st__item--align-left st__item--wide" style={{ "--st-base-width": "8rem" } as CSSProperties}>
                     <svg className="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z" /></svg>
+                    <span className="label">Act</span>
                   </div>
-                  <div className="st__item st-header__item st-header__item--align-left st-header__item--sortable st__item--align-left st-entry-rank" style={{ "--st-base-width": "10rem" } as CSSProperties}>
+                  <div className="st__item st-header__item st-header__item--align-left st__item--align-left st-entry-rank" style={{ "--st-base-width": "10rem" } as CSSProperties}>
                     <span className="label">Peak Rating</span>
                   </div>
                   {cols.map((c) => (
@@ -125,8 +122,10 @@ export function PerformanceTable({
                       const color = `${EPISODE_PALETTE[((info?.ep ?? 1) - 1 + 600) % 6]}4D`;
                       const rank = rankOf(s.seasonShort);
                       return (
+                        <Fragment key={s.seasonId || s.seasonShort}>
+                        {/* tracker.gg renders a collapsed drawer after each row — it
+                            drives the 4n+3 striping + hides repeat episode labels. */}
                         <div
-                          key={s.seasonId || s.seasonShort}
                           className={`st-content__item st-content__item--episode-${info?.cls ?? 0}`}
                           style={{ "--episode-color": color } as CSSProperties}
                         >
@@ -146,9 +145,10 @@ export function PerformanceTable({
                                 </div>
                                 <div className="info">
                                   <div className="value">{rank.peakRank}</div>
-                                  {currentActCode && s.seasonShort.toLowerCase() === currentActCode.toLowerCase() && currentRr != null ? (
-                                    <div className="small small--gold">{currentRr} RR</div>
-                                  ) : null}
+                                  {(() => {
+                                    const rr = rank.rr ?? (currentActCode && s.seasonShort.toLowerCase() === currentActCode.toLowerCase() ? currentRr : undefined);
+                                    return rr != null ? <div className="small">{rr} RR</div> : null;
+                                  })()}
                                 </div>
                               </>
                             ) : (
@@ -178,6 +178,11 @@ export function PerformanceTable({
                             <div className="info" />
                           </div>
                         </div>
+                        <div
+                          className={`st-content__drawer st-content__drawer--episode-${info?.cls ?? 0}`}
+                          style={{ display: "none" }}
+                        />
+                        </Fragment>
                       );
                     })}
                   </div>

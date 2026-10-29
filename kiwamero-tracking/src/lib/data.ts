@@ -80,17 +80,20 @@ function buildTopAgents(matches: Match[], puuid: string): TopAgent[] {
 }
 
 function buildTeammates(matches: Match[], puuid: string): Teammate[] {
-  const acc = new Map<string, { p: MatchPlayer; n: number; w: number; l: number; k: number; d: number }>();
+  const acc = new Map<string, { p: MatchPlayer; n: number; w: number; l: number; k: number; d: number; place: number }>();
   for (const m of matches) {
     const me = m.players.find((p) => p.puuid === puuid);
     if (!me) continue;
+    const ranked = [...m.players].sort((a, b) => b.stats.score - a.stats.score);
+    const placeOf = (p: MatchPlayer) => ranked.indexOf(p) + 1;
     for (const p of m.players) {
       if (p.puuid === puuid || !me.team_id || p.team_id !== me.team_id) continue;
-      const a = acc.get(p.puuid) ?? { p, n: 0, w: 0, l: 0, k: 0, d: 0 };
+      const a = acc.get(p.puuid) ?? { p, n: 0, w: 0, l: 0, k: 0, d: 0, place: 0 };
       a.n++;
       const team = teamOf(m, me);
       if (team?.has_won) a.w++; else if (team) a.l++;
       a.k += p.stats.kills; a.d += p.stats.deaths;
+      a.place += placeOf(p);
       acc.set(p.puuid, a);
     }
   }
@@ -106,6 +109,7 @@ function buildTeammates(matches: Match[], puuid: string): Teammate[] {
       matches: x.n, wins: x.w, losses: x.l,
       winRate: (x.w / x.n) * 100,
       kd: x.d ? x.k / x.d : x.k,
+      avgPlace: x.place / x.n,
     }));
 }
 
@@ -120,6 +124,14 @@ async function loadFromHenrikDev(name: string, tag: string, opts?: { mode?: stri
     const matches = hdMatches.map(normalizeHDMatch);
     const bySeason = mmr?.by_season ?? {};
     const seasonCodes = Object.keys(bySeason);
+    // Peak rank rating reached within each act, from MMR history.
+    const rrBySeason = new Map<string, number>();
+    for (const h of history) {
+      const short = h.season?.short?.toLowerCase();
+      const rr = h.ranking_in_tier ?? h.rr;
+      if (!short || typeof rr !== "number") continue;
+      rrBySeason.set(short, Math.max(rrBySeason.get(short) ?? 0, rr));
+    }
     const seasons: SeasonRank[] = seasonCodes
       .map((code) => {
         const s = bySeason[code];
@@ -133,6 +145,7 @@ async function loadFromHenrikDev(name: string, tag: string, opts?: { mode?: stri
           peakRank: s.final_rank_patched ?? s.patched_tier ?? "Unranked",
           peakTier: tier,
           rankIcon: tierIcon(tier),
+          rr: rrBySeason.get(code.toLowerCase()),
           wins,
           games,
           winRate: games ? `${((wins / games) * 100).toFixed(1)}%` : undefined,

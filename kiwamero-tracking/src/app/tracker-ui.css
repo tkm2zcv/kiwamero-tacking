@@ -33,7 +33,7 @@ body {
   background: var(--kt-bg);
   color: var(--kt-text);
   font-family: var(--kt-font);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.15;
 }
 
@@ -1013,10 +1013,7 @@ body::before {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
-  padding: 0 16px;
-  margin-top: -32px;
-  position: relative;
-  z-index: 1;
+  padding: 12px 16px 0;
 }
 .kt-tile {
   display: flex;
@@ -2592,3 +2589,47 @@ body::before {
 
 /* table tabs (agents/maps/encounters) render full-width with no sidebar */
 .kt-columns--full { grid-template-columns: 1fr; }
+
+.kt-hero-extra {
+  position: absolute;
+  right: 24px;
+  bottom: 72px;
+  z-index: 2;
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+}
+.kt-hero-extra > * {
+  width: auto;
+}
+.kt-hero-peak {
+  background: rgba(27, 39, 51, 0.92);
+  border-radius: 12px;
+  padding: 12px 18px;
+  min-width: 240px;
+}
+.kt-hero-peak h3 {
+  font-family: var(--kt-title);
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--kt-text-2);
+  margin: 0 0 6px;
+}
+.kt-hero-extra .kt-card,
+.kt-hero-extra .v3-card {
+  margin: 0;
+  height: 100%;
+}
+.kt-hero-extra .v3-card__header,
+.kt-hero-extra .kt-card-head {
+  padding: 8px 12px;
+}
+.kt-hero-extra .v3-card__title,
+.kt-hero-extra .kt-card-title {
+  font-size: 14px;
+}
+.kt-hero-extra .v3-card__description,
+.kt-hero-extra .kt-card-desc {
+  font-size: 11px;
+}

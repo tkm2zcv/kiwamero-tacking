@@ -21,7 +21,8 @@ export function createWatchDeps(): WatchDeps {
     },
     fetchMatches: async (puuid, region) => {
       const { getMatches } = await import("./henrikdev");
-      const matches = await getMatches(region, puuid, { size: MAX_MATCHES_PER_RUN + 5 });
+      // Fresh fetch — a stale cached list could delay new-match notifications.
+      const matches = await getMatches(region, puuid, { size: MAX_MATCHES_PER_RUN + 5, fresh: true });
       return matches as unknown as RawMatchForNotify[];
     },
     sendWebhook: async (url, payload) => {

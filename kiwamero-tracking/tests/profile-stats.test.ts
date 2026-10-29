@@ -89,8 +89,9 @@ function match(overrides: {
 
 test("formatAct maps Riot season codes to the displayed label", () => {
   assert.equal(formatAct("e11a6"), "V26: A6");
-  assert.equal(formatAct("e11a1"), "V25: A1");
-  assert.equal(formatAct("e10a3"), "E10A3");
+  assert.equal(formatAct("e11a1"), "V26: A1");
+  assert.equal(formatAct("e10a3"), "V25: A3");
+  assert.equal(formatAct("e9a3"), "E9: A3");
   assert.equal(formatAct(undefined), "Latest");
   assert.equal(formatAct("weird"), "WEIRD");
 });

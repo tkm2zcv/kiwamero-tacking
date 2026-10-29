@@ -13,8 +13,10 @@ Discord OAuth は監視リスト・所有者専用開発者 API に使います�
 - Next.js 16 (App Router, Turbopack) + React 19 + TypeScript
 - Tailwind CSS v4 (`@tailwindcss/turbopack` ローダー、`next.config.ts` で設定済み)
 - HenrikDev API (非公式 VALORANT データ)
-- Better Auth + Discord OAuth (監視リスト用、所有者判定は `OWNER_DISCORD_IDS`)
-- Prisma 7 — ローカル: better-sqlite3 / Cloudflare: D1 (`@prisma/adapter-d1`)
+- Better Auth + Discord OAuth (監視リスト用、所有者判定は `OWNER_DISCORD_IDS`、
+  Kysely アダプタ経由)
+- DB: 生 SQL — Cloudflare: D1 バインディング / ローカル・テスト: better-sqlite3
+  (`src/lib/db.ts` が実行コンテキストで自動切替。Prisma は workerd 非対応のため除去済み)
 - 本番構成: Cloudflare Workers + D1 (OpenNext、`@opennextjs/cloudflare` 1.20.x)
 - 監視通知: Workers Cron (毎時) → ユーザーごとの Discord Webhook
 
@@ -46,11 +48,13 @@ npm run dev -- -p 3002
 
 - `next dev` は `initOpenNextCloudflareForDev` 経由で Miniflare の **ローカル D1**
   (`wrangler.jsonc` の `DB` バインディング) を使います。
-- 新規 DB: `npx wrangler d1 execute kiwamero-tracking --local --file=prisma/d1/schema.sql`
-- 既存 DB (2026-10-27 版から更新): `npx wrangler d1 execute kiwamero-tracking --local --file=prisma/d1/upgrade-2026-10-28.sql`
-- スキーマ再生成: `npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script -o prisma/d1/schema.sql`
-- フォールバックの better-sqlite3 (`DATABASE_URL`, `prisma/dev.db`) は
+- 新規 DB: `npx wrangler d1 execute kiwamero-tracking --local --file=db/schema.sql`
+- 既存 DB (2026-10-27 版から更新): `npx wrangler d1 execute kiwamero-tracking --local --file=db/upgrade-2026-10-28.sql`
+- スキーマの唯一の正本は `db/schema.sql` (手管理。変更時は差分 SQL を同フォルダに追加)。
+- フォールバックの better-sqlite3 (`DATABASE_URL`, `db/dev.db`) は
   `node tools/migrate-dev-db.mjs` で同じ差分を適用できます。
+- Windows では workerd/esbuild が `%TEMP%` へ書けない環境があり、`TMP`/`TEMP` を
+  プロジェクト内 (例: `.tmp`) に向けて `wrangler dev` / `wrangler d1` を実行すると回避できます。
 
 ## 監視通知 (Discord Webhook)
 
@@ -78,12 +82,18 @@ npm run build:worker # OpenNext (Workers) バンドル
 
 現状の既知の制約:
 
-- **Prisma 7 は workerd 上で動作しません。** Prisma 7 のクエリコンパイラは
-  WebAssembly を実行時にコンパイルするため、workerd の
-  `Wasm code generation disallowed by embedder` で失敗します。
-  画面表示 (HenrikDev のライブ取得) は Worker でも動きますが、DB を伴う
-  認証・監視リスト・Cron は Node (`next dev` / 通常サーバー) でのみ動作します。
-  詳細と選択肢は [docs/system-architecture.md](../docs/system-architecture.md)。
+- ~~Prisma 7 は workerd 上で動作しません~~ → **解消 (2026-10-29)**。
+  DB 層を生 SQL + Kysely に移行し、認証・監視・Cron が Worker 上で動作確認済み
+  (ローカル D1 で Cron 完走、better-auth アダプタはテストで検証)。
+- 開発者 API (`/api/valorant/*`, `/api/keys`) のレート制限は
+  `src/lib/rate-limit.ts` の per-isolate 固定窓 (既定 60 req/min、
+  `API_RATE_LIMIT_PER_MIN` で変更可)。確実な実施には Cloudflare の
+  レート制限ルールを併用してください。
 - OpenNext のビルドは Windows でシンボリックリンク作成に失敗するため、
   `npm run build:worker` は `tools/fs-symlink-fallback.cjs` を preload して
   コピーにフォールバックします (WSL/CI では不要)。
+- Windows で `wrangler dev` / `wrangler d1` が `miniflare-email-store` の
+  `CreateDirectory: Access denied` で落ちる場合は `%TEMP%` 書込みブロックが原因。
+  `TMP`/`TEMP` をプロジェクト内ディレクトリに向けて実行してください。
+
+デプロイ手順は [docs/deployment-guide.md](../docs/deployment-guide.md)。

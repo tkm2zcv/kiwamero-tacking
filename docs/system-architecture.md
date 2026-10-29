@@ -10,9 +10,9 @@
 | CSS/UI | Tailwind CSS 4、lucide-react、抽出した配色 | **修正済み** — `next.config.ts` に `@tailwindcss/turbopack` loader rules を追加。ユーティリティ生成と hero 画像を検証済み |
 | 言語 | `src/lib/i18n/` の en/ja 辞書と cookie | 初回は `Accept-Language`、手動選択は cookie を優先。翻訳漏れ/SSR 整合をテスト |
 | 認証 | Better Auth 1.7 + Discord OAuth | PoC で D1 経路確認。所有者専用 API は `OWNER_DISCORD_IDS` + Discord account 紐付けで実装済み (`src/lib/owner-access.ts`) |
-| ローカル DB | `next dev` で **ローカル D1 (Miniflare)**。`better-sqlite3` は CF コンテキスト無しのフォールバック | `src/lib/prisma.ts` の遅延プロキシが D1/sqlite を自動選択 |
-| 本番 DB | **Cloudflare D1 固定・PoC 済み** | `wrangler.jsonc` の `DB` バインディング。`@prisma/adapter-d1` 7.10.1。スキーマは `prisma/d1/schema.sql` を `wrangler d1 execute` で適用 |
-| ゲームデータ | HenrikDev API クライアント + Meiy シード | 応答契約・可用性・レート制限を検証し、サーバー側キャッシュ/バックオフを実装 |
+| ローカル DB | `next dev` で **ローカル D1 (Miniflare)**。`better-sqlite3` は CF コンテキスト無しのフォールバック | `src/lib/db.ts` の遅延バックエンドが D1/sqlite を自動選択 (生 SQL + Kysely) |
+| 本番 DB | **Cloudflare D1 固定・PoC 済み** | `wrangler.jsonc` の `DB` バインディング。スキーマは `db/schema.sql` を `wrangler d1 execute` で適用 |
+| ゲームデータ | HenrikDev API クライアント + Meiy シード | **実装済み** — `src/lib/henrik-client.ts`: Map + Cache API の二層キャッシュ (エンドポイント別 TTL 3〜10分)、in-flight dedupe、`HENRIK_API_KEYS` カンマ区切り複数キーのラウンドロビン + 429 時 60s クールダウン・次キーへリトライ。watch サイクルは `fresh: true` で通知鮮度を維持 |
 | 配信 | 未実装 | `tracking.kiwamero.dev`。Workers 対応アダプタ/ビルド/DNS/シークレットのデプロイ手順を確定 |
 | 品質 | ESLint + `tsc` + `npm test` (node:test) | 型/単体/API 契約/認証/E2E/モバイルを CI で検証 |
 | 監視通知 | **実装済み** — `src/lib/watch-core.ts` + `/api/cron/watch` + Worker scheduled | Workers Cron を毎時。D1 にシステム全体で最大100の監視対象、ユーザー別 Webhook、通知済み match ID を保持。送信失敗はカーソルを進めず次回再送 |
@@ -51,38 +51,66 @@ HenrikDev 資格情報、ユーザーセッション、開発者 API キーは�
 - 監視対象はシステム全体で 100 プレイヤー (`MAX_WATCHED_PLAYERS`)。同一プレイヤーを
   複数ユーザーが監視する場合も HenrikDev への照会は 1 回で済ませる。
 
-## Workers 実行時の制約 (2026-10-28 検証)
+## Workers 実行時の制約 → 解消 (2026-10-29)
 
-`opennextjs-cloudflare build` と `wrangler dev` で実際に起動して確認した結果:
+~~Prisma 7 は workerd で動かない~~ → **生 SQL + Kysely へ移行して解消** (ユーザー決定)。
 
-- ページ描画 (HenrikDev のライブ取得、プロフィール全体) は **Worker 上で 200 応答**。
-- `GET /api/cron/watch` (ヘルス) も 200。
-- しかし DB を触る処理は workerd で失敗する:
-  `CompileError: WebAssembly.Module(): Wasm code generation disallowed by embedder`。
-  Prisma 7 のクエリコンパイラは実行時 Wasm コンパイルを行うため、
-  workerd では原理的に動かない (Node では動作する)。
-- 影響範囲: Better Auth のセッション参照、監視リスト、API キー、Cron の DB 更新。
-  つまり **認証系と監視系は現状 Node 専用**。
+移行内容:
 
-### 決定ゲート (ユーザー判断が必要)
+- `src/lib/db.ts` — `getCloudflareContext` で D1 バインディングを遅延解決し、
+  無ければ better-sqlite3 (`DATABASE_URL`, `db/dev.db`) へフォールバック。
+  アプリは `queryAll/queryOne/execute` の生 SQL ヘルパーを使い、
+  Better Auth は同じバックエンド上の Kysely インスタンス経由
+  (`database: { db, type: "sqlite", transaction: false }`。
+  D1 は interactive transaction を持たないため transaction:false)。
+- テーブル名は既存スキーマの PascalCase を維持
+  (`user/session/account/verification` の `modelName` で指定)。
+- `src/lib/watch-db.ts` が `WatchDb` (Prisma 形の呼び出し面) を生 SQL で実装し、
+  `watch-core.ts` と既存テストは無変更のまま。
+- Prisma (`prisma`, `@prisma/*`, `src/generated/`, `prisma.config.ts`) は全除去。
+  Worker バンドルは gzip 3.3 MB → **1.69 MB** に縮小し無料枠 3 MiB 内に収まった。
+- 検証: `wrangler dev` + ローカル D1 で `POST /api/cron/watch` が完走
+  (seed 監視エントリ → HenrikDev 実取得 → Webhook 404 で `webhookFailures:1`、
+  カーソル未前進)。better-auth アダプタは `tests/db.test.ts` で
+  createUser/createSession/findSession/createAccount を実スキーマに対して検証。
 
-`docs/project-overview-pdr.md` の「本番移行時の決定ゲート 3」に該当。
-Worker/D1 内で完結させるには、次のいずれかへの移行が必要:
+### 本番インシデント: getCloudflareContext async ハング (2026-10-29 修正済み)
 
-1. **D1 ネイティブ + Drizzle ORM** へ置換 (Prisma を外す)。Better Auth も
-   D1/Drizzle アダプタへ。影響: `src/lib/prisma.ts`、`auth.ts`、監視/キー API。
-2. **Prisma を Node ランタイムで動かす** (Cloudflare Containers / 別ホスト)。
-   PDR は Cloudflare Workers + D1 固定のため、構成変更の合意が必要。
-3. Prisma Accelerate など外部データプロキシの導入 (追加コスト・秘密情報管理)。
+症状: デプロイ直後、ルート不定期に ~42s ハング → クライアント側タイムアウト
+(tail で `waitUntil() tasks did not complete` → outcome canceled)。
 
-現状は (1) が本命。移行までは Worker は「表示専用」、DB 機能は Node で動かす。
+原因: `src/lib/db.ts` が `getCloudflareContext({async:true})` を使っていた。
+async 版は `__cloudflare-context__` global が無い場合に wrangler の
+`getPlatformProxy` を spawn しようとする。`nodejs_compat` では workerd 内でも
+`NEXT_RUNTIME==="nodejs"` となりこの分岐に入り、workerd 内部で Miniflare
+プロキシ起動が永久に解決しない。コールド isolate 上で global が未設定の
+経路を踏むと発生し、`backendPromise` が pending のまま使い回されるため
+その isolate への後続リクエストも連鎖ハングした。
+
+修正: **同期版 `getCloudflareContext()` のみ使用** (global 無しなら即 throw
+→ catch → sqlite フォールバック)。加えて:
+- workerd 判定 (`navigator.userAgent === "Cloudflare-Workers"`) 時は
+  better-sqlite3 の import 自体をスキップして即エラー
+- `resolveBackend` に 8s タイムアウト + 失敗時 `backendPromise` リセット
+  (一度の失敗で isolate を毒さない)
+
+教訓: workerd 内で `getCloudflareContext({async:true})` はハング可能。
+DB 接続のようなモジュールスコープの遅延 Promise は必ず失敗時リセットする。
+
+### Windows 固有の注意 (2026-10-29 判明)
+
+この環境では workerd/esbuild 等の子プロセスが `%TEMP%` 配下へ書けず、
+`wrangler dev` / `wrangler d1 execute` / `build:worker` が
+`CreateDirectory: Access denied` (miniflare-email-store) や esbuild の
+書込み失敗で落ちる。**`TMP`/`TEMP` をプロジェクト内に向けて実行**すれば回避できる
+(Node 本体は書けるため、原因は子プロセス向けの何らかのセキュリティ制御と思われる)。
 
 ## 本番移行時の決定ゲート
 
-1. Cloudflare Workers 上で Next.js 16 のページ描画・OAuth callback を PoC で通す。
-2. D1 の DB アダプタ・マイグレーション・ローカル/本番接続を PoC で通す。
-3. 1/2 の組み合わせに問題があれば Worker/D1 内で対応可能な
-   ORM/認証アダプタを再選定する。別ホスト/別 DB への変更は勝手に行わずユーザーへ相談する。
+1. ~~Cloudflare Workers 上で Next.js 16 のページ描画~~ → PoC 済み。OAuth callback は本番のみ未検証。
+2. ~~D1 の DB アダプタ・マイグレーション・ローカル/本番接続~~ → **解消 (2026-10-29)**:
+   生 SQL + Kysely で workerd 上の D1 読み書きを確認済み。
+3. ~~ORM 再選定~~ → ユーザー判断により **生 SQL + Kysely** に決定・実装済み。
 4. HenrikDev の現行 API 契約と利用条件、RateLimit ヘッダーを確認する。
    無根拠な「30req/min」固定値で実装しない。
 
@@ -95,11 +123,14 @@ Worker/D1 内で完結させるには、次のいずれかへの移行が必要:
 - ~~`players` 配列正規化~~ → live API も `{all_players, red, blue}` と実測判明。
   `hdMatchPlayers()` で両方対応。`team`/`has_won`/`rounds_won`/`damage_made`/
   `ability_casts` など実レスポンス形状に合わせて正規化。
-- ~~`/api/keys`・匿名プロキシ~~ → `hasOwnerAccess` で所有者 (Discord ID 許可リスト
-  連携のセッション、または `kt_` Bearer ハッシュ照合) のみ許可。匿名は 403。
-  キーは `sha256:` ハッシュ保存・発行時のみ平文返却・DELETE で失効。
-- ~~`better-sqlite3` が Workers で動かない~~ → `@prisma/adapter-d1` へ
-  OpenNext の `getCloudflareContext` 経由で切替済み。
+- ~~`/api/keys`・匿名プロキシ~~ → `hasOwnerAccess`/`resolveOwnerAccess` で所有者
+  (Discord ID 許可リスト連携のセッション、または `kt_` Bearer ハッシュ照合) のみ許可。
+  匿名は 403。キーは `sha256:` ハッシュ保存・発行時のみ平文返却・DELETE で失効。
+  **レート制限**: `src/lib/rate-limit.ts` の per-isolate 固定窓
+  (既定 60 req/min、`API_RATE_LIMIT_PER_MIN`)。プラットフォーム側の
+  Cloudflare rate limiting rule 併用を推奨 (docs/deployment-guide.md)。
+- ~~`better-sqlite3` が Workers で動かない~~ / ~~Prisma 7 の Wasm 制約~~ →
+  生 SQL + Kysely 移行で解消 (上記)。
 - 2026-10-27 時点で `tsc --noEmit` / `lint` / `build` 全て成功、
   ブラウザ実検証も通過 (desktop/mobile/404)。
 
@@ -115,13 +146,12 @@ Worker/D1 内で完結させるには、次のいずれかへの移行が必要:
 
 - `npx tsc --noEmit` / `npm run lint` / `npm test` (34 tests) / `npm run build` 成功。
 - `npm run build:worker` (OpenNext) 成功 → `.open-next/worker.js` 生成。
-- `wrangler deploy --dry-run` 成功: Worker 12.9 MB (gzip 3.3 MB)、
+- `wrangler deploy --dry-run` 成功: Prisma 時代は Worker 12.9 MB (gzip 3.3 MB)
+  だったが、移行後は **gzip 約 1.69 MB** に縮小し無料枠 3 MiB 内に収まった。
   バインディング `DB` / `ASSETS` / `APP_URL`、`triggers.crons = ["0 * * * *"]`。
-  gzip 3.3 MB は無料枠 (3 MiB) をわずかに超えるため、デプロイは有料枠か
-  バンドル削減 (Prisma を外す) が前提。
-- `wrangler dev` でプロフィールページ 200 / cron ヘルス 200 を確認。
-  DB クエリは workerd の Wasm 制約で失敗 (上記)。
-- ローカル D1 は `prisma/d1/upgrade-2026-10-28.sql` で増分適用済み
+- `wrangler dev` でプロフィールページ 200 / cron ヘルス 200 / D1 経由の
+  cron 完走を確認 (2026-10-29、生 SQL + Kysely 移行後)。
+- ローカル D1 は `db/upgrade-2026-10-28.sql` で増分適用済み
   (webhookUrl / webhookUpdatedAt / region / lastSeenGameStart / lastNotifiedMatchId /
   lastNotifiedAt / index)。SQLite フォールバックは `tools/migrate-dev-db.mjs`。
 

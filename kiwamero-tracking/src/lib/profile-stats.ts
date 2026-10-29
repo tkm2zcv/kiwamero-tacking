@@ -59,10 +59,10 @@ export function dayLabel(unixSeconds: number): string {
 }
 
 /**
- * Riot season code → display label.
- * Episodes before 11 keep the classic "E11A3" style. From episode 11 on Riot moved to
- * the "V<year> A<n>" scheme (two years per episode, three acts each):
- *   e11a1..a3 → V25: A1..A3, e11a4..a6 → V26: A4..A6
+ * Riot season code → display label, matching tracker.gg's scheme:
+ *   e9a3  → "E9: A3"   (episodes < 10 keep the classic "E<n>: A<m>" style)
+ *   e10a5 → "V25: A5"  (from episode 10 on Riot labels acts by year: V<ep+15>)
+ *   e11a6 → "V26: A6"
  */
 export function formatAct(raw?: string): string {
   if (!raw) return "Latest";
@@ -70,9 +70,8 @@ export function formatAct(raw?: string): string {
   if (!m) return raw.toUpperCase();
   const episode = Number(m[1]);
   const act = Number(m[2]);
-  if (episode < 11) return `E${episode}A${act}`;
-  const year = 25 + (episode - 11) * 2 + Math.floor((act - 1) / 3);
-  return `V${year}: A${act}`;
+  if (episode < 10) return `E${episode}: A${act}`;
+  return `V${episode + 15}: A${act}`;
 }
 
 export interface MatchRow {
@@ -121,7 +120,7 @@ export function deriveMatchRows(matches: Match[], puuid: string, now = Date.now(
       map: m.metadata.map,
       mode: m.metadata.mode || m.metadata.mode_id,
       agent: me.character,
-      agentIcon: agentIconUrl(me.character),
+      agentIcon: me.assets?.agent?.small ?? agentIconUrl(me.character),
       startedAt: m.metadata.game_start,
       ago: timeAgo(m.metadata.game_start, now),
       day: dayLabel(m.metadata.game_start),
@@ -324,11 +323,11 @@ export interface AgentMini {
 
 /** Top-N agents by match count for the match-list summary strip. */
 export function deriveAgentMinis(matches: Match[], puuid: string, limit = 3): AgentMini[] {
-  const acc = new Map<string, { matches: number; wins: number; losses: number; kills: number; deaths: number }>();
+  const acc = new Map<string, { matches: number; wins: number; losses: number; kills: number; deaths: number; icon: string }>();
   for (const m of matches) {
     const me = meOf(m, puuid);
     if (!me) continue;
-    const s = acc.get(me.character) ?? { matches: 0, wins: 0, losses: 0, kills: 0, deaths: 0 };
+    const s = acc.get(me.character) ?? { matches: 0, wins: 0, losses: 0, kills: 0, deaths: 0, icon: me.assets?.agent?.small ?? agentIconUrl(me.character) };
     s.matches += 1;
     const won = wonMatch(m, me);
     if (won === true) s.wins += 1;
@@ -342,7 +341,7 @@ export function deriveAgentMinis(matches: Match[], puuid: string, limit = 3): Ag
     .slice(0, limit)
     .map(([agent, s]) => ({
       agent,
-      icon: agentIconUrl(agent),
+      icon: s.icon,
       matches: s.matches,
       wins: s.wins,
       losses: s.losses,

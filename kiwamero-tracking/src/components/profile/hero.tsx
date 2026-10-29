@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Eye } from "lucide-react";
 import type { Profile } from "@/lib/types";
 import { WatchlistButton } from "./watchlist-button";
@@ -8,22 +9,17 @@ import { ShareProfileButton } from "./share-profile-button";
 
 export type ProfileTab =
   | "overview" | "matches" | "performance" | "agents" | "maps"
-  | "weapons" | "encounters" | "customs" | "crosshairs" | "lineups"
+  | "weapons" | "encounters" | "assessment" | "customs" | "crosshairs" | "lineups"
   | "diagnosis" | "share";
 
-const TABS: { key: string; label: string; isNew?: boolean }[] = [
-  { key: "overview", label: "Overview" },
-  { key: "matches", label: "Matches" },
-  { key: "performance", label: "Performance" },
-  { key: "agents", label: "Agents" },
-  { key: "maps", label: "Maps" },
-  { key: "weapons", label: "Weapons" },
-  { key: "encounters", label: "Encounters", isNew: true },
-  { key: "customs", label: "Customs" },
-  { key: "crosshairs", label: "Crosshairs" },
-  { key: "lineups", label: "Lineups" },
-  { key: "diagnosis", label: "Diagnosis" },
-  { key: "share", label: "Share" },
+
+const TABS: { key: string; labelKey: string; isNew?: boolean }[] = [
+  { key: "overview", labelKey: "overview" },
+  { key: "matches", labelKey: "matches" },
+  { key: "performance", labelKey: "performance" },
+  { key: "encounters", labelKey: "encounters" },
+  { key: "assessment", labelKey: "assessment" },
+  { key: "diagnosis", labelKey: "diagnosis" },
 ];
 
 export function ProfileHero({
@@ -32,12 +28,16 @@ export function ProfileHero({
   basePath,
   banner,
   cardArt,
+  heroExtra,
+  tabLabels = {},
 }: {
   profile: Profile;
   activeTab: string;
   basePath: string;
   banner: string | null;
   cardArt: string | null;
+  heroExtra?: ReactNode;
+  tabLabels?: Record<string, string>;
 }) {
   const isJapan = profile.region?.toUpperCase() === "AP";
   return (
@@ -51,6 +51,8 @@ export function ProfileHero({
           <Image src={banner} alt="" fill priority sizes="1392px" className="kt-hero-art" />
         ) : null}
         <div className="kt-hero-shade" />
+
+        {heroExtra ? <div className="kt-hero-extra">{heroExtra}</div> : null}
 
         <div className="kt-hero-body">
           <div className="kt-hero-identity">
@@ -100,7 +102,7 @@ export function ProfileHero({
                 className="kt-tab"
                 data-active={activeTab === tab.key}
               >
-                {tab.label}
+                {tabLabels[tab.labelKey] ?? tab.key}
                 {tab.isNew ? <span className="kt-badge-new">NEW</span> : null}
               </Link>
             )}

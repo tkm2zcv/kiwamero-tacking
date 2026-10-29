@@ -24,7 +24,7 @@ Next.js 16 のコード変更前には `kiwamero-tracking/node_modules/next/dist
   所有者専用の開発者 API まで初回に含める。
 - 共有カードは初回 URL 共有のみ (PNG の生成/ダウンロードは後回し)。
 - 公開先: **Cloudflare Workers + D1 固定**、`tracking.kiwamero.dev`。
-- ローカル SQLite + Prisma 7 は試作済み。本番接続は D1 向けに変更する。
+- DB 層は生 SQL + Kysely (2026-10-29 に Prisma から移行。workerd 上で D1 動作確認済み)。
 - 取得可能な公開プロフィールを誰でも閲覧できるようにする。
   非公開・未収録・API 制限は区別し、取得不可と表示する。
 - 初期言語はブラウザ設定。手動変更は cookie で維持する。
@@ -39,7 +39,7 @@ Next.js 16 のコード変更前には `kiwamero-tracking/node_modules/next/dist
   `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `OWNER_DISCORD_IDS`,
   `DATABASE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET` はすべて設定済み
   (値は非表示で確認のみ)。
-- 見本は `kiwamero-tracking/.env.example`。Git は `.env` と `prisma/*.db` を除外する。
+- 見本は `kiwamero-tracking/.env.example`。Git は `.env` と `*.db` を除外する。
 - HenrikDev キー: `https://api.henrikdev.xyz/dashboard/api-keys` で発行。
   Discord OAuth redirect: `http://localhost:3002/api/auth/callback/discord`。
 - 本番のシークレットは Cloudflare のシークレット/バインディングで別に設定する。
@@ -51,7 +51,7 @@ Next.js 16 のコード変更前には `kiwamero-tracking/node_modules/next/dist
 - **API 形状の実測** (`/valorant/v3/by-puuid/matches`): `players` は `{all_players, red, blue}` オブジェクト、プレイヤーのチームは `team: "Red"` (`team_id` ではない)、`teams.*.has_won`/`rounds_won`、ダメージは `damage_made`/`damage_received` トップレベル、`ability_casts` は `{c_cast,...}`、`metadata.map` は文字列。全て `src/lib/data.ts` で正規化済み。DM/hurm 等 FFA は `team`/`rounds_played` 無しを許容。
 - **誤データ除去**: `loadProfile` は成否つき `ProfileResult` を返す。404→not_found、401/403→private、429→rate_limited、その他→upstream。シードは `Meiy#B3L` 完全一致のみ。任意IDには「Profile unavailable」ページを表示 (検証済み)。
 - **認証・API セキュリティ**: `/api/keys` と `/api/valorant/*` プロキシは `hasOwnerAccess`/`ownerUserId` で所有者専用化 (匿名=403)。APIキーは `sha256:` ハッシュ保存・発行時のみ平文表示・DELETE で失効可。Bearer `kt_<64hex>` をハッシュ照合する経路を実測 (200)。
-- **Workers + D1 PoC 完了**: `@opennextjs/cloudflare@1.20.13` (Next 16.4対応)、`@prisma/adapter-d1@7.10.1`、wrangler 4.153。`wrangler.jsonc` の `DB` バインディング + `initOpenNextCloudflareForDev()` で `next dev` 内から Miniflare D1 を解決。`src/lib/prisma.ts` は遅延プロキシで D1/better-sqlite3 を自動切替。`prisma migrate diff` → `prisma/d1/schema.sql` → `wrangler d1 execute --local` で6テーブル作成済み。`[prisma] using D1 adapter` ログで実測確認。
+- **Workers + D1 PoC 完了**: `@opennextjs/cloudflare@1.20.13` (Next 16.4対応)、wrangler 4.153。`wrangler.jsonc` の `DB` バインディング + `initOpenNextCloudflareForDev()` で `next dev` 内から Miniflare D1 を解決。`src/lib/db.ts` の遅延バックエンドが D1/better-sqlite3 を自動切替 (生 SQL + Kysely)。スキーマは `db/schema.sql` → `wrangler d1 execute --local` で適用。
 - **検証**: `npx tsc --noEmit` 0、`npm run lint` 0、`npm run build` 成功 (全ルート ƒ)。
 
 ## UI parity の再現手順 (2026-10-27 追加)
@@ -95,17 +95,21 @@ tracker.gg の見た目に合わせ直した際の手順。次にUIを触ると�
    Worker `scheduled` (毎時)、Webhook 保存時の直近1試合通知、`game_start` による重複排除、
    システム全体100人上限、送信失敗時の再送。テストは `tests/watch-cycle.test.ts`。
    Node (`next dev`) では完走確認済み。Workers 実行は下記 3 の制約に依存。
-3. **Prisma 7 は workerd で動作しない**: `Wasm code generation disallowed by embedder`。
-   ページ表示は Worker で動くが、認証/監視/APIキーの DB 操作は Node 専用。
-   D1 ネイティブ or Drizzle への移行判断が必要 (`docs/system-architecture.md` の決定ゲート)。
+3. ~~**Prisma 7 は workerd で動作しない**~~ → **解消 (2026-10-29)**。ユーザー決定により
+   生 SQL + Kysely へ移行。`wrangler dev` + ローカル D1 で `/api/cron/watch` が完走
+   (seed 監視 → HenrikDev 実取得 → Webhook 404 → `webhookFailures:1`・カーソル未前進)。
+   better-auth の Kysely アダプタは `tests/db.test.ts` で実スキーマ検証済み。
 4. **UI の細部**: パーセンタイル (`Top 6.0%`) は母集団が無いため標本数表示。KAST /
    First Bloods / Flawless / Aces はラウンドデータ未取得で `-`。Premier Roster は
    データ源が無くカード非表示。tracker.gg 側の「Live Update トグル」「実広告」は独自要素で代替。
 5. ~~**テスト未整備**~~ → **追加済み**。`npm test` (34 件) で Webhook 検証・新着判定・
    監視サイクル・集計・正規化を網羅。`npm run check` で lint/typecheck/test/build を一括実行。
-6. **デプロイ未実施**: 本番 D1 の `database_id` 発行、`wrangler secret` 投入、
-   `tracking.kiwamero.dev` ルーティングはこれから。`npm run build:worker` と
-   `wrangler deploy --dry-run` は成功済み (gzip 3.3 MB で無料枠 3 MiB を僅かに超える点に注意)。
+6. ~~**デプロイ未実施**~~ → **初回デプロイ済み (2026-10-29)**。
+   `tracking.kiwamero.dev` で `/`・プロフィール・cron 認証まで実測 200。
+   Worker は gzip 約 1.69 MB で無料枠 3 MiB 内。手順・運用は `docs/deployment-guide.md`。
+   Discord Developer Portal の本番 callback は登録済み、`sign-in/social` が正しい
+   `redirect_uri` で認可 URL を返すことも確認。残は本人のログイン操作による最終疎通のみ。
+   `prisma/dev.db` は `next dev` が掴んでいて削除できないので、dev 再起動後に消す。
 7. ~~**README**~~ → 更新済み (セットアップ、スクリプト、監視通知、既知の制約)。
 
 ## 2026-10-28 時点の状態
@@ -114,7 +118,27 @@ tracker.gg の見た目に合わせ直した際の手順。次にUIを触ると�
   OpenNext バンドル、Worker 用 cron エントリ、Windows ビルド回避策。
 - 検証: `tsc` / `lint` / `test` / `next build` / `opennextjs-cloudflare build` /
   `wrangler deploy --dry-run` / `wrangler dev` でのページ表示 200。全ルート 200。
-- 未了: Discord OAuth の実ログイン、本番デプロイ、Prisma→D1 ネイティブ移行。
+- 未了: Discord OAuth の実ログイン (Developer Portal への本番 callback 登録が必要)。
+
+## 2026-10-29 追加 (API 消費削減)
+
+- `src/lib/henrik-client.ts` 新設: HenrikDev HTTP 層にレスポンスキャッシュ
+  (L1 in-process Map + L2 Cloudflare Cache API = colo 内 isolate 横断)、
+  in-flight dedupe、複数 API キーローテーション (`HENRIK_API_KEYS` カンマ区切り、
+  429 で 60s クールダウン→次キー)。エンドポイント別 TTL: account/mmr-history 10分、
+  matches/stored-matches 5分、mmr 3分。watch サイクルは `fresh` で常時新規取得。
+- 実測: 初回プロフィール ~5s → 以降タブ遷移 ~2s (upstream 呼び出し 0)。
+- 追加キーは `wrangler secret put HENRIK_API_KEYS` で投入 (4キー稼働中)。
+  単一 `HENRIK_API_KEY` も併用可。
+
+## 2026-10-29 障害と修正 (getCloudflareContext ハング)
+
+- 症状: `/`・`/watchlist` が断続的に ~42s ハング (tail: waitUntil canceled)。
+- 原因: `db.ts` の `getCloudflareContext({async:true})` が global 欠如時に
+  workerd 内で wrangler `getPlatformProxy` spawn を試み永久待機。
+- 修正: 同期 `getCloudflareContext()` + workerd 時は sqlite import スキップ +
+  backendPromise に 8s タイムアウト・失敗時リセット。再デプロイ済み、全ルート 200。
+- 詳細は `docs/system-architecture.md` の「本番インシデント」。
 
 ## PSTACK の利用方法
 

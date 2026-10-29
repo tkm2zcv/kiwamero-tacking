@@ -249,10 +249,14 @@ export interface EncounterStat {
   tier: number;
   tierPatched: string;
   playedWith: number; // matches on the same team
+  playedAgainst: number; // matches on the opposing team
   encounters: number; // matches in either team
   winsWith: number;
+  winsAgainst: number; // matches they won while opposing you
   kills: number;
   deaths: number;
+  killsAgainst: number;
+  deathsAgainst: number;
   winRate: number;
   kd: number;
   lastPlayedAt: number;
@@ -262,7 +266,10 @@ export interface EncounterStat {
 export function buildEncounters(matches: Match[], selfName: string, selfTag: string): EncounterStat[] {
   const acc = new Map<string, {
     name: string; tag: string; agent: string; tier: number; tierPatched: string;
-    with_: number; all: number; winsWith: number; kills: number; deaths: number; last: number; lastDay: string;
+    with_: number; against_: number; all: number;
+    winsWith: number; winsAgainst: number;
+    kills: number; deaths: number; killsAgainst: number; deathsAgainst: number;
+    last: number; lastDay: string;
   }>();
   const selfKey = `${selfName}#${selfTag}`.toLowerCase();
   for (const m of matches) {
@@ -277,7 +284,10 @@ export function buildEncounters(matches: Match[], selfName: string, selfTag: str
       const key = `${p.name}#${p.tag}`.toLowerCase();
       const e = acc.get(key) ?? {
         name: p.name, tag: p.tag, agent: p.character, tier: 0, tierPatched: "",
-        with_: 0, all: 0, winsWith: 0, kills: 0, deaths: 0, last: 0, lastDay: "",
+        with_: 0, against_: 0, all: 0,
+        winsWith: 0, winsAgainst: 0,
+        kills: 0, deaths: 0, killsAgainst: 0, deathsAgainst: 0,
+        last: 0, lastDay: "",
       };
       e.all++;
       if (self && p.team_id?.toLowerCase() === self.team_id?.toLowerCase()) {
@@ -285,6 +295,11 @@ export function buildEncounters(matches: Match[], selfName: string, selfTag: str
         if (selfWon) e.winsWith++;
         e.kills += p.stats?.kills ?? 0;
         e.deaths += p.stats?.deaths ?? 0;
+      } else if (self) {
+        e.against_++;
+        if (!selfWon) e.winsAgainst++;
+        e.killsAgainst += p.stats?.kills ?? 0;
+        e.deathsAgainst += p.stats?.deaths ?? 0;
       }
       if (started >= e.last) {
         e.last = started;
@@ -304,10 +319,14 @@ export function buildEncounters(matches: Match[], selfName: string, selfTag: str
       tier: e.tier,
       tierPatched: e.tierPatched,
       playedWith: e.with_,
+      playedAgainst: e.against_,
       encounters: e.all,
       winsWith: e.winsWith,
+      winsAgainst: e.winsAgainst,
       kills: e.kills,
       deaths: e.deaths,
+      killsAgainst: e.killsAgainst,
+      deathsAgainst: e.deathsAgainst,
       winRate: e.with_ ? (e.winsWith / e.with_) * 100 : 0,
       kd: e.deaths ? e.kills / e.deaths : e.kills,
       lastPlayedAt: e.last,

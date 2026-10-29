@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>tracker.gg VALORANT デザイン監査レポート — Kiwamero Tracking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Saira:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0F141A; --s1: #0f1923; --s2: #1b2733; --s3: #2c3f52;
+  --fg: #efefef; --fg2: #99ABBF; --fg3: #667280;
+  --action: #FF4655; --gold: #cbb765; --green: #5ee790; --red: #e4485d;
+  --blue: #3ecbff; --orange: #e89725; --accent: #BFBDB6;
+  --border: rgba(255,255,255,.08); --muted: rgba(255,255,255,.05);
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: Roboto, 'Segoe UI', 'Noto Sans JP', sans-serif; line-height: 1.7; margin: 0; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 40px 28px; }
+h1 { font-family: Saira, sans-serif; font-size: 30px; font-weight: 700; margin: 0 0 4px; }
+h2 { font-family: Saira, sans-serif; font-size: 19px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin: 56px 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); color: var(--fg); }
+h3 { font-size: 14px; font-weight: 700; margin: 26px 0 8px; color: var(--blue); }
+.sub { color: var(--fg2); font-size: 13px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; background: rgba(255,70,85,.14); color: var(--action); margin-left: 8px; vertical-align: 2px; }
+.badge.gray { background: var(--muted); color: var(--fg2); }
+.card { background: var(--s2); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin: 14px 0; }
+.card.tight { padding: 14px 16px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.grid4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+@media (max-width: 900px) { .grid2,.grid3,.grid4 { grid-template-columns: 1fr; } }
+table.doc { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.doc th { text-align: left; color: var(--fg3); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+table.doc td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: top; }
+table.doc td:first-child { color: var(--fg2); white-space: nowrap; }
+code { font-family: Consolas, monospace; font-size: 12px; background: var(--muted); padding: 1px 6px; border-radius: 4px; color: #d6d6d6; }
+.note { border-left: 3px solid var(--blue); background: rgba(62,203,255,.06); padding: 12px 16px; border-radius: 0 10px 10px 0; font-size: 13px; color: var(--fg2); margin: 14px 0; }
+.warn { border-left-color: var(--orange); background: rgba(232,151,37,.07); }
+ul { padding-left: 18px; font-size: 13px; color: var(--fg2); margin: 8px 0; }
+ul li { margin: 3px 0; }
+ul li b { color: var(--fg); }
+.cap { font-size: 11px; color: var(--fg3); margin-top: 8px; }
+.mono { font-family: Consolas, monospace; font-size: 12px; color: var(--fg2); }
+
+/* swatches */
+.swatches { display: grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap: 10px; }
+.sw { border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+.sw .c { height: 52px; }
+.sw .t { padding: 6px 9px; background: var(--s2); }
+.sw .t b { font-size: 11px; display: block; }
+.sw .t span { font-size: 10.5px; color: var(--fg3); font-family: Consolas, monospace; }
+
+/* typography specimen */
+.type { display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid var(--muted); padding: 10px 0; }
+.type .lbl { font-size: 11px; color: var(--fg3); width: 210px; flex: none; font-family: Consolas, monospace; }
+
+/* ==== real component replicas (scraped values) ==== */
+.stage { background: var(--bg); border: 1px dashed var(--border); border-radius: 12px; padding: 20px; margin: 12px 0; position: relative; }
+.stage .tagline { font-size: 10px; color: var(--fg3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; font-weight: 700; }
+
+/* v3-card replica */
+.v3-card { background: #0f1923; border: 1px solid rgba(255,255,255,.08); border-radius: 1rem; }
+.v3-card__header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; }
+.v3-card__title { font-family: Saira, sans-serif; font-size: 18px; font-weight: 500; text-transform: uppercase; color: var(--fg); }
+.v3-card__body { background: var(--s2); border-radius: 0 0 1rem 1rem; box-shadow: 0 8px 16px rgba(0,0,0,.25); }
+
+/* .st table replica (exact scraped values) */
+.st { --st-base-width: 8rem; --st-gap: .125rem; --st-min-width: 6rem; --st-row-height: 3.5rem; display: flex; flex-direction: column; gap: var(--st-gap); }
+.st-header { display: flex; min-width: min-content; }
+.st-header .st__item { min-width: max(var(--st-base-width), var(--st-min-width)); font-size: .75rem; color: var(--fg2); line-height: 1; padding: .5rem 1rem; display: flex; align-items: center; gap: .25rem; }
+.st-header .st__item--active { color: var(--fg); font-weight: 700; }
+.st-header .st__item--active::after { content: "▾"; color: var(--action); font-size: .65rem; }
+.st-header .st__item .w { color: var(--fg3); font-weight: 400; }
+.st-content__item { display: flex; min-width: min-content; height: var(--st-row-height); background: var(--s1); position: relative; }
+.st-content__category > .st-content__item:nth-child(4n+3) { background: var(--s2); }
+.st__item.st__item--sticky { position: sticky; left: 0; z-index: 3; background: inherit; }
+.st__item.st__item--wide { flex: 1 1 0%; }
+.st__item.st-content__item-value { min-width: max(var(--st-base-width), var(--st-min-width)); display: flex; align-items: center; gap: .5rem; padding: 0 1rem; background: inherit; }
+.st__item--expand { width: 2.5rem; flex: none; display: flex; align-items: center; justify-content: center; }
+.st__item--expand svg { width: 14px; fill: var(--fg3); }
+.st-content__item-value--highlight { color: var(--gold); font-weight: 700; }
+.info .value { font-weight: 500; }
+.agent-ico { width: 40px; height: 40px; border-radius: 6px; overflow: hidden; flex: none; }
+.agent-ico img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.agent-name { font-weight: 500; border-left: 3px solid var(--ag,#5ee790); padding-left: 8px; line-height: 1.15; }
+.agent-role { font-size: .6875rem; color: var(--fg2); border: none; }
+
+/* st-vpp */
+.st-vpp { --st-gap: 0; }
+.st-vpp .st-content__item { background: var(--s1); }
+.epi { min-width: 8rem; padding: 0 1rem; display: flex; align-items: center; font-weight: 600; color: var(--fg); }
+.epi.e1 { background: linear-gradient(to right, #648FFF66, transparent); }
+.epi.e2 { background: linear-gradient(to right, #DC267F66, transparent); }
+.epi.e3 { background: linear-gradient(to right, #FFB00066, transparent); }
+.lifetime-head { position: relative; display: flex; align-items: center; height: 5.5rem; padding: 0 1.5rem; background: linear-gradient(to right, #202b38, #1b2733); overflow: hidden; }
+.lifetime-head::before { content: "LIFETIME"; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-family: Saira; font-size: 4rem; font-weight: 600; color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,.06); letter-spacing: .02em; }
+.lifetime-head .lt { font-family: Saira; font-size: 1.25rem; font-weight: 600; text-transform: uppercase; }
+.lifetime-head .lt span { color: var(--fg3); font-weight: 400; margin-left: 8px; font-size: .85rem; }
+
+/* hero replica */
+.hero-wrap { position: relative; }
+.hero-ambient { position: absolute; inset: -20px 0 auto 0; height: 380px; background: url("https://imgsvc.trackercdn.com/url/max-width(2100),quality(70)/https%3A%2F%2Ftrackercdn.com%2Fcdn%2Ftracker.gg%2Fvalorant%2Fimages%2Fheroes%2Fhero-waylay.jpg/image.jpg") center/cover; filter: blur(20px); opacity: .35; }
+.hero-ambient::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, transparent, #0F141A); }
+.hero { position: relative; height: 320px; border-radius: 1rem; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
+.hero img.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 15%; }
+.hero .shade { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 45%, rgba(0,0,0,.85)); }
+.hero .ident { position: absolute; left: 24px; bottom: 14px; display: flex; align-items: flex-end; gap: 14px; }
+.hero .ava { width: 96px; height: 96px; border-radius: 50%; border: 4px solid var(--s2); position: relative; overflow: hidden; background: var(--s3); }
+.hero .ava img { width: 100%; height: 100%; object-fit: cover; }
+.hero .flag { position: absolute; right: -2px; bottom: 6px; width: 24px; height: 16px; border-radius: 3px; overflow: hidden; border: 1px solid rgba(0,0,0,.4); }
+.hero .flag img { width: 100%; height: 100%; display: block; }
+.hero .who { padding-bottom: 4px; }
+.hero .pub { font-size: 11px; color: var(--fg2); display: flex; gap: 5px; align-items: center; }
+.hero .nm { font-size: 32px; font-weight: 500; line-height: 1.1; }
+.hero .nm span { font-size: 12px; background: var(--s3); border-radius: 4px; padding: 2px 6px; margin-left: 6px; vertical-align: 4px; }
+.hero .tabs { position: absolute; left: 0; right: 0; bottom: 0; display: flex; height: 56px; align-items: stretch; padding: 0 24px; gap: 4px; }
+.hero .tab { display: flex; align-items: center; padding: 0 14px; font-size: 15px; font-weight: 500; color: var(--fg2); border-bottom: 3px solid transparent; }
+.hero .tab.on { color: var(--fg); border-bottom-color: var(--action); font-weight: 700; }
+
+/* giant stat tile */
+.giant-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 2px; }
+.stat.giant { position: relative; padding: 10px 14px 10px 22px; display: flex; align-items: center; gap: 12px; background: var(--s1); }
+.stat.giant .progress.vertical { position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: var(--s3); overflow: hidden; }
+.stat.giant .progress.vertical .fill { position: absolute; left: 0; right: 0; top: 0; height: 93%; background: var(--action); border-radius: 2px; }
+.stat.giant .name { font-size: .6875rem; color: var(--fg2); display: block; }
+.stat.giant .value { font-size: 1.125rem; font-weight: 700; }
+.stat.giant .rank { font-size: .625rem; color: var(--gold); }
+.stat.giant .more { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 12px; }
+.stat.giant .more svg { fill: var(--fg3); }
+
+/* encounters subgrid table */
+.enc-tbl { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--s1); border-radius: 1rem; overflow: hidden; display: block; }
+.enc-tbl thead { display: block; position: sticky; top: 0; }
+.enc-tbl th { background: var(--s3); color: var(--fg2); font-size: .75rem; font-weight: 500; text-align: left; padding: 8px 16px; }
+.enc-tbl td { padding: 8px 16px; border-top: 1px solid rgba(255,255,255,.04); }
+
+/* filters */
+.v3-filters { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 0 0; }
+.v3-filter { padding: 5px 12px; border-radius: 999px; font-size: 12px; color: var(--fg2); background: var(--s3); border: 1px solid transparent; }
+.v3-filter.on { color: var(--fg); border-color: var(--action); background: rgba(255,70,85,.12); }
+
+/* asset gallery */
+.assets { display: grid; grid-template-columns: repeat(auto-fill,minmax(96px,1fr)); gap: 12px; }
+.asset { text-align: center; }
+.asset .box { height: 96px; border-radius: 10px; background: var(--s1); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 6px; }
+.asset img { max-width: 100%; max-height: 100%; }
+.asset .n { font-size: 10.5px; color: var(--fg3); margin-top: 5px; word-break: break-all; }
+
+/* breakpoint bar */
+.bp { position: relative; height: 34px; background: var(--s1); border-radius: 8px; margin: 10px 0 4px; }
+.bp .tick { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--blue); }
+.bp .tick i { position: absolute; top: -16px; left: -14px; font-style: normal; font-size: 10px; color: var(--fg3); font-family: Consolas, monospace; white-space: nowrap; }
+footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 11px; color: var(--fg3); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<p class="sub" style="margin:0">KIWIAMERO.TRACKING — design audit</p>
+<h1>tracker.gg VALORANT プロフィール デザイン監査</h1>
+<p class="sub">Scrapling (StealthySession) で本番ページから抽出した実DOM・実CSS・実トークンの可視化レポート。<br>
+対象: <code>tracker.gg/valorant/profile/riot/Meiy#B3L</code> Overview / Matches / Performance / Agents / Maps / Encounters（PC・competitive・season 8102cd81）</p>
+
+<div class="note">
+このページのコンポーネント再現（モック）は、スクレイピングした本物のCSS値で描画しています。色・角丸・行高・フォントは全て実測値。画像は実際のCDNアセットを参照しています。
+</div>
+
+<!-- ============================= COLOR ============================= -->
+<h2>1. カラーシステム</h2>
+<h3>サーフェス & テキスト（レイヤー構造）</h3>
+<div class="swatches">
+  <div class="sw"><div class="c" style="background:#0F141A"></div><div class="t"><b>background</b><span>#0F141A</span></div></div>
+  <div class="sw"><div class="c" style="background:#0f1923"></div><div class="t"><b>surface-1 (行)</b><span>#0f1923</span></div></div>
+  <div class="sw"><div class="c" style="background:#1b2733"></div><div class="t"><b>surface-2 (カード)</b><span>#1b2733</span></div></div>
+  <div class="sw"><div class="c" style="background:#2c3f52"></div><div class="t"><b>surface-3 (見出し)</b><span>#2c3f52</span></div></div>
+  <div class="sw"><div class="c" style="background:#efefef"></div><div class="t"><b>text-primary</b><span>#efefef</span></div></div>
+  <div class="sw"><div class="c" style="background:#99ABBF"></div><div class="t"><b>text-secondary</b><span>#99ABBF</span></div></div>
+  <div class="sw"><div class="c" style="background:#667280"></div><div class="t"><b>text-tertiary</b><span>#667280</span></div></div>
+</div>
+<h3>意味カラー</h3>
+<div class="swatches">
+  <div class="sw"><div class="c" style="background:#FF4655"></div><div class="t"><b>action</b><span>#FF4655</span></div></div>
+  <div class="sw"><div class="c" style="background:#cbb765"></div><div class="t"><b>gold (最大値/RR)</b><span>#cbb765</span></div></div>
+  <div class="sw"><div class="c" style="background:#5ee790"></div><div class="t"><b>green (勝ち/正)</b><span>#5ee790</span></div></div>
+  <div class="sw"><div class="c" style="background:#e4485d"></div><div class="t"><b>red (負け/負)</b><span>#e4485d</span></div></div>
+  <div class="sw"><div class="c" style="background:#3ecbff"></div><div class="t"><b>blue (情報)</b><span>#3ecbff</span></div></div>
+  <div class="sw"><div class="c" style="background:#e89725"></div><div class="t"><b>orange (警告)</b><span>#e89725</span></div></div>
+  <div class="sw"><div class="c" style="background:#BFBDB6"></div><div class="t"><b>accent (無彩)</b><span>#BFBDB6</span></div></div>
+</div>
+<h3>ランク色（4段階バリエーション × 各ティア）＋ 勝敗リング</h3>
+<div class="swatches">
+  <div class="sw"><div class="c" style="background:#66605c"></div><div class="t"><b>iron</b><span>#66605c</span></div></div>
+  <div class="sw"><div class="c" style="background:#a86243"></div><div class="t"><b>bronze</b><span>#a86243</span></div></div>
+  <div class="sw"><div class="c" style="background:#cbb765"></div><div class="t"><b>gold tier</b><span>#cbb765</span></div></div>
+  <div class="sw"><div class="c" style="background:#3ecbff"></div><div class="t"><b>platinum</b><span>#3ecbff</span></div></div>
+  <div class="sw"><div class="c" style="background:#007e62"></div><div class="t"><b>win ring</b><span>#007e62</span></div></div>
+  <div class="sw"><div class="c" style="background:#952030"></div><div class="t"><b>loss ring</b><span>#952030</span></div></div>
+</div>
+<h3>エピソード色（Performanceテーブルの色帯）</h3>
+<div class="swatches">
+  <div class="sw"><div class="c" style="background:#648FFF"></div><div class="t"><b>episode 1</b><span>#648FFF</span></div></div>
+  <div class="sw"><div class="c" style="background:#DC267F"></div><div class="t"><b>episode 2</b><span>#DC267F</span></div></div>
+  <div class="sw"><div class="c" style="background:#FFB000"></div><div class="t"><b>episode 3</b><span>#FFB000</span></div></div>
+  <div class="sw"><div class="c" style="background:#FE6100"></div><div class="t"><b>episode 4</b><span>#FE6100</span></div></div>
+  <div class="sw"><div class="c" style="background:#785EF0"></div><div class="t"><b>episode 5</b><span>#785EF0</span></div></div>
+  <div class="sw"><div class="c" style="background:#29A634"></div><div class="t"><b>episode 6</b><span>#29A634</span></div></div>
+</div>
+<p class="cap">各色に <code>--color-rgb-*</code> 生RGB三つ組があり <code>rgb(var(--color-rgb-x)/.5)</code> で透明度を重ねる設計。計431変数を <code>x-overview-vars.json</code> に抽出済み。</p>
+
+<!-- ============================= TYPE ============================= -->
+<h2>2. タイポグラフィ</h2>
+<div class="card tight">
+  <div class="type"><span class="lbl">Saira 600 · 20px — カードタイトル</span><span style="font-family:Saira;font-size:20px;font-weight:600;text-transform:uppercase">V26: A5 Competitive Overview</span></div>
+  <div class="type"><span class="lbl">Saira 500 · 18px — v3-cardタイトル</span><span style="font-family:Saira;font-size:18px;font-weight:500;text-transform:uppercase">Top Agents</span></div>
+  <div class="type"><span class="lbl">Roboto 500 · 32px — プレイヤー名</span><span style="font-size:32px;font-weight:500">Meiy</span></div>
+  <div class="type"><span class="lbl">Roboto 700 · 18px — giant-stat値</span><span style="font-size:18px;font-weight:700">177.0 <span class="mono" style="font-size:10px;color:var(--gold)">Top 7.0%</span></span></div>
+  <div class="type"><span class="lbl">Roboto 400 · 15px — 本文/タブ</span><span style="font-size:15px">Performance — Agents — Maps</span></div>
+  <div class="type"><span class="lbl">Roboto 400 · 12px — テーブル見出し</span><span style="font-size:12px;color:var(--fg2)">Matches / Win % / K/D Ratio</span></div>
+  <div class="type"><span class="lbl">Saira 600 · 64px 透かし — LIFETIME</span><span style="font-family:Saira;font-size:64px;font-weight:600;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.14);line-height:1">LIFETIME</span></div>
+</div>
+<p class="cap">規則: <b>Saira=見出し・大型数字のみ</b> / <b>Roboto=それ以外全部</b>。タイトルは全てuppercase。</p>
+
+<!-- ============================= HERO ============================= -->
+<h2>3. ヒーロー（実アセットで再現）</h2>
+<div class="stage">
+  <div class="tagline">実構造: 背景層 = 同画像を blur(20px) opacity .35 + フェード / カード 320px + object-position center 15% + 下グラデーション + 56pxタブ帯</div>
+  <div class="hero-wrap">
+    <div class="hero-ambient"></div>
+    <div class="hero">
+      <img class="art" src="https://imgsvc.trackercdn.com/url/max-width(2100),quality(70)/https%3A%2F%2Ftrackercdn.com%2Fcdn%2Ftracker.gg%2Fvalorant%2Fimages%2Fheroes%2Fhero-waylay.jpg/image.jpg" alt="">
+      <div class="shade"></div>
+      <div class="ident">
+        <div class="ava"><img src="https://titles.trackercdn.com/valorant-api/playercards/4b8e7084-4df0-5f39-8c02-0e8035849195/displayicon.png" alt=""><div class="flag"><img src="https://trackercdn.com/cdn/flags/4x3/jp.svg" alt=""></div></div>
+        <div class="who"><div class="pub">◉ Public profile</div><div class="nm">Meiy<span>#B3L</span></div></div>
+      </div>
+      <div class="tabs"><div class="tab on" style="margin-left:auto;margin-right:auto">Overview</div><div class="tab">Matches</div><div class="tab">Performance</div><div class="tab">Agents</div><div class="tab">Maps</div><div class="tab">Encounters</div></div>
+    </div>
+  </div>
+  <p class="cap">画像 = <code>heroes/hero-{agent}.jpg</code>（現行アクトの最使用エージェント。プレイヤーカードではない）。アバターは playercards/<code>displayicon.png</code> 96px円 + 国旗badge。</p>
+</div>
+
+<!-- ============================= CARD ============================= -->
+<h2>4. v3-card（全ページ共通の容器）</h2>
+<div class="stage">
+  <div class="tagline">実測: radius 1rem / body surface-2 + shadow 0 8px 16px /25% / タイトル Saira 18px uppercase</div>
+  <div class="v3-card">
+    <div class="v3-card__header"><span class="v3-card__title">V26: A5 Competitive Overview</span><span class="mono" style="font-size:11px">6h Playtime // 59 Matches&nbsp;&nbsp;&nbsp;<span style="color:var(--action)">Show More</span></span></div>
+    <div class="v3-card__body" style="padding:0">
+      <div class="giant-stats">
+        <div class="stat giant"><div class="progress vertical"><div class="fill"></div></div><div><span class="name">Damage/Round</span><span class="value">177.0</span><div class="rank">Top 7.0%</div></div><span class="more"><svg viewBox="0 0 4 16"><path d="M2 12a2 2 0 1 1-2 2 2 2 0 0 1 2-2m0-6a2 2 0 1 1-2 2 2 2 0 0 1 2-2m0-6a2 2 0 1 1-2 2 2 2 0 0 1 2-2"/></svg></span></div>
+        <div class="stat giant"><div class="progress vertical"><div class="fill" style="height:78%"></div></div><div><span class="name">K/D Ratio</span><span class="value">1.35</span><div class="rank">Top 22%</div></div><span class="more"><svg viewBox="0 0 4 16"><path d="M2 12a2 2 0 1 1-2 2 2 2 0 0 1 2-2m0-6a2 2 0 1 1-2 2 2 2 0 0 1 2-2m0-6a2 2 0 1 1-2 2 2 2 0 0 1 2-2"/></svg></span></div>
+        <div class="stat giant"><div class="progress vertical"><div class="fill" style="height:64%"></div></div><div><span class="name">Headshot %</span><span class="value">24.1%</span><div class="rank">Top 36%</div></div><span class="more"><svg viewBox="0 0 4 16"><path d="M2 12a2 2 0 1 1-2 2 2 2 0 0 1 2-2m0-6a2 2 0 1 1-2 2 2 2 0 0 1 2-2m0-6a2 2 0 1 1-2 2 2 2 0 0 1 2-2"/></svg></span></div>
+        <div class="stat giant"><div class="progress vertical"><div class="fill" style="height:55%"></div></div><div><span class="name">Win %</span><span class="value">55.9%</span><div class="rank">Top 45%</div></div><span class="more"><svg viewBox="0 0 4 16"><path d="M2 12a2 2 0 1 1-2 2 2 2 0 0 1 2-2m0-6a2 2 0 1 1-2 2 2 2 0 0 1 2-2m0-6a2 2 0 1 1-2 2 2 2 0 0 1 2-2"/></svg></span></div>
+      </div>
+    </div>
+  </div>
+  <p class="cap">giant-statタイル = 左端に縦プログレスバー（赤）+ name/value + 金色「Top X%」ランクバッジ + ⋮ドロワー。サイドバー ~300px + 主カラムの2カラムレイアウト。</p>
+</div>
+
+<!-- ============================= ST TABLE ============================= -->
+<h2>5. .st テーブルシステム（Agents / Maps / Performance の骨格）</h2>
+<div class="stage">
+  <div class="tagline">実測: 行高 3.5rem / 列幅 --st-base-width 個別指定 / 先頭列 sticky+wide / 4n+3縞 / 金ハイライト / 行末expand ⋮ / hidden-desktop列</div>
+  <div class="st">
+    <div class="st-header">
+      <div class="st__item st__item--sticky st__item--wide" style="--st-base-width:9.5rem">Agent <span class="w">(sticky+wide)</span></div>
+      <div class="st__item" style="--st-base-width:8.5rem">Time Played</div>
+      <div class="st__item st__item--active" style="--st-base-width:6.5rem">Matches</div>
+      <div class="st__item" style="--st-base-width:8rem">Win %</div>
+      <div class="st__item" style="--st-base-width:6rem">K/D Ratio</div>
+      <div class="st__item" style="--st-base-width:7rem">ADR</div>
+      <div class="st__item" style="--st-base-width:7rem">ACS</div>
+      <div class="st__item" style="--st-base-width:5.5rem">DDΔ/Round</div>
+      <div class="st__item" style="width:2.5rem;min-width:0;padding:0"></div>
+    </div>
+    <div class="st-content"><div class="st-content__category">
+      <div class="st-content__item">
+        <div class="st__item st__item--sticky st__item--wide st-content__item-value" style="--st-base-width:9.5rem"><div class="agent-ico" style="--ag:#3ecbff"><img src="https://imgsvc.trackercdn.com/url/max-width(120),quality(66)/https%3A%2F%2Ftitles.trackercdn.com%2Fvalorant-api%2Fagents%2F0ab55394-8f30-088b-4a03-8b22a5c4a662%2Fdisplayicon.png/image.png" alt=""></div><div class="info"><div class="agent-name">Waylay<div class="agent-role">Duelist</div></div></div></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:8.5rem"><span class="info"><span class="value">-</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:6.5rem"><span class="info"><span class="value">27</span></span></div>
+        <div class="st__item st-content__item-value st-content__item-value--highlight" style="--st-base-width:8rem"><span class="info"><span class="value">55.6%</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:6rem"><span class="info"><span class="value">1.33</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:7rem"><span class="info"><span class="value">176.2</span></span></div>
+        <div class="st__item st-content__item-value st-content__item-value--highlight" style="--st-base-width:7rem"><span class="info"><span class="value">277.5</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:5.5rem"><span class="info"><span class="value">5.4</span></span></div>
+        <div class="st__item st__item--expand"><svg viewBox="0 0 4 16"><path d="M2 12a2 2 0 1 1-2 2 2 2 0 0 1 2-2m0-6a2 2 0 1 1-2 2 2 2 0 0 1 2-2m0-6a2 2 0 1 1-2 2 2 2 0 0 1 2-2"/></svg></div>
+      </div>
+      <div class="st-content__item">
+        <div class="st__item st__item--sticky st__item--wide st-content__item-value" style="--st-base-width:9.5rem"><div class="agent-ico"><img src="https://imgsvc.trackercdn.com/url/max-width(120),quality(66)/https%3A%2F%2Ftitles.trackercdn.com%2Fvalorant-api%2Fagents%2Fadd6443a-41bd-e414-f6ad-e58d267f4e95%2Fdisplayicon.png/image.png" alt=""></div><div class="info"><div class="agent-name" style="--ag:#d1e785">Jett<div class="agent-role">Duelist</div></div></div></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:8.5rem"><span class="info"><span class="value">-</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:6.5rem"><span class="info"><span class="value">4</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:8rem"><span class="info"><span class="value">50.0%</span></span></div>
+        <div class="st__item st-content__item-value st-content__item-value--highlight" style="--st-base-width:6rem"><span class="info"><span class="value">1.69</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:7rem"><span class="info"><span class="value">161.5</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:7rem"><span class="info"><span class="value">244.5</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:5.5rem"><span class="info"><span class="value">2.1</span></span></div>
+        <div class="st__item st__item--expand"><svg viewBox="0 0 4 16"><path d="M2 12a2 2 0 1 1-2 2 2 2 0 0 1 2-2m0-6a2 2 0 1 1-2 2 2 2 0 0 1 2-2m0-6a2 2 0 1 1-2 2 2 2 0 0 1 2-2m0-6a2 2 0 1 1-2 2 2 2 0 0 1 2-2"/></svg></div>
+      </div>
+    </div></div>
+  </div>
+  <div class="note" style="margin-top:12px">
+    <b>デスクトップ密度制御:</b> 参照は <code>hidden-desktop</code>（<code>min-width:1024px → display:none</code>）で副次列を隠す。Agentsは19列中10列、Mapsは15列中9列のみ表示。<b>幅吸収は <code>st__item--wide</code> の列だけ</b>（<code>flex:1 1 0%</code>）— Agents/Mapsは先頭sticky列、PerformanceはAct列。他は全て固定幅。
+  </div>
+</div>
+
+<!-- ============================= PERFORMANCE ============================= -->
+<h2>6. Performance（st-vpp + LIFETIME透かし + エピソード色帯）</h2>
+<div class="stage">
+  <div class="tagline">実測: ヘッダーに Saira 4rem "LIFETIME" 透かし（strokeのみ）/ Episode列 = episode色→surfaceの左グラデーション / Act列がwide+active</div>
+  <div class="lifetime-head"><span class="lt">Lifetime <span>V26: A6 Competitive · 59 matches</span></span></div>
+  <div class="st st-vpp">
+    <div class="st-content"><div class="st-content__category">
+      <div class="st-content__item">
+        <div class="epi e1" style="background:linear-gradient(to right,#648FFF33,var(--s1))">Season 2026</div>
+        <div class="st__item st-content__item-value st__item--wide st-header__item--active" style="--st-base-width:8rem;font-weight:700"><span class="info"><span class="value">V26: A6</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:10rem"><img src="https://trackercdn.com/cdn/tracker.gg/valorant/icons/tiersv2/27.png" style="width:40px;height:40px" alt=""><span class="info"><span class="value">Radiant<div class="mono" style="font-size:10px;color:var(--gold)">788 RR • #21</div></span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:6rem"><span class="info"><span class="value">36</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:6rem"><span class="info"><span class="value">61.0%</span></span></div>
+        <div class="st__item st-content__item-value st-content__item-value--highlight" style="--st-base-width:6rem"><span class="info"><span class="value">1.42</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:6rem"><span class="info"><span class="value">24%</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:7rem"><div class="agent-ico" style="width:28px;height:28px;background:#3ecbff44"><img src="https://imgsvc.trackercdn.com/url/max-width(120),quality(66)/https%3A%2F%2Ftitles.trackercdn.com%2Fvalorant-api%2Fagents%2F0ab55394-8f30-088b-4a03-8b22a5c4a662%2Fdisplayicon.png/image.png" alt=""></div><span class="info"><span class="value">Waylay</span></span></div>
+      </div>
+      <div class="st-content__item">
+        <div class="epi e2" style="background:linear-gradient(to right,#DC267F33,var(--s1))">Season 2025</div>
+        <div class="st__item st-content__item-value st__item--wide" style="--st-base-width:8rem"><span class="info"><span class="value">V25: A5</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:10rem"><img src="https://trackercdn.com/cdn/tracker.gg/valorant/icons/tiersv2/27.png" style="width:40px;height:40px;filter:grayscale(.2)" alt=""><span class="info"><span class="value">Radiant</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:6rem"><span class="info"><span class="value">40</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:6rem"><span class="info"><span class="value">55.0%</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:6rem"><span class="info"><span class="value">1.19</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:6rem"><span class="info"><span class="value">23%</span></span></div>
+        <div class="st__item st-content__item-value" style="--st-base-width:7rem"><div class="agent-ico" style="width:28px;height:28px;background:#d1e78544"><img src="https://imgsvc.trackercdn.com/url/max-width(120),quality(66)/https%3A%2F%2Ftitles.trackercdn.com%2Fvalorant-api%2Fagents%2Fadd6443a-41bd-e414-f6ad-e58d267f4e95%2Fdisplayicon.png/image.png" alt=""></div><span class="info"><span class="value">Jett</span></span></div>
+      </div>
+    </div></div>
+  </div>
+  <p class="cap">Peak Rating = tiersv2アイコン80px + 名前 + 金色 <code>788 RR • #21</code>（#順位はデータ欠如でKiwamero側は非表示）。Top Agentはエージェント色25%背景。</p>
+</div>
+
+<!-- ============================= ENCOUNTERS ============================= -->
+<h2>7. Encounters — 別系統テーブル</h2>
+<div class="stage">
+  <div class="tagline"><b>.st ではない</b> — <code>table { display:grid; grid-template-columns: repeat(7,minmax(max-content,auto)); grid-cols-subgrid }</code>、sticky thead = surface-3、先頭th = sticky left</div>
+  <div style="overflow-x:auto"><table class="enc-tbl" style="min-width:900px">
+    <thead><tr><th>Player</th><th>Played With</th><th>Player Rank</th><th>Player Win Rate</th><th>Player K/D</th><th>Player Matches</th><th>Last Encounter</th></tr></thead>
+    <tbody>
+      <tr><td>◎ <b>aspas#LOUD</b></td><td>3</td><td><img src="https://trackercdn.com/cdn/tracker.gg/valorant/icons/tiersv2/27.png" style="width:22px;vertical-align:-6px"> Radiant</td><td>66.7%</td><td>1.21</td><td>1,204</td><td>2 days ago</td></tr>
+      <tr><td>◎ <b>zekken#NA1</b></td><td>2</td><td><img src="https://trackercdn.com/cdn/tracker.gg/valorant/icons/tiersv2/24.png" style="width:22px;vertical-align:-6px"> Immortal 3</td><td>50.0%</td><td>0.98</td><td>982</td><td>4 days ago</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<!-- ============================= LAYOUT/BP ============================= -->
+<h2>8. レイアウト & ブレークポイント</h2>
+<div class="grid2">
+  <div class="card tight">
+    <h4 class="mono" style="margin:0 0 8px">骨格</h4>
+    <table class="doc">
+      <tr><td>コンテナ</td><td>~1392px 中央寄せ（padding 24px）</td></tr>
+      <tr><td>2カラム</td><td>サイドバー ~300px + 主 1fr / gap 24px</td></tr>
+      <tr><td>ヒーロー</td><td>カード 320px + ブラー層 496px / tabs 56px</td></tr>
+      <tr><td>角丸</td><td>カード 1rem / base 0.5rem / chip 0.25rem</td></tr>
+      <tr><td>影</td><td>card body 0 8px 16px /25% / hero 0 4px 12px /50%</td></tr>
+      <tr><td>.st行</td><td>3.5rem(&lt;1024pxは3rem) / gap .125rem</td></tr>
+    </table>
+  </div>
+  <div class="card tight">
+    <h4 class="mono" style="margin:0 0 8px">ブレークポイント（実メディアクエリ）</h4>
+    <div class="bp" style="margin-top:26px">
+      <div class="tick" style="left:16%"><i>640</i></div>
+      <div class="tick" style="left:33%"><i>864</i></div>
+      <div class="tick" style="left:51%;background:var(--action)"><i>1024 ← 主要</i></div>
+      <div class="tick" style="left:68%"><i>1300</i></div>
+      <div class="tick" style="left:80%;background:var(--green)"><i>1600</i></div>
+    </div>
+    <ul>
+      <li><b>1024px</b> = 最重要 — <code>hidden-desktop</code> がこれより上で列を隠す。行3rem・画像2rem・expand列消滅・値1.125rem化は<b>1024px未満</b>のみ</li>
+      <li><b>864px / 640px</b> = 細かいnowrap・expand最小幅</li>
+      <li><b>1600px</b> = ワイド時の余白調整</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================= ASSETS ============================= -->
+<h2>9. デザインアセット（実CDN URL）</h2>
+<div class="card tight">
+  <div class="assets">
+    <div class="asset"><div class="box"><img src="https://imgsvc.trackercdn.com/url/max-width(2100),quality(60)/https%3A%2F%2Ftrackercdn.com%2Fcdn%2Ftracker.gg%2Fvalorant%2Fimages%2Fheroes%2Fhero-waylay.jpg/image.jpg" alt=""></div><div class="n">heroes/hero-{agent}.jpg ×29</div></div>
+    <div class="asset"><div class="box"><img src="https://trackercdn.com/cdn/tracker.gg/valorant/icons/tiersv2/27.png" alt=""></div><div class="n">tiersv2/{tier}.png</div></div>
+    <div class="asset"><div class="box"><img src="https://titles.trackercdn.com/valorant-api/agents/0ab55394-8f30-088b-4a03-8b22a5c4a662/displayicon.png" alt=""></div><div class="n">agents/{uuid}/displayicon.png</div></div>
+    <div class="asset"><div class="box"><img src="https://titles.trackercdn.com/valorant-api/playercards/4b8e7084-4df0-5f39-8c02-0e8035849195/displayicon.png" alt=""></div><div class="n">playercards/{uuid}/displayicon.png</div></div>
+    <div class="asset"><div class="box"><img src="https://trackercdn.com/cdn/tracker.gg/valorant/db/maps/9.4/ascent.jpg" alt=""></div><div class="n">db/maps/{ver}/{map}.jpg</div></div>
+    <div class="asset"><div class="box"><img src="https://trackercdn.com/cdn/flags/4x3/jp.svg" alt=""></div><div class="n">flags/4x3/{cc}.svg</div></div>
+    <div class="asset"><div class="box"><img src="https://trackercdn.com/cdn/tracker.gg/img/tracker-score/trn-rating-1k.svg" alt=""></div><div class="n">tracker-score/trn-rating-*.svg</div></div>
+    <div class="asset"><div class="box"><img src="https://trackercdn.com/cdn/tracker.gg/valorant/premier/v2/zones/jpn.png" alt=""></div><div class="n">premier/v2/zones/{zone}.png</div></div>
+  </div>
+  <p class="cap">配信は <code>imgsvc.trackercdn.com/url/…</code> 経由でリサイズ（<code>max-width()</code> <code>quality()</code> <code>fit()</code>）。全一覧は <code>audit-assets.json</code>。</p>
+</div>
+
+<!-- ============================= PRINCIPLES ============================= -->
+<h2>10. デザイン原則（観測ルールまとめ）</h2>
+<div class="grid2">
+  <div class="card tight"><ul>
+    <li><b>層状サーフェス</b> — 背景→s1→s2→s3の4層。行は4n+3で縞模様。カード=radius16+1px線+影</li>
+    <li><b>フォント住み分け</b> — Saira=見出し/大数字のみ、Roboto=残り全て</li>
+    <li><b>色の意味論</b> — 赤=アクション・金=最大値/RR・緑=正・赤=負・secondary=ラベル</li>
+    <li><b>数値の行儀</b> — 数値列右寄せ・値は<code>.info&gt;.value</code>・単位/補助は<code>.small</code>金</li>
+  </ul></div>
+  <div class="card tight"><ul>
+    <li><b>密度制御</b> — デスクトップで副次列を畳む(hidden-desktop)、詳細は行末⋮ドロワーへ</li>
+    <li><b>しるし</b> — エピソード色帯・エージェント色25%チップ・W/Lリング・縦バー・透かし文字</li>
+    <li><b>sticky設計</b> — 先頭列固定+右グラデ影、encountersはthead+先頭th両方sticky</li>
+    <li><b>誠実さ</b> — データ無しは<code>-</code>で列幅を維持（幅は揃える）</li>
+  </ul></div>
+</div>
+
+<!-- ============================= MAP ============================= -->
+<h2>11. 実装マッピング（Kiwamero側との対応）</h2>
+<table class="doc">
+  <tr><th>参照要素</th><th>Kiwamero実装</th><th>状態</th></tr>
+  <tr><td>実ルール一式</td><td><code>src/app/trn-v3.css</code>（567+ルール・PC規定統一）</td><td><span class="ok">✓</span></td></tr>
+  <tr><td>.st Agents / Maps</td><td><code>agents-table.tsx</code> / <code>maps-table.tsx</code>（実列幅・hidden-desktop・expand）</td><td><span class="ok">✓</span></td></tr>
+  <tr><td>st-vpp Performance</td><td><code>performance-table.tsx</code>（LIFETIME透かし・色帯・`V26:A6`・`788 RR`）</td><td><span class="ok">✓</span></td></tr>
+  <tr><td>Encounters subgrid</td><td><code>encounters-table.tsx</code>（7列・実集計・プロフィールリンク）</td><td><span class="ok">✓</span></td></tr>
+  <tr><td>ヒーロー</td><td><code>hero.tsx</code> + `hero-{現アクト主エージェント}.jpg`</td><td><span class="ok">✓</span></td></tr>
+  <tr><td>BEST MATCHES 5件</td><td><code>best-matches-card.tsx</code>（trn-mini-row構造）</td><td><span class="ok">✓</span></td></tr>
+  <tr><td>ACTIVITY / TEAMMATES</td><td><code>activity-card.tsx</code> / <code>teammates-card.tsx</code></td><td><span class="ok">✓</span></td></tr>
+  <tr><td>giant-stat Top X%</td><td>データ源なし（HenrikDevにパーセンタイルなし）</td><td style="color:var(--orange)">—</td></tr>
+  <tr><td>TRS / #順位 / Playtime / KAST / A-D W/L</td><td>APIに存在しないため誠実に非表示</td><td style="color:var(--orange)">—</td></tr>
+  <tr><td>Premier Roster / Top Weapons / 広告</td><td>非対応（内部データ）</td><td style="color:var(--orange)">—</td></tr>
+  <tr><td>Weapons/Customs/Crosshairs/Lineups</td><td>明示的な空状態タブ</td><td><span class="ok">✓ 誠実</span></td></tr>
+</table>
+
+<footer>
+Extracted: 2026-10-29 · Scrapling StealthySession · source: tracker.gg VALORANT profile (Meiy#B3L) ·
+raw: <code>docs/research/capture/x-*.html|css|json, audit-*.json, ref-*.png</code> · md版: <code>docs/research/tracker-gg-design-audit.md</code>
+</footer>
+</div>
+</body>
+</html>

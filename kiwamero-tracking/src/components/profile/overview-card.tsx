@@ -34,55 +34,6 @@ function Donut({ wins, losses }: { wins: number; losses: number }) {
   );
 }
 
-function RankChart({ matches, puuid, icon }: { matches: Match[]; puuid: string; icon: string }) {
-  const values = matches
-    .slice()
-    .reverse()
-    .map((m) => {
-      const me = m.players.find((p) => p.puuid === puuid);
-      if (!me) return 0;
-      return me.stats.score / Math.max(1, m.metadata.rounds_played);
-    })
-    .filter((v) => v > 0)
-    .slice(-20);
-  if (values.length < 2) return null;
-
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  const w = 600;
-  const h = 96;
-  const pts = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * w;
-    const y = h - 14 - ((v - min) / span) * (h - 34);
-    return [x, y] as const;
-  });
-  const line = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const area = `M${pts[0][0]},${h} L${line.replace(/ /g, " L")} L${pts[pts.length - 1][0]},${h} Z`;
-  const marks = [0, Math.floor(pts.length / 2), pts.length - 1];
-  return (
-    <div className="kt-rank-chart" aria-hidden="true">
-      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
-        <path d={area} fill="rgba(255,255,255,0.10)" stroke="none" />
-        <polyline points={line} fill="none" stroke="#cfd6da" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-      </svg>
-      {marks.map((i) => (
-        <Image
-          key={i}
-          src={icon}
-          alt=""
-          width={30}
-          height={30}
-          style={{
-            left: `${(pts[i][0] / w) * 100}%`,
-            top: `${(pts[i][1] / h) * 100}%`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 function Tile({ label, value, sub, gold }: { label: string; value: string; sub: string; gold?: boolean }) {
   return (
     <div className="kt-tile">
@@ -99,21 +50,6 @@ function Tile({ label, value, sub, gold }: { label: string; value: string; sub: 
         <i />
         <i />
       </span>
-    </div>
-  );
-}
-
-function MiniStat({ label, value, sub }: { label: string; value: string; sub: string }) {
-  return (
-    <div className="kt-main-stat">
-      <span className="kt-bar">
-        <i />
-      </span>
-      <div className="kt-main-stat-body">
-        <span className="kt-tile-name">{label}</span>
-        <span className="kt-tile-value">{value}</span>
-        <span className="kt-tile-rank">{sub}</span>
-      </div>
     </div>
   );
 }
@@ -181,7 +117,6 @@ export function OverviewCard({
                 <Donut wins={donutWins} losses={donutLosses} />
               </div>
             </div>
-            <RankChart matches={matches} puuid={profile.puuid} icon={tierIcon(profile.currentTier || 0)} />
           </div>
         </div>
 
@@ -190,17 +125,6 @@ export function OverviewCard({
           <Tile label="K/D Ratio" value={s.kd.toFixed(2)} sub={sample} gold={s.kd >= 1.2} />
           <Tile label="Headshot %" value={`${s.hs.toFixed(1)}%`} sub={sample} />
           <Tile label="Win %" value={`${s.winRate.toFixed(1)}%`} sub={sample} />
-        </div>
-
-        <div className="kt-main-stats">
-          <MiniStat label="Wins" value={String(s.wins)} sub={sample} />
-          <MiniStat label="DDΔ/Round" value={s.ddPerRound.toFixed(0)} sub={sample} />
-          <MiniStat label="Kills" value={s.kills.toLocaleString("en-US")} sub={sample} />
-          <MiniStat label="Deaths" value={s.deaths.toLocaleString("en-US")} sub={sample} />
-          <MiniStat label="Assists" value={s.assists.toLocaleString("en-US")} sub={sample} />
-          <MiniStat label="ACS" value={s.acs.toFixed(1)} sub={sample} />
-          <MiniStat label="KAD Ratio" value={s.kad.toFixed(2)} sub={sample} />
-          <MiniStat label="Kills/Round" value={s.killsPerRound.toFixed(2)} sub={sample} />
         </div>
       </div>
     </section>

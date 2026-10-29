@@ -20,7 +20,9 @@ const en = {
     performance: "Performance",
     agents: "Agents",
     maps: "Maps",
-    diagnosis: "Diagnosis",
+    encounters: "Encounters",
+    assessment: "Account Audit",
+    diagnosis: "Smurf Diagnosis",
   },
   stats: {
     level: "Level",
@@ -149,7 +151,9 @@ const ja: Dict = {
     performance: "パフォーマンス",
     agents: "エージェント",
     maps: "マップ",
-    diagnosis: "診断",
+    encounters: "遭遇",
+    assessment: "アカウント査定",
+    diagnosis: "スマーフ診断",
   },
   stats: {
     level: "レベル",

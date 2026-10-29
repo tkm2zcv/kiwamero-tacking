@@ -20,6 +20,11 @@
   --color-valorant-team-2: #ff4655;
   --color-tier-s: #3ecbff;
   --color-discord: #5865f2;
+  --color-gold: #cbb765;
+  --color-gold-1: #fde59c;
+  --color-gold-2: #b6a05f;
+  --color-gold-3: #925829;
+  --color-gold-4: #fedc45;
   --border-radius: 0.5rem;
   --game-bar-height: 2.5rem;
 }
@@ -29,7 +34,7 @@ body {
   background: var(--color-background);
   color: var(--color-text-primary);
   font-family: var(--font-roboto), sans-serif;
-  font-size: 15px;
+  font-size: 16px;
   min-height: 100vh;
 }
 

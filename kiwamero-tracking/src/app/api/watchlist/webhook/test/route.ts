@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { queryOne } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,10 @@ export async function POST(req: NextRequest) {
   const uid = session?.user?.id;
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const user = await prisma.user.findUnique({ where: { id: uid }, select: { webhookUrl: true } });
+  const user = await queryOne<{ webhookUrl: string | null }>(
+    `SELECT "webhookUrl" FROM "User" WHERE "id" = ?`,
+    [uid],
+  );
   if (!user?.webhookUrl) {
     return NextResponse.json({ error: "no_webhook", message: "Save a webhook URL first." }, { status: 400 });
   }

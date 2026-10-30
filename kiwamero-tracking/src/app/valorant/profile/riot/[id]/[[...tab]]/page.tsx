@@ -304,11 +304,26 @@ async function ProfileContent({
   // matches in the selected act — HenrikDev's stored endpoint carries no
   // rosters, so each uncovered match needs one /v2/match/{id} call. Details
   // are immutable and cached 24h, so repeat visits are cheap; fetches run in
-  // parallel batches and individual failures are skipped.
+  // parallel batches and individual failures are skipped. `season=all` limits
+  // the first-visit scope to the two most recent acts — older encounters are
+  // rarer and a cold visit shouldn't burn the upstream quota on them.
   let encounterMatches: Match[] = visibleMatches;
+  let encounterRows = storedScoped;
   let encounterCovered = 0;
   if (activeTab === "encounters") {
-    const uncovered = selectUncoveredMatchIds(storedScoped, recentIds, ENCOUNTER_DETAIL_CAP);
+    if (act === "all") {
+      const latestByAct = new Map<string, number>();
+      for (const r of storedScoped) {
+        if (r.seasonId) {
+          latestByAct.set(r.seasonId, Math.max(latestByAct.get(r.seasonId) ?? 0, r.startedAt));
+        }
+      }
+      const keep = new Set(
+        [...latestByAct.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([s]) => s),
+      );
+      encounterRows = storedScoped.filter((r) => r.seasonId && keep.has(r.seasonId));
+    }
+    const uncovered = selectUncoveredMatchIds(encounterRows, recentIds, ENCOUNTER_DETAIL_CAP);
     const fetched: Match[] = [];
     for (let i = 0; i < uncovered.length; i += 10) {
       const batch = await Promise.allSettled(
@@ -318,7 +333,7 @@ async function ProfileContent({
       }
     }
     encounterMatches = [...visibleMatches, ...fetched];
-    encounterCovered = Math.min(storedScoped.length, visibleMatches.length + fetched.length);
+    encounterCovered = Math.min(encounterRows.length, visibleMatches.length + fetched.length);
   }
 
   const main = (() => {
@@ -368,10 +383,12 @@ async function ProfileContent({
           profileFilterHref(basePath, "encounters", playlist, act, p);
         return (
           <>
-            {encounterCovered < storedScoped.length ? (
+            {act === "all" || encounterCovered < encounterRows.length ? (
               <p className="text-secondary text-13" style={{ padding: "4px 2px" }}>
-                Encounters computed from {encounterCovered} of {storedScoped.length} matches in this act
-                (newest first — details load progressively as you revisit).
+                Encounters computed from {encounterCovered} of {encounterRows.length} matches
+                {act === "all"
+                  ? " in the two latest acts — pick a specific act for older encounters"
+                  : " in this act (newest first — details load progressively as you revisit)"}.
               </p>
             ) : null}
             <EncountersTable

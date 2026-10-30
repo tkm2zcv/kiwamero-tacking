@@ -20,6 +20,13 @@
   → "116 of 664" with cached carry-over.
 - Tests: `selectUncoveredMatchIds` covers recent-dedup, newest-first order,
   cap, and missing-id skips (85 total passing).
+- Follow-up (Version 9f1ec16f): `season=all` now scopes detail fetches to the
+  **two most recent acts** (picked by latest `startedAt` per `seasonId`)
+  instead of the whole history — a cold visit no longer burns the upstream
+  quota on old encounters. Specific-act selections still fetch that whole
+  act. The coverage note for `all` reads "the two latest acts — pick a
+  specific act for older encounters". Verified on production:
+  `season=all&playlist=all` → "92 of 419" (was "of 664").
 
 ## 2026-10-30 — Server-country chip on match rows (deployed)
 

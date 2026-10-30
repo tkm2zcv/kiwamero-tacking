@@ -1,5 +1,32 @@
 # Project Changelog
 
+## 2026-10-30 — Account Audit & Smurf Diagnosis implemented for real
+
+- Both tabs were stubs (audit = facts table, diagnosis always empty). They now
+  share one `AccountReport` computed server-side, reproducing the report
+  structure observed on the reference site (`docs/research/extracted-initial-audit.json`).
+- New libs: `report-model.ts` (shapes), `report-evidence.ts` (cluster stats,
+  lifetime genealogy, early-vs-recent comparison, per-act history from
+  stored rows), `audit-score.ts` (アカウント査定: 0-100 ownership-change
+  score, grade S/A/B/C, breakdown rank/server/performance/activity, signals),
+  `rank-benchmarks.ts` (per-band×role mean/p95 heuristics), `lobby-analysis.ts`
+  (competitive roster sampling, band z-scores, opponent tier distribution,
+  precision-weighted MLE true-rank estimate with 90% CI), `smurf-verdict.ts`
+  (smurf/alt/cheat scores + verdict label + benchmark comparison).
+- Roster coverage: the page fetches `/v2/match/{id}` for up to 50 uncovered
+  competitive stored rows (`REPORT_DETAIL_CAP`, batches of 10, 24h-cached)
+  plus the recent v3 set; audit evidence itself is always lifetime stored
+  history and needs no details.
+- Cluster names now normalize the "City N" shard suffix (`normalizeCluster` in
+  henrikdev.ts) so "Tokyo 1" counts as Tokyo — fixes false server-relocation
+  signals in the audit and gives "Tokyo 1" match rows the flag chip.
+- `StoredRow` gained `selfName`/`selfTag`/`level` for rename detection.
+- Verified locally on real data (Meiy#B3L, ashrielle#4sh) in EN+JA: Meiy →
+  audit 0/C "almost none", verdict Fair player, est. Radiant (high);
+  ashrielle → Sentinel baseline detected, est. Silver 2 vs Silver 3 rank.
+- `npm run check` green — 91 tests incl. `tests/account-report.test.ts`
+  (clean/smurf/flip/rename/insufficient/history cases).
+
 ## 2026-10-30 — Encounters across every act via on-demand match details (deployed)
 
 - The encounters tab previously only counted the recent v3 matches

@@ -1,5 +1,5 @@
 import type { Match, MatchPlayer } from "./types";
-import type { HDMatch, HDMatchPlayer } from "./henrikdev";
+import { normalizeCluster, type HDMatch, type HDMatchPlayer } from "./henrikdev.ts";
 
 /** v3 returns `{ all_players, red, blue }`; some endpoints return a flat array. */
 export function hdMatchPlayers(m: Pick<HDMatch, "players">): HDMatchPlayer[] {
@@ -32,7 +32,7 @@ export function normalizeHDMatch(m: HDMatch): Match {
       platform: m.metadata.platform,
       matchid: m.metadata.matchid,
       region: m.metadata.region,
-      cluster: m.metadata.cluster,
+      cluster: normalizeCluster(m.metadata.cluster),
     },
     teams: {
       red: {

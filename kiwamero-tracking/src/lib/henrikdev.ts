@@ -24,6 +24,15 @@ export function playerCardArt(cardId: string, variant: "wideart" | "largeart" | 
   return `https://media.valorant-api.com/playercards/${cardId}/${variant}.png`;
 }
 
+/**
+ * HenrikDev reports clusters as "City" or "City N" shard variants
+ * ("Tokyo 1" vs "Tokyo") — same physical location, so collapse the suffix
+ * for display, flag lookup, and relocation detection.
+ */
+export function normalizeCluster(cluster: string | null | undefined): string {
+  return (cluster ?? "").replace(/\s+\d+$/, "");
+}
+
 // HTTP layer (cache, in-flight dedupe, key rotation) lives in henrik-client.ts.
 // TTLs below keep every tab/page re-render free of upstream calls within the
 // window; `fresh` bypasses for callers that need the newest data (watch cycle).

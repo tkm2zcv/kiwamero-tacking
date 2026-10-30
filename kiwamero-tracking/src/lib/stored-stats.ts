@@ -1,4 +1,4 @@
-import type { HDStoredMatch } from "./henrikdev";
+import { normalizeCluster, type HDStoredMatch } from "./henrikdev.ts";
 import type { Match } from "./types";
 
 /** One stored match, normalized for aggregation. */
@@ -28,6 +28,11 @@ export interface StoredRow {
   rounds: number;
   result: "win" | "loss" | "draw";
   cluster: string;
+  /** Riot ID shown on this stored match — changes across history flag renames. */
+  selfName: string;
+  selfTag: string;
+  /** Account level at match time (0 when the endpoint omits it). */
+  level: number;
 }
 
 export function normalizeStoredMatch(m: HDStoredMatch): StoredRow {
@@ -62,7 +67,10 @@ export function normalizeStoredMatch(m: HDStoredMatch): StoredRow {
     lost: opp,
     rounds: won + lost,
     result: own === opp ? "draw" : own > opp ? "win" : "loss",
-    cluster: m.meta.cluster ?? "",
+    cluster: normalizeCluster(m.meta.cluster),
+    selfName: m.stats.name ?? "",
+    selfTag: m.stats.tag ?? "",
+    level: m.stats.level ?? 0,
   };
 }
 

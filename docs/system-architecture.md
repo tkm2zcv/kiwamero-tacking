@@ -8,6 +8,9 @@
   recent matches, stored matches, rating and rating history in parallel. Failures
   remain typed unavailable states; a history/rating 404 alone means no records.
 - Account Audit reports recent-sample statistics, not lifetime statistics.
+  → Superseded (2026-10-30): both audit/diagnosis tabs render a shared
+  `AccountReport` (`account-report.ts`) — lifetime stored evidence plus a
+  capped roster sample (`REPORT_DETAIL_CAP = 50`) for lobby reads.
 - `profile-filters.ts` supplies the same Act predicate to recent rosters and
   stored rows; Encounters preserves Act/Played Against query state.
 - Watchlist admission uses one conditional INSERT/UPSERT with the distinct-player

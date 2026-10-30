@@ -1,5 +1,19 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 2026-10-30 アカウント査定・スマーフ診断 本実装
+
+- `AccountReport` (`src/lib/account-report.ts`) が両タブを駆動:
+  査定=履歴の交代兆候スコア (S/A/B/C 等級)、診断=ロビー内実力の
+  スマーフ/サブ垢/チートスコア + MLE 推定実力ランク (90% CI)。
+- 分解済み: `report-model`/`report-evidence`/`audit-score`/`rank-benchmarks`/
+  `lobby-analysis`/`smurf-verdict`。参照実測値は
+  `docs/research/extracted-initial-audit.json` (旧サイト RSC 抽出)。
+- ロビー標本は保存試合の competitive 行を最大50件 `/v2/match/{id}` で
+  補完 (`REPORT_DETAIL_CAP`、24h キャッシュ)。査定エビデンスは生涯行のみ。
+- `normalizeCluster` で "Tokyo 1" 系シャード接尾辞を正規化 (誤移動検知の修正)。
+- 実測確認: Meiy→0/C/NATURAL/Radiant推定、ashrielle→Sentinel基準/Silver2推定。
+  91 tests + lint/typecheck/build 全緑。未デプロイ (コミットのみ)。
+
 新規アプリ: `kiwamero-tracking/` (親の旧アプリは別物)。
 **本格実装は次セッション**。先に
 `docs/project-overview-pdr.md`、`docs/system-architecture.md`、

@@ -20,7 +20,8 @@ import {
   storedRowToMatch,
   type SeasonStat,
 } from "@/lib/stored-stats";
-import { getDict } from "@/lib/i18n/server";
+import { getDict, getLocale } from "@/lib/i18n/server";
+import { buildAccountReport } from "@/lib/account-report";
 import { ProfileHero, type ProfileTab } from "@/components/profile/hero";
 import { FiltersBar } from "@/components/profile/filters-bar";
 import { OverviewCard } from "@/components/profile/overview-card";
@@ -41,6 +42,8 @@ import { headers } from "next/headers";
 
 /** Max per-match detail fetches for one encounters render (immutable, 24h-cached upstream). */
 const ENCOUNTER_DETAIL_CAP = 150;
+/** Max roster detail fetches for one audit/diagnosis render. */
+const REPORT_DETAIL_CAP = 50;
 
 const VALID_TABS = new Set([
   "overview", "matches", "performance", "agents", "maps",
@@ -130,7 +133,7 @@ async function ProfileContent({
     );
   }
 
-  const { profile, summary, topAgents, seasons, matches, diagnosis, teammates, capturedAt, source } = result.bundle;
+  const { profile, summary, topAgents, seasons, matches, teammates, capturedAt, source } = result.bundle;
   const banner = profile.cardId ? playerCardArt(profile.cardId, "wideart") : null;
   const cardArt = profile.cardId ? playerCardArt(profile.cardId, "smallart") : null;
 
@@ -336,6 +339,29 @@ async function ProfileContent({
     encounterCovered = Math.min(encounterRows.length, visibleMatches.length + fetched.length);
   }
 
+  // Account audit & smurf diagnosis share one report: lifetime stored rows for
+  // trajectory/cluster/rename evidence plus a capped sample of full rosters for
+  // lobby analysis (opponent tiers are only in per-match details).
+  let accountReport: ReturnType<typeof buildAccountReport> | null = null;
+  if (activeTab === "assessment" || activeTab === "diagnosis") {
+    const compScoped = storedScoped.filter((r) => /competitive/i.test(r.mode));
+    const uncovered = selectUncoveredMatchIds(compScoped, recentIds, REPORT_DETAIL_CAP);
+    const fetched: Match[] = [];
+    for (let i = 0; i < uncovered.length; i += 10) {
+      const batch = await Promise.allSettled(
+        uncovered.slice(i, i + 10).map((id) => getMatch(id)));
+      for (const res of batch) {
+        if (res.status === "fulfilled") fetched.push(normalizeHDMatch(res.value));
+      }
+    }
+    accountReport = buildAccountReport({
+      profile, seasons, storedAll,
+      rosterMatches: [...visibleMatches, ...fetched],
+      locale: await getLocale(),
+      generatedAt: capturedAt,
+    });
+  }
+
   const main = (() => {
     switch (activeTab) {
       case "matches": {
@@ -403,9 +429,11 @@ async function ProfileContent({
         );
       }
       case "assessment":
-        return <AccountAudit profile={profile} seasons={seasons} summary={summary} capturedAt={capturedAt} />;
+        return accountReport
+          ? <AccountAudit profile={profile} summary={summary} capturedAt={capturedAt} report={accountReport} />
+          : null;
       case "diagnosis":
-        return <DiagnosisPanel diagnosis={diagnosis} />;
+        return accountReport ? <DiagnosisPanel report={accountReport} /> : null;
       case "share":
         return (
           <ShareCard

@@ -216,8 +216,14 @@ async function ProfileContent({
   // serialized payload stays bounded to one page of rows.
   const MATCH_PAGE_SIZE = 20;
   const recentIds = new Set(visibleMatches.map((m) => m.metadata.matchid));
+  // v3 sometimes returns cluster:null where stored history has the real server —
+  // borrow it so the server chip shows on recent rows too.
+  const clusterById = new Map(storedAll.map((r) => [r.id, r.cluster] as const));
   const allMatches = [
-    ...visibleMatches,
+    ...visibleMatches.map((m) =>
+      !m.metadata.cluster && clusterById.get(m.metadata.matchid)
+        ? { ...m, metadata: { ...m.metadata, cluster: clusterById.get(m.metadata.matchid)! } }
+        : m),
     ...storedScoped
       .filter((r) => r.id && !recentIds.has(r.id))
       .map((r) => storedRowToMatch(r, { puuid: profile.puuid, name: profile.name, tag: profile.tag })),

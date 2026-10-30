@@ -257,6 +257,9 @@ label:not(.description):not(.v3-button) {color: var(--color-text-primary); font-
 .v3-chip--gapless {gap: 0px;}
 .v3-chip--sized {padding: 0px;}
 .v3-chip--sm {font-size: 0.625rem; font-weight: 500; height: 1rem; padding-left: 0.25rem; padding-right: 0.25rem;}
+/* Server-country flag inside a chip — keep it fully contained (the generic
+   .v3-chip img rule would force a 1rem square with negative margins). */
+.v3-chip .v3-flag {display: block; height: 0.625rem; margin: 0; object-fit: contain; border-radius: 1px; width: auto;}
 .v3-chip--sm .v3-icon, .v3-chip--sm svg {height: 1rem; margin-left: -0.125rem;}
 .v3-filter {align-items: center; border-color: transparent; border-radius: 0.25rem; border-width: 1px; display: inline-flex; flex-shrink: 0; gap: 0.25rem; height: 2rem; justify-content: center; --tw-bg-opacity: 1; background-color: rgb(var(--color-rgb-action)/var(--tw-bg-opacity,1)); padding-left: 0.75rem; padding-right: 0.75rem; --tw-text-opacity: 1; color: rgb(var(--color-rgb-action-contrast)/var(--tw-text-opacity,1)); cursor: pointer; font-size: 0.875rem; font-weight: 500; transition-duration: 0.15s; transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 1, 1); user-select: none;}
 .v3-filter--gold {--tw-border-opacity: 1; border-color: rgb(253 229 156/var(--tw-border-opacity,1)); --tw-text-opacity: 1; background-image: linear-gradient(105deg,var(--color-gold-1) 16.69%,var(--color-gold-2) 37.51%,var(--color-gold-3) 61.36%,var(--color-gold-4) 83.87%); color: rgb(0 0 0/var(--tw-text-opacity,1));}
@@ -652,6 +655,8 @@ label:not(.description):not(.v3-button) {color: var(--color-text-primary); font-
 .v3-mrows {display: grid; grid-template-columns: minmax(max-content, auto) min-content minmax(max-content, auto) min-content fit-content(16ch) repeat(2, minmax(max-content, auto)) repeat(4, min-content) minmax(max-content, auto); column-gap: 1rem; row-gap: 1rem; align-items: start;}
 .v3-mday {display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; column-gap: 1rem; row-gap: 0.5rem;}
 .v3-mday-head {display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; line-height: 1; margin-top: -0.25rem;}
+/* Keep the head's trailing stat a touch inside the card's right edge. */
+.v3-mday-head > :last-child {margin-right: 0.75rem;}
 .v3-match-row {column-gap: 1rem; row-gap: 0.5rem; padding: 0.5rem 0.5rem 0.5rem 1rem;}
 .v3-mrow-drawer {grid-column: 1 / -1;}
 .text-12 {font-size: 0.75rem;}

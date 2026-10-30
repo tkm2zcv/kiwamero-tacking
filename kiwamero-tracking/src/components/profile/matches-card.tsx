@@ -571,7 +571,7 @@ function ServerChip({ cluster }: { cluster: string }) {
     <span className="v3-chip v3-chip--sm inline-flex items-center gap-1 text-secondary" title={`Server: ${cluster}`}>
       {cc ? (
         // eslint-disable-next-line @next/next/no-img-element -- flagcdn has no config entry; plain img keeps it simple
-        <img src={`https://flagcdn.com/w20/${cc}.png`} alt={cluster} width={14} height={10} className="rounded-[1px]" loading="lazy" />
+        <img src={`https://flagcdn.com/w20/${cc}.png`} alt={cluster} width={14} height={10} className="v3-flag" loading="lazy" />
       ) : null}
       {cluster}
     </span>

@@ -18,6 +18,14 @@
   not toggle the drawer).
 - Verified on production (Version e452aa93): Tokyo chip, datetime format,
   tracker.gg links all live on recent and stored rows alike.
+- Polish (Version e381f569): flag images are contained in the chip via a
+  `.v3-flag` class — the generic `.v3-chip img` rule forced a 1rem square with
+  negative margins that overflowed the chip. The day-header's trailing ACS
+  stat is inset `0.75rem` from the card's right edge.
+- Fix (Version cb198cff): HenrikDev v3 sometimes returns `cluster: null` for
+  matches whose stored-history row has the real server (seen on ashrielle#4sh,
+  a multi-cluster player). The list merge now back-fills an empty v3 cluster
+  from the stored row of the same match so the chip shows there too.
 
 ## 2026-10-30 — On-expand full scoreboard + 20/page + tracker.gg parity columns (deployed)
 

@@ -19,6 +19,7 @@ const eslintConfig = defineConfig([
     ".wrangler-config/**",
     ".d1-local/**",
     ".tmp/**",
+    ".build-tmp/**",
     "src/generated/**",
     // Standalone node scripts (CommonJS/ESM tooling, not app code):
     "tools/**",

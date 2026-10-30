@@ -1,5 +1,48 @@
 # Project Changelog
 
+## 2026-10-30 — Server-country chip on match rows (deployed)
+
+- Match rows and the expanded match header now show the VALORANT server
+  (`metadata.cluster`) as flag + city name next to the placement badge —
+  e.g. 🇯🇵 Tokyo, 🇵🇭 Manila, 🇦🇺 Sydney.
+  `StoredRow`/`storedRowToMatch` now carry the cluster so stored-history rows
+  show it too. Cluster→country map covers AP/NA/LATAM/EU/KR cities; unknown
+  clusters fall back to the raw name without a flag. Flags come from flagcdn
+  (plain `<img>` — no next/image domain config needed).
+- `.build-tmp` (project-local TMPDIR used to dodge Windows %TEMP% write blocks
+  in esbuild/workerd) added to .gitignore and eslint ignores.
+- The match-row timestamp is now `M/D HH:mm` (`10/28 08:57`) instead of a
+  relative "2d ago" (`formatMatchTime` in profile-stats).
+- The row's trailing ⋮ became an external-link icon that opens the match on
+  tracker.gg (`tracker.gg/valorant/match/{id}`, `stopPropagation` so it does
+  not toggle the drawer).
+- Verified on production (Version e452aa93): Tokyo chip, datetime format,
+  tracker.gg links all live on recent and stored rows alike.
+
+## 2026-10-30 — On-expand full scoreboard + 20/page + tracker.gg parity columns (deployed)
+
+- High: expanding any match row — including stored-history rows that carry only
+  self stats — lazily fetches the full 10-player scoreboard from a new public
+  route `GET /api/valorant/match/[id]` (HenrikDev `/v2/match/{id}` normalized via
+  `normalizeHDMatch`). The endpoint is IP rate-limited and upstream responses
+  are cached 24h since finished matches are immutable; a "Loading scoreboard…"
+  line shows while the first fetch is in flight and cached expands render
+  near-instantly. Verified on production: stored row expand → 200, 10 players.
+- Medium: the expanded scoreboard now matches tracker.gg's match report — a
+  match header (mode · map · A:B score · date · duration · average rank) plus
+  per-team tables with columns Match Rank, ACS, K, D, A, +/-, K/D, DDΔ, ADR,
+  HS%. Team tables show their round score next to the label.
+- Medium: collapsed match rows and the day-group header gained an ADR column
+  (DDΔ · ADR · HS% · ACS order, same as reference). The list grid gained one
+  `min-content` track. Match pagination is now 20 rows per `?page=`.
+- Verification: 84 tests, lint, typecheck, Worker build; deployed
+  (Version a78f12cd). 679-match profile → Page 1/34, last page 19 rows, all
+  reachable. Build/deploy needed a project-local TMPDIR — Windows refused
+  esbuild/workerd writes to `%TEMP%` during this session.
+- Note: TRS/KAST/FK/FD/MK are tracker.gg-proprietary or not derivable from the
+  normalized data and are intentionally absent. "ACD" does not exist in the
+  reference UI — the intended columns (ACS/ADR/HS%) are all present.
+
 ## 2026-10-29 — Act selector fix + Encounters party semantics (deployed)
 
 - High: Overview stats (ADR/K-D/HS/Win tiles, W/L donut, match count) now come
@@ -12,8 +55,18 @@
   no longer counts; `played_against` unchanged.
 - Playtime is omitted on the Overview header when act-scoped stored stats are
   used (stored history has no match duration); the match count is the act total.
-- Matches/Encounters tabs remain recent-roster-only for past acts (documented
-  limitation — full rosters are only available in the recent matches endpoint).
+- High: the match list now merges every stored-history row into the match tab
+  (`storedRowToMatch` self-stat pseudo-matches) so all matches across all acts
+  are listable. The matches tab paginates server-side via `?page=` (500 rows per
+  page, Newer/Older links) so every match stays reachable while the RSC payload
+  stays bounded; verified on production (679-match profile → page1 499 + page2
+  179 unique ids, zero overlap). Recent v3 matches keep their full
+  roster/scoreboard; stored-only rows render self stats and hide the placement
+  badge (single-player roster). A draw is now detected when neither team won
+  instead of being shown as a loss (`wonMatch`).
+- Encounters remains recent-roster-only for past acts (full rosters are only in
+  the recent matches endpoint); per-match detail (`/v2/match/{id}`) exists
+  upstream but costs one call per match — viable for an on-expand fetch later.
 - Verification: 82 tests, lint, typecheck, Worker build; deployed and verified
   on tracking.kiwamero.dev (all → 2909 matches lifetime totals).
 

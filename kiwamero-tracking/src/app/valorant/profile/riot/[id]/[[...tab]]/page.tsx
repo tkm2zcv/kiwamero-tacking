@@ -15,6 +15,7 @@ import {
   groupByMap,
   groupBySeason,
   normalizeStoredMatch,
+  storedRowToMatch,
   type SeasonStat,
 } from "@/lib/stored-stats";
 import { getDict } from "@/lib/i18n/server";
@@ -54,7 +55,7 @@ export default async function ProfilePage({
   searchParams,
 }: {
   params: Promise<{ id: string; tab?: string[] }>;
-  searchParams: Promise<{ playlist?: string; act?: string; season?: string; played?: string }>;
+  searchParams: Promise<{ playlist?: string; act?: string; season?: string; played?: string; page?: string }>;
 }) {
   const { id, tab } = await params;
   const decoded = decodeURIComponent(id);
@@ -69,10 +70,11 @@ export default async function ProfilePage({
   const seasonParam = query.season ?? query.act;
   const act = seasonParam ?? "all";
   const played = query.played === "against" ? "against" : "with";
+  const page = Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1);
 
   return (
     <Suspense fallback={<ProfileSkeleton />}>
-      <ProfileContent name={m[1]} tag={m[2]} activeTab={activeTab} basePath={basePath} playlist={playlist} act={act} played={played} />
+      <ProfileContent name={m[1]} tag={m[2]} activeTab={activeTab} basePath={basePath} playlist={playlist} act={act} played={played} page={page} />
     </Suspense>
   );
 }
@@ -85,6 +87,7 @@ async function ProfileContent({
   playlist,
   act,
   played,
+  page,
 }: {
   name: string;
   tag: string;
@@ -93,6 +96,7 @@ async function ProfileContent({
   playlist: string;
   act: string;
   played: "with" | "against";
+  page: number;
 }) {
   const t = await getDict();
   const mode = playlist === "all" ? undefined : playlist;
@@ -206,7 +210,22 @@ async function ProfileContent({
   const inSelectedAct = createActFilter(act, seasonUuid, uuidToShort, latestStoredSeason);
   const storedScoped = storedAll.filter((r) => inSelectedAct(r.seasonId, r.seasonShort));
   const visibleMatches = filterProfileMatches(matches, playlist, inSelectedAct, uuidToShort);
-  const shown = visibleMatches;
+  // Full stored history fills the match list; recent v3 matches (with rosters)
+  // take precedence so their scoreboard/expand detail stays intact. The matches
+  // tab pages server-side (`?page=`) so every match stays reachable while the
+  // serialized payload stays bounded to one page of rows.
+  const MATCH_PAGE_SIZE = 20;
+  const recentIds = new Set(visibleMatches.map((m) => m.metadata.matchid));
+  const allMatches = [
+    ...visibleMatches,
+    ...storedScoped
+      .filter((r) => r.id && !recentIds.has(r.id))
+      .map((r) => storedRowToMatch(r, { puuid: profile.puuid, name: profile.name, tag: profile.tag })),
+  ].sort((a, b) => b.metadata.game_start - a.metadata.game_start);
+  const totalMatchPages = Math.max(1, Math.ceil(allMatches.length / MATCH_PAGE_SIZE));
+  const matchPageNum = Math.min(page, totalMatchPages);
+  const matchPage = allMatches.slice((matchPageNum - 1) * MATCH_PAGE_SIZE, matchPageNum * MATCH_PAGE_SIZE);
+  const overviewMatches = allMatches.slice(0, 60);
 
   const latestActLabel = formatAct(profile.actCode ?? lastActCode ?? seasons[0]?.actCode);
   const selectedActItem =
@@ -272,8 +291,27 @@ async function ProfileContent({
 
   const main = (() => {
     switch (activeTab) {
-      case "matches":
-        return <MatchesCard profile={profile} matches={shown} limit={20} basePath={basePath} capturedAt={capturedAt} showAllLink={false} bare />;
+      case "matches": {
+        const pageHref = (n: number) => `${profileFilterHref(basePath, "matches", playlist, act)}&page=${n}`;
+        return (
+          <>
+            <MatchesCard profile={profile} matches={matchPage} limit={MATCH_PAGE_SIZE} basePath={basePath} capturedAt={capturedAt} showAllLink={false} bare />
+            {totalMatchPages > 1 ? (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 4px", fontSize: 13 }}>
+                {matchPageNum > 1
+                  ? <Link href={pageHref(matchPageNum - 1)} className="kt-btn kt-btn--secondary">← Newer</Link>
+                  : <span />}
+                <span style={{ color: "var(--kt-dim)" }}>
+                  Page {matchPageNum} / {totalMatchPages} · {allMatches.length} matches
+                </span>
+                {matchPageNum < totalMatchPages
+                  ? <Link href={pageHref(matchPageNum + 1)} className="kt-btn kt-btn--secondary">Older →</Link>
+                  : <span />}
+              </div>
+            ) : null}
+          </>
+        );
+      }
       case "performance":
         return (
           <PerformanceTable
@@ -299,7 +337,7 @@ async function ProfileContent({
           profileFilterHref(basePath, "encounters", playlist, act, p);
         return (
           <EncountersTable
-            encounters={buildEncounters(shown, name, tag)}
+            encounters={buildEncounters(visibleMatches, name, tag)}
             mode={played}
             filterItems={[
               { label: "Played With", href: playedHref("with"), active: played === "with" },
@@ -324,8 +362,8 @@ async function ProfileContent({
       case "overview":
         return (
           <>
-            <OverviewCard profile={profile} matches={shown} stats={aggregate(storedScoped)} actLabel={actLabel} playlist={playlist} basePath={basePath} />
-            <MatchesCard profile={profile} matches={shown} basePath={basePath} capturedAt={capturedAt} bare />
+            <OverviewCard profile={profile} matches={overviewMatches} stats={aggregate(storedScoped)} actLabel={actLabel} playlist={playlist} basePath={basePath} />
+            <MatchesCard profile={profile} matches={overviewMatches} basePath={basePath} capturedAt={capturedAt} bare />
             <p style={{ fontSize: 12, lineHeight: "18px", color: "var(--kt-dim)", margin: 0 }}>
               Kiwamero Tracking isn&apos;t endorsed by Riot Games and doesn&apos;t reflect the views or opinions of
               Riot Games or anyone officially involved in producing or managing Riot Games properties. Data captured{" "}

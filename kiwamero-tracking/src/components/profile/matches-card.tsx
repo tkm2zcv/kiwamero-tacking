@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState, type CSSProperties } from "react";
-import { ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { ChevronRight, ExternalLink } from "lucide-react";
 import type { Match, MatchPlayer, Profile } from "@/lib/types";
 import { tierIcon, tierName } from "@/lib/henrikdev";
 import {
@@ -12,6 +12,7 @@ import {
   deriveAgentMinis,
   deriveMatchRows,
   deriveOverview,
+  formatMatchTime,
   groupByDay,
 } from "@/lib/profile-stats";
 
@@ -253,6 +254,7 @@ export function MatchesCard({
                       </div>
                     </div>
                     <StatVer name="DDΔ" value={String(agg.dd)} />
+                    <StatVer name="ADR" value={agg.adr ? agg.adr.toFixed(1) : "—"} />
                     <StatVer name="HS%" value={String(agg.hs)} />
                     <StatVer name="ACS" value={String(agg.acs)} />
                   </header>
@@ -389,7 +391,7 @@ function MatchRow({
         />
         <div className="flex flex-col">
           <div className="text-12 font-medium leading-5/4 text-secondary v3-separate">
-            <span>{row.ago}</span>
+            <span>{formatMatchTime(row.startedAt)}</span>
             <span>
               <span>{row.mode}</span>
             </span>
@@ -401,6 +403,7 @@ function MatchRow({
             ) : row.place !== "—" && row.place !== "1st" ? (
               <span className="v3-chip v3-chip--sm text-silver">{row.place}</span>
             ) : null}
+            <ServerChip cluster={match.metadata.cluster} />
           </span>
         </div>
       </div>
@@ -483,30 +486,112 @@ function MatchRow({
         <StatVer name="DDΔ" value={String(row.dd)} />
       </div>
       <div className="flex justify-end">
+        <StatVer name="ADR" value={row.adr ? row.adr.toFixed(1) : "—"} />
+      </div>
+      <div className="flex justify-end">
         <StatVer name="HS%" value={String(row.hs)} />
       </div>
       <StatVer name="ACS" value={match.metadata.rounds_played > 1 ? String(row.acs) : "—"} />
 
-      {/* col 11 — dots */}
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        className="v3-match-row__dots -ml-2"
+      {/* col 11 — external link to the tracker.gg match page */}
+      <a
+        href={`https://tracker.gg/valorant/match/${match.metadata.matchid}`}
+        target="_blank"
+        rel="noreferrer"
+        title="View on tracker.gg"
+        className="v3-match-row__dots -ml-2 inline-flex items-center justify-center"
+        onClick={(e) => e.stopPropagation()}
       >
-        <path fill="currentColor" d={DOTS_PATH} />
-      </svg>
+        <ExternalLink size={16} />
+      </a>
 
       {open ? (
         <div className="v3-mrow-drawer" onClick={(e) => e.stopPropagation()}>
-          <MatchScoreboard match={match} selfPuuid={player.puuid} selfTeam={team} />
+          <LazyMatchScoreboard match={match} selfPuuid={player.puuid} selfTeam={team} />
         </div>
       ) : null}
     </div>
   );
 }
 
+/**
+ * Stored-history rows carry a self-only roster; fetch the full match detail on
+ * expand so old matches get the same scoreboard as recent ones. Cached detail
+ * renders near-instantly; a cold fetch shows a lightweight loading line.
+ */
+function LazyMatchScoreboard({
+  match,
+  selfPuuid,
+  selfTeam,
+}: {
+  match: Match;
+  selfPuuid: string;
+  selfTeam?: "red" | "blue";
+}) {
+  const needsDetail = match.players.length <= 1;
+  const [detail, setDetail] = useState<Match | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!needsDetail) return;
+    let dead = false;
+    fetch(`/api/valorant/match/${match.metadata.matchid}`)
+      .then((r) => (r.ok ? (r.json() as Promise<Match>) : Promise.reject(new Error(String(r.status)))))
+      .then((m) => { if (!dead) setDetail(m); })
+      .catch(() => { if (!dead) setFailed(true); });
+    return () => { dead = true; };
+  }, [needsDetail, match.metadata.matchid]);
+  return (
+    <>
+      {needsDetail && !detail && !failed ? (
+        <div style={{ padding: "10px 4px", fontSize: 13, color: "var(--kt-dim)" }}>
+          Loading scoreboard…
+        </div>
+      ) : null}
+      <MatchScoreboard match={detail ?? match} selfPuuid={selfPuuid} selfTeam={selfTeam} />
+    </>
+  );
+}
+
 /** Compact version of tracker.gg's match-report scoreboard. */
+/** VALORANT server cluster (HenrikDev city name) → flag country code; label is the city itself. */
+const SERVER_CC: Record<string, string> = {
+  "Tokyo": "jp", "Hong Kong": "hk", "Singapore": "sg", "Sydney": "au", "Manila": "ph",
+  "Mumbai": "in", "Seoul": "kr", "Bahrain": "bh",
+  "Oregon": "us", "Portland": "us", "Los Angeles": "us", "Salt Lake City": "us", "Denver": "us",
+  "Dallas": "us", "Chicago": "us", "Atlanta": "us", "Ashburn": "us", "Miami": "us",
+  "Sao Paulo": "br", "Mexico City": "mx", "Santiago": "cl", "Bogota": "co",
+  "Frankfurt": "de", "London": "gb", "Paris": "fr", "Madrid": "es", "Stockholm": "se",
+  "Warsaw": "pl", "Istanbul": "tr",
+};
+
+function ServerChip({ cluster }: { cluster: string }) {
+  if (!cluster) return null;
+  const cc = SERVER_CC[cluster];
+  return (
+    <span className="v3-chip v3-chip--sm inline-flex items-center gap-1 text-secondary" title={`Server: ${cluster}`}>
+      {cc ? (
+        // eslint-disable-next-line @next/next/no-img-element -- flagcdn has no config entry; plain img keeps it simple
+        <img src={`https://flagcdn.com/w20/${cc}.png`} alt={cluster} width={14} height={10} className="rounded-[1px]" loading="lazy" />
+      ) : null}
+      {cluster}
+    </span>
+  );
+}
+
+/** tracker.gg match-report columns; TRS/KAST/FK/FD/MK are not derivable from our data. */
+const SB_COLS = [
+  ["Match Rank", "5rem"],
+  ["ACS", "4rem"],
+  ["K", "2.75rem"],
+  ["D", "2.75rem"],
+  ["A", "2.75rem"],
+  ["+/-", "3.5rem"],
+  ["K/D", "4rem"],
+  ["DDΔ", "4rem"],
+  ["ADR", "4.5rem"],
+  ["HS%", "4rem"],
+] as const;
+
 function MatchScoreboard({
   match,
   selfPuuid,
@@ -543,15 +628,43 @@ function MatchScoreboard({
     }
     return a === "red" ? -1 : b === "red" ? 1 : a.localeCompare(b);
   });
+  const rounds = Math.max(1, match.metadata.rounds_played || 1);
+  const redWon = match.teams.red?.rounds_won ?? 0;
+  const blueWon = match.teams.blue?.rounds_won ?? 0;
+  const score = teamKeys.length === 2 && !teamKeys.includes("ffa")
+    ? `${teamKeys[0] === "red" ? redWon : blueWon} : ${teamKeys[0] === "red" ? blueWon : redWon}`
+    : null;
+  const allTiers = match.players.map((p) => p.currenttier ?? 0).filter((t) => t > 0);
+  const overallTier = allTiers.length ? Math.round(allTiers.reduce((s, t) => s + t, 0) / allTiers.length) : 0;
+  const started = match.metadata.game_start ? new Date(match.metadata.game_start * 1000) : null;
+  const minutes = match.metadata.game_length ? Math.floor(match.metadata.game_length / 60) : 0;
+  const seconds = match.metadata.game_length ? match.metadata.game_length % 60 : 0;
 
   return (
     <div className="flex flex-col gap-4 py-2">
+      {/* tracker.gg match header: mode · map · score · date · duration · avg rank */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-13" style={{ color: "var(--kt-dim)" }}>
+        <span className="font-bold capitalize text-primary">{match.metadata.mode || match.metadata.mode_id}</span>
+        <span className="capitalize">{match.metadata.map}</span>
+        {score ? <span className="font-bold text-primary">{score}</span> : null}
+        <ServerChip cluster={match.metadata.cluster} />
+        {started ? <span>{started.toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" })}</span> : null}
+        {minutes ? <span>{minutes}m {String(seconds).padStart(2, "0")}s</span> : null}
+        {overallTier ? (
+          <span className="inline-flex items-center gap-1">
+            Average Rank:
+            <Image className="size-4" src={tierIcon(overallTier, "small")} alt={tierName(overallTier)} width={16} height={16} unoptimized />
+            <span className="text-primary">{tierName(overallTier)}</span>
+          </span>
+        ) : null}
+      </div>
       {teamKeys.map((key, i) => {
         const players = [...(grouped.get(key) ?? [])].sort((a, b) => b.stats.score - a.stats.score);
         const tiers = players.map((p) => p.currenttier ?? 0).filter((t) => t > 0);
         const avgTier = tiers.length ? Math.round(tiers.reduce((s, t) => s + t, 0) / tiers.length) : 0;
         const isTwoTeam = teamKeys.length === 2 && key !== "ffa";
         const teamClass = key === "red" ? "st-valorant-team-Red" : key === "blue" ? "st-valorant-team-Blue" : "st-valorant-team-ffa";
+        const teamScore = key === "red" ? redWon : key === "blue" ? blueWon : null;
         const label = isTwoTeam ? (i === 0 ? "Team A" : "Team B") : "Players";
         return (
           <div key={key} className={`st st-valorant st-valorant-team ${teamClass} st--scroll`}>
@@ -559,9 +672,10 @@ function MatchScoreboard({
               <div className="st__item st-header__item st__item--sticky st__item--wide" style={{ "--st-base-width": "12rem" } as CSSProperties}>
                 <span className="label flex flex-row items-center gap-2">
                   <span>{label}</span>
+                  {teamScore != null ? <span className="text-primary">{teamScore}</span> : null}
                   {avgTier ? (
                     <>
-                      <span>•</span>
+                      <span>·</span>
                       <span className="flex flex-row items-center gap-1">
                         <span>Avg. Rank:</span>
                         <Image className="size-4" src={tierIcon(avgTier, "small")} alt={tierName(avgTier)} width={16} height={16} unoptimized />
@@ -571,17 +685,23 @@ function MatchScoreboard({
                   ) : null}
                 </span>
               </div>
-              <div className="st__item st-header__item st-header__item--align-center st__item--align-center" style={{ "--st-base-width": "8rem" } as CSSProperties}>
-                <span className="label">K/D/A</span>
-              </div>
-              <div className="st__item st-header__item st-header__item--align-center st__item--align-center" style={{ "--st-base-width": "5rem" } as CSSProperties}>
-                <span className="label">K/D</span>
-              </div>
+              {SB_COLS.map(([col, w]) => (
+                <div key={col} className="st__item st-header__item st-header__item--align-center st__item--align-center" style={{ "--st-base-width": w } as CSSProperties}>
+                  <span className="label">{col}</span>
+                </div>
+              ))}
             </div>
             <div className="st-content">
               <div className="st-content__category">
                 {players.map((p) => {
-                  const kd = p.stats.deaths ? p.stats.kills / p.stats.deaths : p.stats.kills;
+                  const k = p.stats.kills;
+                  const d = p.stats.deaths;
+                  const a = p.stats.assists;
+                  const kd = d ? k / d : k;
+                  const pm = k - d;
+                  const dmgMade = p.damage_made ?? 0;
+                  const ddd = Math.round((dmgMade - (p.damage_received ?? 0)) / rounds);
+                  const shots = (p.stats.headshots ?? 0) + (p.stats.bodyshots ?? 0) + (p.stats.legshots ?? 0);
                   const party = p.party_id ? partyIndex.get(p.party_id) : undefined;
                   const isSelf = p.puuid === selfPuuid;
                   return (
@@ -613,18 +733,40 @@ function MatchScoreboard({
                           </Link>
                         </div>
                       </div>
-                      <div className="st__item st-content__item-value st__item--align-center" style={{ "--st-base-width": "8rem" } as CSSProperties}>
-                        <div className="stat-list inline-flex max-w-full overflow-hidden font-medium v3-separate v3-separate-slash v3-separate-secondary">
-                          <span className="value truncate">{p.stats.kills}</span>
-                          <span className="value truncate">{p.stats.deaths}</span>
-                          <span className="value truncate">{p.stats.assists}</span>
-                        </div>
+                      <div className="st__item st-content__item-value st__item--align-center" style={{ "--st-base-width": SB_COLS[0][1] } as CSSProperties}>
+                        {p.currenttier ? (
+                          <Image src={tierIcon(p.currenttier, "small")} alt={tierName(p.currenttier)} width={28} height={28} loading="lazy" unoptimized />
+                        ) : "—"}
+                      </div>
+                      <div className="st__item st-content__item-value st__item--align-center" style={{ "--st-base-width": SB_COLS[1][1] } as CSSProperties}>
+                        <span className="font-bold">{Math.round(p.stats.score / rounds)}</span>
+                      </div>
+                      <div className="st__item st-content__item-value st__item--align-center" style={{ "--st-base-width": SB_COLS[2][1] } as CSSProperties}>{k}</div>
+                      <div className="st__item st-content__item-value st__item--align-center" style={{ "--st-base-width": SB_COLS[3][1] } as CSSProperties}>{d}</div>
+                      <div className="st__item st-content__item-value st__item--align-center" style={{ "--st-base-width": SB_COLS[4][1] } as CSSProperties}>{a}</div>
+                      <div
+                        className={`st__item st-content__item-value st__item--align-center${pm >= 0 ? " value--positive" : " value--negative"}`}
+                        style={{ "--st-base-width": SB_COLS[5][1] } as CSSProperties}
+                      >
+                        {pm >= 0 ? `+${pm}` : pm}
                       </div>
                       <div
                         className={`st__item st-content__item-value st__item--align-center${kd >= 1 ? " value--positive" : " value--negative"}`}
-                        style={{ "--st-base-width": "5rem" } as CSSProperties}
+                        style={{ "--st-base-width": SB_COLS[6][1] } as CSSProperties}
                       >
-                        {kd.toFixed(2)}
+                        {kd.toFixed(1)}
+                      </div>
+                      <div
+                        className={`st__item st-content__item-value st__item--align-center${ddd >= 0 ? " value--positive" : " value--negative"}`}
+                        style={{ "--st-base-width": SB_COLS[7][1] } as CSSProperties}
+                      >
+                        {ddd >= 0 ? `+${ddd}` : ddd}
+                      </div>
+                      <div className="st__item st-content__item-value st__item--align-center" style={{ "--st-base-width": SB_COLS[8][1] } as CSSProperties}>
+                        {(dmgMade / rounds).toFixed(1)}
+                      </div>
+                      <div className="st__item st-content__item-value st__item--align-center" style={{ "--st-base-width": SB_COLS[9][1] } as CSSProperties}>
+                        {shots ? `${Math.round(((p.stats.headshots ?? 0) / shots) * 100)}%` : "—"}
                       </div>
                     </div>
                   );

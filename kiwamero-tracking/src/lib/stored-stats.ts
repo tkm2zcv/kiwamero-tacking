@@ -27,6 +27,7 @@ export interface StoredRow {
   lost: number;
   rounds: number;
   result: "win" | "loss" | "draw";
+  cluster: string;
 }
 
 export function normalizeStoredMatch(m: HDStoredMatch): StoredRow {
@@ -61,6 +62,56 @@ export function normalizeStoredMatch(m: HDStoredMatch): StoredRow {
     lost: opp,
     rounds: won + lost,
     result: own === opp ? "draw" : own > opp ? "win" : "loss",
+    cluster: m.meta.cluster ?? "",
+  };
+}
+
+/**
+ * Convert a stored-match stat row into the v3 Match shape so stored history can
+ * share the match-list pipeline. The roster contains only the profile owner —
+ * HenrikDev's stored endpoint exposes self stats, not full rosters — so callers
+ * must not treat `players` as a complete lobby (single-player matches also
+ * suppress the match-placement badge downstream).
+ */
+export function storedRowToMatch(r: StoredRow, self: { puuid: string; name: string; tag: string }): Match {
+  return {
+    metadata: {
+      map: r.map,
+      game_length: 0,
+      game_start: r.startedAt,
+      game_start_patched: "",
+      rounds_played: r.rounds,
+      mode: r.mode,
+      mode_id: r.mode,
+      season_id: r.seasonId,
+      platform: "pc",
+      matchid: r.id,
+      region: "",
+      cluster: r.cluster,
+    },
+    teams: {
+      red: { has_won: r.result === "win", rounds_won: r.won, rounds_lost: r.lost },
+      blue: { has_won: r.result === "loss", rounds_won: r.lost, rounds_lost: r.won },
+    },
+    players: [{
+      puuid: self.puuid,
+      name: self.name,
+      tag: self.tag,
+      team_id: "red",
+      character: r.agent,
+      currenttier: r.tier || undefined,
+      stats: {
+        score: r.score,
+        kills: r.kills,
+        deaths: r.deaths,
+        assists: r.assists,
+        headshots: r.head,
+        bodyshots: r.body,
+        legshots: r.leg,
+      },
+      damage_made: r.dmgMade,
+      damage_received: r.dmgRecv,
+    }],
   };
 }
 

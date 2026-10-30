@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createActFilter, filterProfileMatches, profileFilterHref } from "../src/lib/profile-filters.ts";
-import { buildEncounters, aggregate, type StoredRow } from "../src/lib/stored-stats.ts";
+import { buildEncounters, aggregate, storedRowToMatch, type StoredRow } from "../src/lib/stored-stats.ts";
+import { deriveMatchRows } from "../src/lib/profile-stats.ts";
 import type { Match } from "../src/lib/types.ts";
 
 const ids = new Map([["e11a5", "uuid-old"], ["e11a6", "uuid-current"]]);
@@ -12,10 +13,10 @@ function roster(id: string, season: string, opponent: string, mode = "competitiv
     metadata: { matchid: id, season_id: season, mode_id: mode, game_start: 100 },
     teams: { red: { has_won: true }, blue: { has_won: false } },
     players: [
-      { puuid: "self", name: "Player", tag: "TAG", team_id: "red", stats: {} },
+      { puuid: "self", name: "Player", tag: "TAG", team_id: "red", character: "Jett", stats: {} },
       { puuid: opponent, name: opponent, tag: "TAG", team_id: "blue", stats: { kills: 10, deaths: 10 } },
     ],
-  } as Match;
+  } as unknown as Match;
 }
 const matches = [
   roster("old", "uuid-old", "OldOpponent"),
@@ -72,6 +73,24 @@ test("act-scoped stored aggregate reports the selected act, not lifetime or curr
   assert.equal(scoped.losses, 1);
   assert.equal(scoped.kills, 14); // excludes the 30-kill current-act match
   assert.equal(aggregate(stored).matches, 3);
+});
+
+test("stored rows render as match-list rows for every act, self-only roster hides placement", () => {
+  const stored = [
+    { id: "w1", map: "Ascent", mode: "competitive", startedAt: 1000, seasonId: "uuid-old", seasonShort: "e11a5", agent: "Jett", tier: 21, score: 320, kills: 20, deaths: 10, assists: 4, head: 10, body: 8, leg: 2, dmgMade: 3000, dmgRecv: 2000, won: 13, lost: 5, rounds: 18, result: "win" },
+    { id: "l1", map: "Bind", mode: "competitive", startedAt: 2000, seasonId: "uuid-old", seasonShort: "e11a5", agent: "Sova", tier: 21, score: 180, kills: 8, deaths: 15, assists: 6, head: 3, body: 9, leg: 1, dmgMade: 1500, dmgRecv: 2500, won: 7, lost: 13, rounds: 20, result: "loss" },
+    { id: "d1", map: "Haven", mode: "competitive", startedAt: 3000, seasonId: "uuid-current", seasonShort: "e11a6", agent: "Omen", tier: 21, score: 200, kills: 12, deaths: 12, assists: 3, head: 5, body: 7, leg: 0, dmgMade: 2000, dmgRecv: 1900, won: 14, lost: 14, rounds: 28, result: "draw" },
+  ] as StoredRow[];
+  const pseudo = stored.map((r) => storedRowToMatch(r, { puuid: "self", name: "Player", tag: "TAG" }));
+  const rows = deriveMatchRows(pseudo, "self");
+  assert.deepEqual(rows.map((r) => r.result), ["win", "loss", "draw"]);
+  assert.deepEqual(rows.map((r) => `${r.won}-${r.lost}`), ["13-5", "7-13", "14-14"]);
+  assert.deepEqual(rows.map((r) => r.kills), [20, 8, 12]);
+  assert.deepEqual(rows.map((r) => r.agent), ["Jett", "Sova", "Omen"]);
+  assert.deepEqual(rows.map((r) => r.place), ["—", "—", "—"]); // self-only roster: no placement
+  // A real v3 match with a full roster still produces a placement.
+  const real = deriveMatchRows([roster("real", "uuid-old", "Opp")], "self");
+  assert.notEqual(real[0].place, "—");
 });
 
 test("played and act selectors preserve each other's URL state", () => {

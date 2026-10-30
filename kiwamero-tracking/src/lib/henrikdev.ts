@@ -34,6 +34,8 @@ const TTL_MMR = 180_000;
 const TTL_MMR_HISTORY = 600_000;
 const TTL_MATCHES = 300_000;
 const TTL_STORED_MATCHES = 300_000;
+/** A finished match is immutable — cache aggressively (powers on-expand detail fetches). */
+const TTL_MATCH_DETAIL = 86_400_000;
 
 const call = henrikCall;
 
@@ -225,6 +227,14 @@ export async function getMmrHistory(region: string, puuid: string, opts?: { fres
   return call<HDMmrHistoryEntry[]>(
     `/valorant/v1/by-puuid/mmr-history/${region}/${puuid}`,
     { ttl: TTL_MMR_HISTORY, fresh: opts?.fresh },
+  );
+}
+
+/** Full match detail (all players/rounds) for any match tracked upstream, e.g. stored history rows. */
+export async function getMatch(matchId: string, opts?: { fresh?: boolean }) {
+  return call<HDMatch>(
+    `/valorant/v2/match/${matchId}`,
+    { ttl: TTL_MATCH_DETAIL, fresh: opts?.fresh },
   );
 }
 

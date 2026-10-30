@@ -649,7 +649,7 @@ label:not(.description):not(.v3-button) {color: var(--color-text-primary); font-
 .timeline-match {padding: 0.5rem;}
 .timeline-match__kd {padding-top: 0.5rem;}
 .timeline-match__score {padding: 0.25rem 0px;}
-.v3-mrows {display: grid; grid-template-columns: minmax(max-content, auto) min-content minmax(max-content, auto) min-content fit-content(16ch) repeat(2, minmax(max-content, auto)) repeat(3, min-content) minmax(max-content, auto); column-gap: 1rem; row-gap: 1rem; align-items: start;}
+.v3-mrows {display: grid; grid-template-columns: minmax(max-content, auto) min-content minmax(max-content, auto) min-content fit-content(16ch) repeat(2, minmax(max-content, auto)) repeat(4, min-content) minmax(max-content, auto); column-gap: 1rem; row-gap: 1rem; align-items: start;}
 .v3-mday {display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; column-gap: 1rem; row-gap: 0.5rem;}
 .v3-mday-head {display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; line-height: 1; margin-top: -0.25rem;}
 .v3-match-row {column-gap: 1rem; row-gap: 0.5rem; padding: 0.5rem 0.5rem 0.5rem 1rem;}

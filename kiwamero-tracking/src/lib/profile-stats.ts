@@ -47,7 +47,10 @@ function meOf(m: Match, puuid: string): MatchPlayer | undefined {
 function wonMatch(m: Match, me: MatchPlayer): boolean | null {
   const id = me.team_id?.toLowerCase();
   if (id !== "red" && id !== "blue") return null;
-  return m.teams[id]?.has_won ?? null;
+  if (m.teams[id]?.has_won) return true;
+  const other = m.teams[id === "red" ? "blue" : "red"];
+  if (other?.has_won) return false;
+  return null; // neither side won → draw
 }
 
 function scoreOf(m: Match, me: MatchPlayer): { won: number; lost: number } {
@@ -105,6 +108,7 @@ export interface MatchRow {
   assists: number;
   hs: number;
   acs: number;
+  adr: number;
   kd: number;
   kad: number;
   dd: number;
@@ -113,6 +117,13 @@ export interface MatchRow {
 }
 
 const PLACE_LABELS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th"];
+
+/** `10/30 13:34` — local date+time for match rows. */
+export function formatMatchTime(unixSec: number): string {
+  const d = new Date(unixSec * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 export function agentIconUrl(character: string) {
   const slug = character.toLowerCase().replace(/\s+/g, "-").replace("kay/o", "kay-o");
@@ -129,7 +140,8 @@ export function deriveMatchRows(matches: Match[], puuid: string, now = Date.now(
     const hs = me.stats.headshots ?? 0;
     const shots = hs + (me.stats.bodyshots ?? 0) + (me.stats.legshots ?? 0);
     const ranked = [...m.players].sort((a, b) => b.stats.score - a.stats.score);
-    const place = ranked.findIndex((p) => p.puuid === me.puuid);
+    // Stored-history rows carry a self-only roster — placement is unknowable there.
+    const place = m.players.length > 1 ? ranked.findIndex((p) => p.puuid === me.puuid) : -1;
     return {
       matchId: m.metadata.matchid,
       map: m.metadata.map,
@@ -147,6 +159,7 @@ export function deriveMatchRows(matches: Match[], puuid: string, now = Date.now(
       assists: me.stats.assists,
       hs: shots ? Math.round((hs / shots) * 100) : 0,
       acs: Math.round(me.stats.score / rounds),
+      adr: (me.damage_made ?? 0) / rounds,
       kd: me.stats.deaths ? me.stats.kills / me.stats.deaths : me.stats.kills,
       kad: me.stats.deaths ? (me.stats.kills + me.stats.assists) / me.stats.deaths : me.stats.kills,
       dd: Math.max(-120, Math.min(160, Math.round(((me.damage_made ?? 0) - (me.damage_received ?? 0)) / rounds))),
@@ -373,13 +386,14 @@ export interface DayAggregate {
   assists: number;
   kd: number;
   dd: number;
+  adr: number;
   hs: number;
   acs: number;
 }
 
 /** Aggregate one day-group's rows for the group header stats. */
 export function dayAggregate(rows: MatchRow[]): DayAggregate {
-  let wins = 0, losses = 0, kills = 0, deaths = 0, assists = 0, dd = 0, hs = 0, acs = 0;
+  let wins = 0, losses = 0, kills = 0, deaths = 0, assists = 0, dd = 0, adr = 0, hs = 0, acs = 0;
   for (const r of rows) {
     if (r.result === "win") wins += 1;
     else if (r.result === "loss") losses += 1;
@@ -387,6 +401,7 @@ export function dayAggregate(rows: MatchRow[]): DayAggregate {
     deaths += r.deaths;
     assists += r.assists;
     dd += r.dd;
+    adr += r.adr;
     hs += r.hs;
     acs += r.acs;
   }
@@ -395,6 +410,7 @@ export function dayAggregate(rows: MatchRow[]): DayAggregate {
     wins, losses, kills, deaths, assists,
     kd: deaths ? kills / deaths : kills,
     dd: Math.round(dd / n),
+    adr: Math.round((adr / n) * 10) / 10,
     hs: Math.round(hs / n),
     acs: Math.round(acs / n),
   };

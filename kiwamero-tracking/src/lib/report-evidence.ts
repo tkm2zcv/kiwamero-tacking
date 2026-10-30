@@ -7,18 +7,22 @@ import type {
 } from "./report-model";
 import type { SeasonRank } from "./types";
 import type { StoredRow } from "./stored-stats";
+import { normalizeCluster } from "./henrik-shared.ts";
 
+export const MIN_AUDIT_MATCHES = 40;
 const KD_JUMP = 0.4;
 const ACS_JUMP = 60;
 const HS_JUMP = 8;
 
 export function statBlock(rows: StoredRow[]): StatBlock {
   let kills = 0, deaths = 0, score = 0, rounds = 0,
-    head = 0, shots = 0, wins = 0, decided = 0;
+    head = 0, shots = 0, wins = 0, decided = 0, accuracyCount = 0;
   const agents = new Map<string, number>();
   for (const r of rows) {
     kills += r.kills; deaths += r.deaths; score += r.score; rounds += r.rounds;
-    head += r.head; shots += r.head + r.body + r.leg;
+    if (r.accuracyAvailable !== false && r.head + r.body + r.leg > 0) {
+      head += r.head; shots += r.head + r.body + r.leg; accuracyCount++;
+    }
     if (r.result === "win") { wins++; decided++; } else if (r.result === "loss") decided++;
     if (r.agent) agents.set(r.agent, (agents.get(r.agent) ?? 0) + 1);
   }
@@ -28,8 +32,11 @@ export function statBlock(rows: StoredRow[]): StatBlock {
     kd: deaths ? kills / deaths : kills,
     acs: rounds ? score / rounds : 0,
     hsRate: shots ? (head / shots) * 100 : 0,
+    accuracyCount,
     winRate: decided ? (wins / decided) * 100 : 0,
     topAgents,
+    meanTier: rows.filter((r) => r.tier >= 3 && r.tier <= 27)
+      .reduce((sum, r, _, list) => sum + r.tier / list.length, 0),
   };
 }
 
@@ -42,10 +49,21 @@ export function earlyRecentComparison(rows: StoredRow[]): EarlyRecentComparison 
   const kdDiff = +(after.kd - before.kd).toFixed(2);
   const acsDiff = Math.round(after.acs - before.acs);
   const hsDiff = +(after.hsRate - before.hsRate).toFixed(1);
+  const comparable = before.count >= 20 && after.count >= 20 &&
+    before.meanTier >= 3 && after.meanTier >= 3 &&
+    Math.abs(before.meanTier - after.meanTier) <= 2 &&
+    [sorted.slice(0, half), sorted.slice(half)].every((period) => {
+      const tiers = period.filter((r) => r.tier >= 3 && r.tier <= 27).map((r) => r.tier);
+      // A mixed low/high-rank window can have a deceptively similar mean.
+      return tiers.length / period.length >= 0.8 && Math.max(...tiers) - Math.min(...tiers) <= 4;
+    }) &&
+    sorted.every((r) => r.rounds > 0 && r.accuracyAvailable !== false && r.head + r.body + r.leg > 0);
   return {
     kind: "early_recent",
-    hasTransition:
-      Math.abs(kdDiff) >= KD_JUMP || Math.abs(acsDiff) >= ACS_JUMP || Math.abs(hsDiff) >= HS_JUMP,
+    comparable,
+    hasTransition: comparable && (
+      Math.abs(kdDiff) >= KD_JUMP || Math.abs(acsDiff) >= ACS_JUMP || Math.abs(hsDiff) >= HS_JUMP
+    ),
     before, after, hsDiff, acsDiff, kdDiff,
   };
 }
@@ -53,8 +71,9 @@ export function earlyRecentComparison(rows: StoredRow[]): EarlyRecentComparison 
 function clusterCounts(rows: StoredRow[]): Map<string, number> {
   const acc = new Map<string, number>();
   for (const r of rows) {
-    if (!r.cluster) continue;
-    acc.set(r.cluster, (acc.get(r.cluster) ?? 0) + 1);
+    const cluster = normalizeCluster(r.cluster);
+    if (!cluster) continue;
+    acc.set(cluster, (acc.get(cluster) ?? 0) + 1);
   }
   return acc;
 }
@@ -70,14 +89,19 @@ export function buildGenealogy(
   const sorted = [...rows].filter((r) => r.startedAt > 0).sort((a, b) => a.startedAt - b.startedAt);
   const oldest = sorted[0];
   const newest = sorted[sorted.length - 1];
-  const edge = Math.min(20, Math.max(1, Math.floor(sorted.length / 5)));
-  const earliestCluster = topKey(clusterCounts(sorted.slice(0, edge)));
-  const recentCluster = topKey(clusterCounts(sorted.slice(-edge)));
+  const edge = Math.min(20, Math.floor(sorted.length / 2));
+  const early = clusterCounts(sorted.slice(0, edge));
+  const recent = clusterCounts(edge ? sorted.slice(-edge) : []);
+  const earliestCluster = topKey(early);
+  const recentCluster = topKey(recent);
+  const dominant = (counts: Map<string, number>, key: string) =>
+    edge >= 20 && (counts.get(key) ?? 0) / edge >= 0.8;
   const breakdown = Object.fromEntries([...clusterCounts(sorted)].sort((a, b) => b[1] - a[1]));
   const months = oldest && newest
-    ? Math.max(1, Math.round((newest.startedAt - oldest.startedAt) / (30.44 * 86400)))
+    ? Math.max(0, Math.round((newest.startedAt - oldest.startedAt) / (30.44 * 86400)))
     : 0;
-  const original = oldest ? `${oldest.selfName || self.name}#${oldest.selfTag || self.tag}` : `${self.name}#${self.tag}`;
+  const named = sorted.find((r) => r.selfName && r.selfTag);
+  const original = named ? `${named.selfName}#${named.selfTag}` : `${self.name}#${self.tag}`;
   const current = `${self.name}#${self.tag}`;
   return {
     oldestMatchDate: oldest ? new Date(oldest.startedAt * 1000).toISOString().slice(0, 10) : "",
@@ -86,7 +110,8 @@ export function buildGenealogy(
     totalLifetimeMatches: rows.length,
     earliestCluster,
     recentCluster,
-    hasClusterFlip: Boolean(earliestCluster && recentCluster && earliestCluster !== recentCluster),
+    hasClusterFlip: Boolean(earliestCluster !== recentCluster &&
+      dominant(early, earliestCluster) && dominant(recent, recentCluster)),
     lifetimeClusterBreakdown: breakdown,
     originalName: original,
     currentName: current,
@@ -98,10 +123,11 @@ export function buildGenealogy(
 export function buildClusterEvidence(rows: StoredRow[]): ClusterEvidence {
   const byCluster = new Map<string, StoredRow[]>();
   for (const r of rows) {
-    if (!r.cluster) continue;
-    const list = byCluster.get(r.cluster) ?? [];
+    const key = normalizeCluster(r.cluster);
+    if (!key) continue;
+    const list = byCluster.get(key) ?? [];
     list.push(r);
-    byCluster.set(r.cluster, list);
+    byCluster.set(key, list);
   }
   const breakdown: Record<string, number> = {};
   const clusters: Record<string, StatBlock> = {};
@@ -110,7 +136,8 @@ export function buildClusterEvidence(rows: StoredRow[]): ClusterEvidence {
     clusters[name] = statBlock(list);
   }
   const home = topKey(clusterCounts(rows));
-  return { home, homeMatchCount: breakdown[home] ?? 0, hasClusterFlip: false, breakdown, clusters };
+  const knownMatches = Object.values(breakdown).reduce((sum, n) => sum + n, 0);
+  return { home, homeMatchCount: breakdown[home] ?? 0, hasClusterFlip: false, breakdown, clusters, knownMatches };
 }
 
 /** Per-act rows: final rank + win record, plus the dominant server seen in stored matches. */

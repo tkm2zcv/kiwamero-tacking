@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { ChevronRight, ExternalLink } from "lucide-react";
 import type { Match, MatchPlayer, Profile } from "@/lib/types";
-import { tierIcon, tierName } from "@/lib/henrikdev";
+import { tierIcon, tierName } from "@/lib/henrik-shared";
 import {
   agentIconUrl,
   dayAggregate,

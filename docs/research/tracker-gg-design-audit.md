@@ -172,6 +172,21 @@ Scrapling (StealthySession) で本番DOM・スタイルシート・計算済み�
 - `.st`行ドロワー中身（Match Kills Best/First Bloods/Aces + side winrate progress）
 - Weapons/Customs/Crosshairs/Lineupsタブ（空状態）
 
+## 2026-10-30: 査定・診断レポートへの適用
+
+- 既存の抽出トークンを再利用: surface-1 `#0f1923`、surface-2 `#1b2733`、
+  surface-3 `#2c3f52`、本文`#efefef`、副次`#99abbf`、アクション`#ff4655`。
+- 見出しは既存Saira変数、本文はRoboto変数。新たなフォントやUIライブラリは追加しない。
+- `v3-card__header`/`v3-card__body`を共有。角丸16px、24px間隔、
+  左300pxのサマリーと右の統計/根拠という既存プロフィールの情報構造を継承。
+- `report-ui.tsx`は判定リング・横棒・根拠リスト・計算方法の開閉を共通化。
+  `report.css`は`.kt-report`へスコープし、他タブの見た目を変えない。
+- 767px以下ではサマリー→分析→アカウント情報の順へ変更。
+  表は意味的なtableとラベル付きの横スクロール領域を使い、ページ自体ははみ出さない。
+- 空状態を実測0と区別。確率分布の棒グラフや未検証のP95/信頼度表示は使わない。
+- tracker.ggに同名機能があるという主張ではなく、既存の視覚言語に独自機能を統合。
+  検証と制約は`../reports/20261030-account-report-review.md`を参照。
+
 ## 付録: 抽出ファイル
 
 `docs/research/capture/`

@@ -4,6 +4,9 @@
  * tracker so both tabs can share one computed AccountReport.
  */
 
+import type { AuditTimeline } from "./audit-timeline";
+import type { AuditCoverage } from "./audit-history";
+
 export type Severity = "normal" | "info" | "warn" | "alert";
 
 export interface ReportSignal {
@@ -19,12 +22,15 @@ export interface StatBlock {
   kd: number;
   acs: number;
   hsRate: number;
+  accuracyCount: number;
   winRate: number;
   topAgents: [string, number][];
+  meanTier: number;
 }
 
 export interface EarlyRecentComparison {
   kind: "early_recent";
+  comparable: boolean;
   /** True when at least one metric moved past its discontinuity threshold. */
   hasTransition: boolean;
   before: StatBlock;
@@ -72,13 +78,14 @@ export interface ClusterEvidence {
   hasClusterFlip: boolean;
   breakdown: Record<string, number>;
   clusters: Record<string, StatBlock>;
+  knownMatches: number;
 }
 
-/** アカウント査定 — how likely the person behind this account changed hands. */
+/** Descriptive history-change report; never an ownership probability. */
 export interface AuditReport {
-  /** 0-100 suspicion score. */
-  score: number;
-  grade: "S" | "A" | "B" | "C";
+  /** Heuristic change index, NOT an ownership probability. */
+  score: number | null;
+  grade: "S" | "A" | "B" | "C" | null;
   title: string;
   confidenceLabel: string;
   recommendation: string;
@@ -87,15 +94,13 @@ export interface AuditReport {
   comparison: EarlyRecentComparison;
   evidence: { cluster: ClusterEvidence; time: EarlyRecentComparison };
   lifetimeGenealogy: LifetimeGenealogy;
-  originFraud: boolean;
 }
 
 export type VerdictType =
   | "NATURAL_PLAYER"
   | "SMURF_SUSPECT"
   | "ALT_ACCOUNT"
-  | "CHEAT_SUSPECT"
-  | "SHARED_OR_BOOSTED"
+  | "STATS_OUTLIER"
   | "INSUFFICIENT_DATA";
 
 export type VerdictColor = "emerald" | "amber" | "sky" | "red" | "violet" | "gray";
@@ -111,16 +116,13 @@ export interface EstimatedTrueRank {
   tierName: string;
   tier: number;
   tierGap: number;
-  confidence: "high" | "medium" | "low";
-  confidenceInterval90: {
+  modelRange: {
     minTier: number;
     maxTier: number;
     minTierName: string;
     maxTierName: string;
     spanText: string;
   };
-  /** Posterior probability per competitive tier id (3-27). */
-  probabilities: Record<number, number>;
 }
 
 export interface BandPerformance {
@@ -130,6 +132,7 @@ export interface BandPerformance {
   matchesCount: number;
   wins: number;
   losses: number;
+  draws: number;
   winRate: number;
   kd: number;
   acs: number;
@@ -162,6 +165,8 @@ export interface LobbyAnalysis {
   relativeStats: { kdDelta: number; acsDelta: number; hsDelta: number; wrDelta: number };
   eloBandPerformance: BandPerformance[];
   encounteredOpponents: OpponentTiers;
+  stats: StatBlock;
+  referenceTier: number;
 }
 
 export interface BenchmarksComparison {
@@ -169,26 +174,33 @@ export interface BenchmarksComparison {
   role: string;
   playerStats: { hs: number; kd: number; acs: number; winRate: number };
   expectedStats: { hsMean: number; hsP95: number; kdMean: number; kdP95: number; acsMean: number; acsP95: number };
-  zScores: { hsZ: number; kdZ: number; acsZ: number; combatZ: number; compositeZ: number };
+  zScores: { hsZ: number; kdZ: number; acsZ: number; wrZ: number; combatZ: number; compositeZ: number };
 }
 
 /** スマーフ診断 — whether the player performs at/below/above their rank. */
 export interface SmurfVerdict {
   currentTier: number;
-  scores: { smurfScore: number; altScore: number; cheatScore: number };
+  scores: { smurfScore: number | null; altScore: number | null; outlierScore: number | null };
   verdict: VerdictLabel;
-  estimatedTrueRank: EstimatedTrueRank;
+  estimatedTrueRank: EstimatedTrueRank | null;
   lobbyAnalysis: LobbyAnalysis;
-  benchmarksComparison: BenchmarksComparison;
+  benchmarksComparison: BenchmarksComparison | null;
   signals: ReportSignal[];
 }
 
 export interface AccountReport {
+  locale: "en" | "ja";
   generatedAt: string;
-  sample: { storedMatches: number; rosterMatches: number; competitiveRows: number };
+  sample: {
+    storedMatches: number; rosterMatches: number; competitiveRows: number;
+    /** Unique Competitive record IDs excluded for invalid/future/missing statistics. */
+    excludedStoredMatches: number;
+    diagnosisFrom: string; diagnosisTo: string;
+  };
   history: ActHistoryRow[];
   serverStats: {
     total: number;
+    knownMatches: number;
     topCluster: string;
     clusters: Record<string, number>;
     percentages: Record<string, number>;
@@ -198,4 +210,6 @@ export interface AccountReport {
   comparison: EarlyRecentComparison;
   audit: AuditReport;
   verdict: SmurfVerdict;
+  auditTimeline: AuditTimeline;
+  auditCoverage?: AuditCoverage;
 }

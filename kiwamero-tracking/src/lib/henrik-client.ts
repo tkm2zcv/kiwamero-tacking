@@ -10,19 +10,11 @@
  * and previously ran `no-store` on every render.
  */
 
-const BASE = "https://api.henrikdev.xyz";
-const KEY_COOLDOWN_MS = 60_000;
+import { requestHenrik } from "./henrik-request.ts";
+import type { HenrikPriority } from "./henrik-quota";
+export { HenrikDevError } from "./henrik-errors.ts";
+
 const MAX_CACHE_ENTRIES = 200;
-
-export class HenrikDevError extends Error {
-  readonly status: number;
-
-  constructor(status: number, message: string) {
-    super(message);
-    this.name = "HenrikDevError";
-    this.status = status;
-  }
-}
 
 // --- API keys -----------------------------------------------------------
 
@@ -53,7 +45,7 @@ export function pickKey(now = Date.now()): string | undefined {
       return k;
     }
   }
-  return keys[0]; // all cooling down — use the first anyway
+  return undefined;
 }
 
 export function markKeyCooldown(key: string, untilMs: number): void {
@@ -152,47 +144,14 @@ export interface HenrikCallOptions {
   /** Bypass the cache (still participates in in-flight dedupe writes). */
   fresh?: boolean;
   headers?: Record<string, string>;
-}
-
-interface ApiResponse<T> {
-  status: number;
-  data: T;
-  errors?: { message: string }[];
+  priority?: HenrikPriority;
 }
 
 async function fetchOnce<T>(path: string, init?: HenrikCallOptions): Promise<T> {
   const keys = apiKeys();
-  const maxAttempts = Math.max(1, Math.min(keys.length || 1, 3));
-  let res: Response | undefined;
-  for (let i = 0; i < maxAttempts; i++) {
-    const key = pickKey();
-    res = await fetch(`${BASE}${path}`, {
-      cache: "no-store",
-      headers: {
-        Accept: "application/json",
-        ...(key ? { Authorization: key } : {}),
-        ...(init?.headers ?? {}),
-      },
-    });
-    if (res.status !== 429) break;
-    if (key) {
-      const retryAfter = Number(res.headers.get("retry-after"));
-      markKeyCooldown(
-        key,
-        Date.now() + (Number.isFinite(retryAfter) && retryAfter > 0
-          ? retryAfter * 1000
-          : KEY_COOLDOWN_MS),
-      );
-    }
-  }
-  const json = (await res!.json()) as ApiResponse<T>;
-  if (json.status !== 200) {
-    throw new HenrikDevError(
-      json.status ?? res!.status,
-      `henrikdev ${path} -> ${json.status}: ${json.errors?.[0]?.message ?? res!.statusText}`,
-    );
-  }
-  return json.data;
+  const first = pickKey();
+  const index = first ? keys.indexOf(first) : 0;
+  return requestHenrik<T>(path, [...keys.slice(index), ...keys.slice(0, index)], init ?? {}, markKeyCooldown);
 }
 
 export function henrikCall<T>(path: string, opts?: HenrikCallOptions): Promise<T> {

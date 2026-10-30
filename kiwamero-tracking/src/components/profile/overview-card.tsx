@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Match, Profile } from "@/lib/types";
-import { tierIcon } from "@/lib/henrikdev";
+import { tierIcon } from "@/lib/henrik-shared";
 import { deriveOverview, playtimeLabel, type OverviewStats } from "@/lib/profile-stats";
 import type { StatAggregate } from "@/lib/stored-stats";
 

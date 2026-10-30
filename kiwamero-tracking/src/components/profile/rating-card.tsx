@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { CircleHelp } from "lucide-react";
 import type { Profile } from "@/lib/types";
-import { tierIcon } from "@/lib/henrikdev";
+import { tierIcon } from "@/lib/henrik-shared";
 import { formatAct } from "@/lib/profile-stats";
 
 export function RatingCard({ profile }: { profile: Profile }) {

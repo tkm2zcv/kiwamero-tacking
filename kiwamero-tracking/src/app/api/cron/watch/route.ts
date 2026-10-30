@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createWatchDeps, runWatchCycle } from "@/lib/watch-run";
 import { watchDb } from "@/lib/watch-db";
+import { apiKeys } from "@/lib/henrik-client";
+import { cronAuthorized as authorized } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-function authorized(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const header = req.headers.get("authorization") ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : req.headers.get("x-cron-secret") ?? "";
-  if (!secret) return process.env.NODE_ENV === "development";
-  return token.length > 0 && token === secret;
-}
 
 /**
  * Hourly watch cycle. Triggered by the Worker scheduled handler (see
@@ -21,8 +15,8 @@ export async function POST(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (!process.env.HENRIK_API_KEY) {
-    return NextResponse.json({ error: "HENRIK_API_KEY is not configured" }, { status: 503 });
+  if (!apiKeys().length) {
+    return NextResponse.json({ error: "HenrikDev keys are not configured" }, { status: 503 });
   }
 
   try {
@@ -39,7 +33,7 @@ export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   return NextResponse.json({
     ok: true,
-    configured: Boolean(process.env.HENRIK_API_KEY),
+    configured: apiKeys().length > 0,
     secretConfigured: Boolean(process.env.CRON_SECRET),
   });
 }

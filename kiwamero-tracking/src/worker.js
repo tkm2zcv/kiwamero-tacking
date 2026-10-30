@@ -1,9 +1,9 @@
 /**
- * Custom Worker entry: serves the OpenNext app and adds the hourly cron trigger.
+ * Custom Worker entry: minute history queue and hourly watch notifications.
  *
- * `wrangler.jsonc` points `main` here and declares `triggers.crons = ["0 * * * *"]`.
+ * `wrangler.jsonc` points `main` here and schedules every minute.
  * The scheduled handler reuses the already-built OpenNext fetch handler, so the
- * monitoring cycle runs through the normal `/api/cron/watch` route without an
+ * cycles run through the protected cron routes without an
  * extra network hop.
  *
  * Build with `opennextjs-cloudflare build` before deploying; `.open-next/worker.js`
@@ -11,32 +11,36 @@
  */
 import openNext from "../.open-next/worker.js";
 
-const CRON_PATH = "/api/cron/watch";
-
-async function runCron(env, ctx) {
+async function runCron(env, ctx, path) {
   const secret = env?.CRON_SECRET ?? (typeof process !== "undefined" ? process.env.CRON_SECRET : undefined);
   if (!secret) {
-    console.error("[cron] CRON_SECRET is not configured; skipping watch cycle");
+    console.error("[cron] CRON_SECRET is not configured; skipping cycle");
     return;
   }
   const base = env?.APP_URL ?? "https://tracking.kiwamero.dev";
-  const request = new Request(`${base}${CRON_PATH}`, {
+  const request = new Request(`${base}${path}`, {
     method: "POST",
     headers: { authorization: `Bearer ${secret}` },
   });
   try {
     const response = await openNext.fetch(request, env, ctx);
     const body = await response.text();
-    console.log(`[cron] ${response.status} ${body.slice(0, 500)}`);
+    console.log(`[cron] ${path} ${response.status} ${body.slice(0, 500)}`);
   } catch (error) {
-    console.error("[cron] watch cycle failed", error);
+    console.error("[cron] cycle failed", error);
   }
 }
 
 const worker = {
   fetch: openNext.fetch,
   scheduled(event, env, ctx) {
-    ctx.waitUntil(runCron(env, ctx));
+    ctx.waitUntil((async () => {
+      // Preserve hourly notifications; they run before the background budget.
+      if (new Date(event.scheduledTime).getUTCMinutes() === 0) {
+        await runCron(env, ctx, "/api/cron/watch");
+      }
+      await runCron(env, ctx, "/api/cron/audit");
+    })());
   },
 };
 

@@ -1,37 +1,9 @@
 // HenrikDev unofficial VALORANT API client (server-only).
-// https://docs.henrikdev.xyz — free key at henrikdev.xyz, ~30 req/min free tier.
+// Request budgets are configurable; defaults match the observed Standard plan.
 
 import { HenrikDevError, henrikCall } from "./henrik-client.ts";
 
-const TIER_TABLE_UUID = "03621f52-342b-cf4e-4f86-9350a49c6d04";
-
-export function tierIcon(tier: number, size: "small" | "large" = "large") {
-  return `https://media.valorant-api.com/competitivetiers/${TIER_TABLE_UUID}/${tier}/${size}icon.png`;
-}
-
-const TIER_GROUPS = [
-  "Unrated", "Iron", "Bronze", "Silver", "Gold",
-  "Platinum", "Diamond", "Ascendant", "Immortal", "Radiant",
-];
-export function tierName(tier: number): string {
-  if (tier <= 0) return "";
-  const group = TIER_GROUPS[Math.floor(tier / 3)] ?? "";
-  if (group === "Unrated" || group === "Radiant") return group;
-  return group ? `${group} ${(tier % 3) + 1}` : "";
-}
-
-export function playerCardArt(cardId: string, variant: "wideart" | "largeart" | "smallart" = "wideart") {
-  return `https://media.valorant-api.com/playercards/${cardId}/${variant}.png`;
-}
-
-/**
- * HenrikDev reports clusters as "City" or "City N" shard variants
- * ("Tokyo 1" vs "Tokyo") — same physical location, so collapse the suffix
- * for display, flag lookup, and relocation detection.
- */
-export function normalizeCluster(cluster: string | null | undefined): string {
-  return (cluster ?? "").replace(/\s+\d+$/, "");
-}
+export { tierIcon, tierName, playerCardArt, normalizeCluster } from "./henrik-shared.ts";
 
 // HTTP layer (cache, in-flight dedupe, key rotation) lives in henrik-client.ts.
 // TTLs below keep every tab/page re-render free of upstream calls within the
@@ -43,8 +15,6 @@ const TTL_MMR = 180_000;
 const TTL_MMR_HISTORY = 600_000;
 const TTL_MATCHES = 300_000;
 const TTL_STORED_MATCHES = 300_000;
-/** A finished match is immutable — cache aggressively (powers on-expand detail fetches). */
-const TTL_MATCH_DETAIL = 86_400_000;
 
 const call = henrikCall;
 
@@ -171,10 +141,13 @@ export async function getMatches(region: string, puuid: string, opts?: { mode?: 
   if (opts?.mode) params.set("mode", opts.mode);
   if (opts?.size) params.set("size", String(opts.size));
   const q = params.toString();
-  return call<HDMatch[]>(
+  const matches = await call<HDMatch[]>(
     `/valorant/v3/by-puuid/matches/${region}/${puuid}${q ? `?${q}` : ""}`,
     { ttl: TTL_MATCHES, fresh: opts?.fresh }
   );
+  const { rememberMatch } = await import("./match-archive.ts");
+  await Promise.allSettled(matches.map(rememberMatch));
+  return matches;
 }
 
 export interface HDStoredMatch {
@@ -239,12 +212,13 @@ export async function getMmrHistory(region: string, puuid: string, opts?: { fres
   );
 }
 
-/** Full match detail (all players/rounds) for any match tracked upstream, e.g. stored history rows. */
-export async function getMatch(matchId: string, opts?: { fresh?: boolean }) {
-  return call<HDMatch>(
+/** Ended-match roster/stats, reused from D1; round/event blobs are not archived. */
+export async function getMatch(matchId: string, opts?: { fresh?: boolean; priority?: "interactive" | "background" }) {
+  const { archivedMatch } = await import("./match-archive.ts");
+  return archivedMatch(matchId, () => call<HDMatch>(
     `/valorant/v2/match/${matchId}`,
-    { ttl: TTL_MATCH_DETAIL, fresh: opts?.fresh },
-  );
+    { ttl: 0, fresh: opts?.fresh, priority: opts?.priority },
+  ), opts?.fresh);
 }
 
 export async function getLifetimeMatchesCount(region: string, puuid: string) {

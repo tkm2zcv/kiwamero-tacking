@@ -1,64 +1,73 @@
 /**
  * Lobby analysis for the smurf diagnosis: bucket sampled full-roster matches
- * by average lobby tier, z-score the player against each band's benchmark,
- * then estimate the "true rank" by maximum-likelihood over bands.
+ * by average lobby tier and compare with assumed per-band model constants.
+ * The reference rank/spread is heuristic, not a likelihood or confidence bound.
  */
 import {
   bandCenter, bandForTier, benchmarkFor, dominantRole, metricSigma,
   type AgentRole, type BandBenchmark,
 } from "./rank-benchmarks.ts";
-import { tierName } from "./henrikdev.ts";
+import { tierName } from "./henrik-shared.ts";
 import type { BandPerformance, LobbyAnalysis, OpponentTiers } from "./report-model";
-import type { Match, MatchPlayer } from "./types";
+import type { Match } from "./types";
 
 /** Approx. z-score produced by one full tier of skill gap in a lobby. */
 const Z_PER_TIER = 0.3;
-/** Minimum posterior spread (tiers) for the true-rank estimate. */
-const MIN_MLE_SIGMA = 0.45;
-const SIGMA_PER_SAMPLE = 1.4;
+/** Minimum heuristic model spread, in tier divisions. */
+const MIN_MODEL_SPREAD = 2;
 
 interface MatchSample {
+  matchId: string;
   lobbyTier: number;
-  won: boolean;
+  selfTier: number;
+  agent: string;
+  result: "win" | "loss" | "draw";
   kills: number; deaths: number; score: number; rounds: number;
   head: number; shots: number;
   opponents: { puuid: string; tier: number }[];
 }
 
-function isCompetitive(m: Match): boolean {
-  return /competitive/i.test(m.metadata.mode_id || m.metadata.mode || "");
-}
-
-function selfOf(m: Match, selfKey: string): MatchPlayer | undefined {
-  return m.players.find((p) => `${p.name}#${p.tag}`.toLowerCase() === selfKey
-    || (selfKey.startsWith("puuid:") && p.puuid === selfKey.slice(6)));
-}
-
-/** Extract one competitive sample per roster match. `selfKey` = "name#tag". */
+/** Require complete team/metric data; identify the owner by immutable PUUID. */
 export function sampleMatches(matches: Match[], selfKey: string): MatchSample[] {
-  const key = selfKey.toLowerCase();
   const samples: MatchSample[] = [];
-  for (const m of matches) {
-    if (!isCompetitive(m)) continue;
-    const self = selfOf(m, key);
-    if (!self) continue;
+  const seen = new Set<string>();
+  for (const m of [...matches].sort((a, b) => a.metadata.game_start - b.metadata.game_start)) {
+    if ((m.metadata.mode_id || m.metadata.mode || "").toLowerCase() !== "competitive" ||
+      !m.metadata.matchid || seen.has(m.metadata.matchid)) continue;
+    seen.add(m.metadata.matchid);
+    const self = m.players.find((p) => p.puuid === selfKey);
+    const selfTeam = self?.team_id?.toLowerCase();
+    const rounds = m.metadata.rounds_played;
+    if (!self || (selfTeam !== "red" && selfTeam !== "blue") ||
+      !Number.isFinite(rounds) || rounds < 5 || rounds > 60 ||
+      m.players.length !== 10 || new Set(m.players.map((p) => p.puuid)).size !== 10 ||
+      !m.players.every((p) => p.puuid) ||
+      ["red", "blue"].some((team) => m.players.filter((p) => p.team_id?.toLowerCase() === team).length !== 5)) continue;
+    const validTier = (t?: number): t is number => Number.isInteger(t) && t! >= 3 && t! <= 27;
     const others = m.players.filter((p) => p !== self);
-    const tiered = others.filter((p) => (p.currenttier ?? 0) > 0);
-    if (tiered.length < 6) continue; // too few ranked players to trust the lobby read
-    const selfTeam = self.team_id?.toLowerCase();
+    const tiered = others.filter((p) => validTier(p.currenttier));
+    if (tiered.length < 6 || !validTier(self.currenttier)) continue;
     const opponents = others
-      .filter((p) => selfTeam && p.team_id && p.team_id.toLowerCase() !== selfTeam && (p.currenttier ?? 0) > 0)
+      .filter((p) => p.team_id?.toLowerCase() !== selfTeam && validTier(p.currenttier))
       .map((p) => ({ puuid: p.puuid, tier: p.currenttier! }));
-    const won = selfTeam === "red" || selfTeam === "blue" ? m.teams[selfTeam]?.has_won ?? false : false;
     const head = self.stats.headshots ?? 0;
     const shots = head + (self.stats.bodyshots ?? 0) + (self.stats.legshots ?? 0);
+    const own = m.teams[selfTeam];
+    const other = m.teams[selfTeam === "red" ? "blue" : "red"];
+    if (!own || !other || ![own.rounds_won, other.rounds_won, self.stats.kills,
+      self.stats.deaths, self.stats.score, self.stats.headshots, self.stats.bodyshots, self.stats.legshots]
+        .every((n) => typeof n === "number" && Number.isFinite(n) && n >= 0) ||
+      shots <= 0 || self.stats.score <= 0 ||
+      own.rounds_won + other.rounds_won !== rounds) continue;
     samples.push({
+      matchId: m.metadata.matchid,
       lobbyTier: tiered.reduce((s, p) => s + p.currenttier!, 0) / tiered.length,
-      won,
+      selfTier: self.currenttier, agent: self.character,
+      result: own.rounds_won === other.rounds_won ? "draw" : own.rounds_won > other.rounds_won ? "win" : "loss",
       kills: self.stats.kills ?? 0,
       deaths: self.stats.deaths ?? 0,
       score: self.stats.score ?? 0,
-      rounds: m.metadata.rounds_played || 1,
+      rounds,
       head, shots,
       opponents,
     });
@@ -81,7 +90,9 @@ function bandPerformance(samples: MatchSample[], role: AgentRole): BandPerforman
   }
   return [...byBand.entries()].map(([band, list]) => {
     const n = list.length;
-    const wins = list.filter((s) => s.won).length;
+    const wins = list.filter((s) => s.result === "win").length;
+    const losses = list.filter((s) => s.result === "loss").length;
+    const draws = n - wins - losses;
     const kills = list.reduce((s, m) => s + m.kills, 0);
     const deaths = list.reduce((s, m) => s + m.deaths, 0);
     const score = list.reduce((s, m) => s + m.score, 0);
@@ -91,17 +102,18 @@ function bandPerformance(samples: MatchSample[], role: AgentRole): BandPerforman
     const kd = deaths ? kills / deaths : kills;
     const acs = rounds ? score / rounds : 0;
     const hsRate = shots ? (head / shots) * 100 : 0;
-    const winRate = n ? (wins / n) * 100 : 0;
+    const winRate = wins + losses ? (wins / (wins + losses)) * 100 : 0;
     const bench = benchmarkFor(bandCenter(band), role);
     const kdZ = (kd - bench.meanKd) / metricSigma(bench.meanKd, bench.p95Kd, 0.2);
     const acsZ = (acs - bench.meanAcs) / metricSigma(bench.meanAcs, bench.p95Acs, 25);
     const hsZ = (hsRate - bench.meanHs) / metricSigma(bench.meanHs, bench.p95Hs, 4);
     // Binomial σ around a 50% lobby win rate shrinks as the sample grows.
-    const wrZ = (winRate - 50) / (50 / Math.sqrt(n));
+    // Effect size, not significance: does not grow unbounded with sample size.
+    const wrZ = wins + losses ? (winRate - 50) / 25 : 0;
     const compositeZ = (kdZ + acsZ + hsZ + wrZ) / 4;
     return {
       bandName: band.band, minTier: band.minTier, maxTier: band.maxTier,
-      matchesCount: n, wins, losses: n - wins, winRate: +winRate.toFixed(1),
+      matchesCount: n, wins, losses, draws, winRate: +winRate.toFixed(1),
       kd: +kd.toFixed(2), acs: Math.round(acs), hsRate: +hsRate.toFixed(1),
       benchmark: {
         meanKd: bench.meanKd, p95Kd: bench.p95Kd, meanAcs: bench.meanAcs,
@@ -140,10 +152,11 @@ function opponentTiers(samples: MatchSample[]): OpponentTiers {
 }
 
 export interface LobbyResult {
+  sampledMatchIds: string[];
   analysis: LobbyAnalysis;
   bands: BandPerformance[];
   role: AgentRole;
-  /** Precision-weighted MLE estimate of the true tier + its sigma. */
+  /** Sample-weighted reference tier and heuristic spread, NOT an SD. */
   estimate: { tier: number; sigma: number };
 }
 
@@ -154,7 +167,7 @@ export function analyzeLobby(
   locale: "en" | "ja",
 ): LobbyResult {
   const samples = sampleMatches(matches, selfKey);
-  const role = dominantRole(topAgents);
+  const role = dominantRole(samples.length ? samples.map((s) => [s.agent, 1]) : topAgents);
   const bands = bandPerformance(samples, role);
   const opponents = opponentTiers(samples);
   const avgLobby = samples.length
@@ -171,29 +184,33 @@ export function analyzeLobby(
   const kd = deaths ? kills / deaths : kills;
   const acs = rounds ? score / rounds : 0;
   const hsRate = shots ? (head / shots) * 100 : 0;
-  const winRate = n ? (samples.filter((s) => s.won).length / n) * 100 : 0;
+  const wins = samples.filter((s) => s.result === "win").length;
+  const decided = samples.filter((s) => s.result !== "draw").length;
+  const winRate = decided ? wins / decided * 100 : 0;
 
   const bench = benchmarkFor(avgLobby || 12, role); // no samples → neutral Gold anchor
   const kdZ = n ? (kd - bench.meanKd) / metricSigma(bench.meanKd, bench.p95Kd, 0.2) : 0;
   const acsZ = n ? (acs - bench.meanAcs) / metricSigma(bench.meanAcs, bench.p95Acs, 25) : 0;
   const hsZ = n ? (hsRate - bench.meanHs) / metricSigma(bench.meanHs, bench.p95Hs, 4) : 0;
-  const wrZ = n ? (winRate - 50) / (50 / Math.sqrt(n)) : 0;
+  const wrZ = decided ? (winRate - 50) / 25 : 0;
   const compositeZ = n ? (kdZ + acsZ + hsZ + wrZ) / 4 : 0;
 
-  // Per-band MLE: a player of true tier t shows z ≈ (center(t) − lobbyCenter)/Z_PER_TIER.
+  // Sample-weighted model: each 0.3 deviation shifts one tier from the actual
+  // lobby average. Do not use a band's midpoint (it biases edge-of-band lobbies).
   let estTier = avgLobby;
-  let estSigma = 3;
+  let estSigma = MIN_MODEL_SPREAD;
   const weighted = bands.filter((b) => b.matchesCount > 0);
   if (weighted.length && avgLobby > 0) {
     let num = 0, den = 0;
     for (const b of weighted) {
-      const sigmaB = Math.max(MIN_MLE_SIGMA, SIGMA_PER_SAMPLE / Math.sqrt(b.matchesCount));
-      const tHat = (b.minTier + b.maxTier) / 2 + b.zScores.compositeZ / Z_PER_TIER;
-      const w = 1 / (sigmaB * sigmaB);
+      const inBand = samples.filter((s) => bandForTier(s.lobbyTier).band === b.bandName);
+      const center = inBand.reduce((sum, s) => sum + s.lobbyTier, 0) / inBand.length;
+      const tHat = center + Math.max(-1.5, Math.min(1.5, b.zScores.compositeZ)) / Z_PER_TIER;
+      const w = b.matchesCount;
       num += tHat * w; den += w;
     }
     estTier = num / den;
-    estSigma = Math.max(MIN_MLE_SIGMA, 1 / Math.sqrt(den));
+    estSigma = MIN_MODEL_SPREAD + 3 / Math.sqrt(n);
   }
 
   const parity = evaluation(compositeZ);
@@ -202,13 +219,19 @@ export function analyzeLobby(
   const name = (t: number) => (t > 0 ? `${tierName(Math.round(t))} (Tier ${t.toFixed(1)})` : "—");
   const estName = tierName(Math.round(Math.min(27, Math.max(3, estTier)))) || "—";
   const performanceDescription = !n ? "" : locale === "ja"
-    ? `対戦ロビー平均（${tierName(Math.round(avgLobby))}帯・${roleLabel(role)}基準）の戦闘効率に対し ${parityLabel(parity, "ja")}（勝率 ${winRate.toFixed(0)}%）。最尤推定の実力ランクは ${estName}。`
-    : `Combat performance vs the lobby average (${tierName(Math.round(avgLobby))} band, ${role} baseline) is ${parityLabel(parity, "en")} (win rate ${winRate.toFixed(0)}%). MLE-estimated true rank: ${estName}.`;
+    ? `${tierName(Math.round(avgLobby))}帯・${roleLabel(role)}の仮定モデル基準を${parityLabel(parity, "ja")}。参考ランクは${estName}。実測母集団による推定ではありません。`
+    : `Performance is ${parityLabel(parity, "en")} the assumed ${tierName(Math.round(avgLobby))} ${role} model. Reference rank: ${estName}. Not calibrated against a player population.`;
 
   return {
     bands, role, estimate: { tier: estTier, sigma: estSigma },
+    sampledMatchIds: samples.map((s) => s.matchId),
     analysis: {
       sampledMatches: n,
+      referenceTier: n ? Math.round(samples.reduce((sum, s) => sum + s.selfTier, 0) / n) : 0,
+      stats: {
+        count: n, kd, acs, hsRate, accuracyCount: n, winRate, topAgents: samples.map((s) => [s.agent, 1]),
+        meanTier: n ? samples.reduce((sum, s) => sum + s.selfTier, 0) / n : 0,
+      },
       avgLobbyTier: +avgLobby.toFixed(1),
       avgLobbyTierName: name(avgLobby),
       tierSpan: n ? `${tierName(Math.round(lo))} 〜 ${tierName(Math.round(hi))}` : "—",
@@ -233,5 +256,5 @@ export function parityLabel(p: BandPerformance["evaluation"], locale: "en" | "ja
 }
 
 function roleLabel(role: AgentRole): string {
-  return { duelist: "Duelist", initiator: "Initiator", controller: "Controller", sentinel: "Sentinel" }[role];
+  return { duelist: "Duelist", initiator: "Initiator", controller: "Controller", sentinel: "Sentinel", unknown: "Unknown" }[role];
 }

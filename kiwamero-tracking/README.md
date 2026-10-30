@@ -56,6 +56,36 @@ npm run dev -- -p 3002
 - Windows では workerd/esbuild が `%TEMP%` へ書けない環境があり、`TMP`/`TEMP` を
   プロジェクト内 (例: `.tmp`) に向けて `wrangler dev` / `wrangler d1` を実行すると回避できます。
 
+## HenrikDev共有プール・履歴補完
+
+- `HENRIK_API_KEYS`（カンマ区切り）と既存`HENRIK_API_KEY`を併用・重複排除。
+  `.env.example`の`HENRIK_KEY_RPM=30`、`HENRIK_BACKGROUND_RPM=20`が既定です。
+  D1で各呼び出しの枠を原子的に予約し、検索・監視用の枠を残します。
+- 利用枠がアカウント単位なら`HENRIK_QUOTA_SCOPE=shared`。
+  キー単位の独立枠は契約・レスポンスヘッダー等で確認してください。
+  4本を持つだけで120回/分になるとは保証しません。
+- 査定画面の「詳細補完を開始」で取得済みCompetitive履歴を登録します。
+  変化点の前後を優先して毎分のCronで段階取得。ページ閲覧だけでは大量取得しません。
+  完了した試合のロスター/統計はD1に永続保存し、別プレイヤーでも再利用します。
+- 有効履歴・比較窓・期間別の保存済み/未補完/取得不能を表示。
+  取得前・途中は暫定評価であり、未取得を「変化なし」とは扱いません。
+- 既存DBは追加で`db/upgrade-2026-10-30.sql`を適用してください。
+  `next dev`のローカルD1とフォールバックSQLiteは別DBです。
+  `tools/migrate-dev-db.mjs`はSQLite側にもこの追加分を適用します。
+- 既定の大量補完（最大100件/巡回）はWorkers PaidのCPU/D1クエリ枠を前提とします。
+  最大20人同時、各5,000件・JSON1.8MB。上限超過は切り捨てず413を返します。
+
+`next dev`だけではCronは自動起動しません。ローカルで登録済みキューを進める場合:
+
+```bash
+curl -X POST http://localhost:3002/api/cron/audit \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+これは履歴補完だけです。`/api/cron/watch`は実際のDiscord通知を送る別処理です。
+本番への適用は[追加の移行手順](../docs/deployment-guide.md)、
+設計・制約は[キューのレビュー](../docs/reports/20261030-history-queue-review.md)を参照。
+
 ## 監視通知 (Discord Webhook)
 
 1. Discord のチャンネル設定 → 連携サービス → ウェブフックで URL を発行。
@@ -87,9 +117,14 @@ npm run build:worker # OpenNext (Workers) バンドル
 
 現状の既知の制約:
 
-- Account Audit の勝率・K/D・試合数は、選択したモードで取得した直近試合の
-  標本です。生涯成績ではありません。Encounters も取得済み直近ロスターのみを
-  Act/モードで絞り込みます。
+- Account Audit / Smurf Diagnosis はCompetitive固定の参考レポートです。
+  査定は取得済み保存履歴40件以上、診断は直近90日・最大25試合のうち
+  有効ロスター10件・決着5件以上が必要。不足時は採点しません。
+  診断だけ標本不足時に最大10試合IDを補完（D1の試合詳細キャッシュを共用）。
+  確率・実測P95・90%信頼区間・不正の断定は行いません。
+  計算式と制約: [再検査レポート](../docs/reports/20261030-account-report-review.md)。
+- Encounters は選択Act/モードで取得できたロスターの範囲を集計し、
+  詳細取得の上限と部分カバレッジを表示します。全Act選択時の補完は最新2Actです。
 - 初期言語は `Accept-Language` (日英・品質値順) から決定し、
   手動で選んだ `lang` cookie があればそちらを優先します。
 - ~~Prisma 7 は workerd 上で動作しません~~ → **解消 (2026-10-29)**。

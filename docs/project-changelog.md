@@ -1,5 +1,45 @@
 # Project Changelog
 
+## 2026-10-30 — Shared Henrik budgets and historical enrichment (not deployed)
+
+- Added atomic D1 rolling quotas/cooldowns across configured keys and isolates:
+  default30/key/min, background20; optional shared provider/account scope.
+  Honor Retry-After, cool bad credentials, preserve403 privacy failures.
+- Persistent ended-match roster/stat archive with shared token leases, validated
+  cache admission, bounded backoff and explicit unavailable records.
+- Public opt-in, deduplicated history manifests; atomic global admission,
+  conditional resync, crash recovery and priority for suspicious-period context.
+  Minute audit cron is separate from still-hourly watch notifications.
+- Scan every20+20 boundary, not only lifetime halves. Reject mixed-rank/future
+  evidence; show per-period archived/pending/unavailable coverage and provisional
+  conclusions. Browser utilities no longer import the DB-aware API layer.
+- Local-only additive migration applied. No deployment, production DB/secret
+  changes, live bulk ingestion, notification execution, commit or push.
+- Verification/limitations: `reports/20261030-history-queue-review.md`.
+  140 tests, lint/typecheck, Next/OpenNext builds; EN/JA1920/390/360px,
+  pending/partial UI fixtures, local route guards, clean client secret/DB scan.
+  This entry supersedes the previous24h-cache/no-backfill statements below.
+
+## 2026-10-30 — Report logic review and tracker.gg-style report UI (not deployed)
+
+- Corrected false suspicion from empty/missing data, sample/scope mixing,
+  rename-based identity, draws, duplicate rosters and unordered opponent ranks.
+- Removed uncalibrated probability/P95/90%-CI/cheating claims. Scores are
+  descriptive indices; unavailable scores and reference ranks are null.
+- Reports explicitly use account-wide Competitive data. Audit requires 40 valid
+  stored rows; diagnosis needs 10 valid rosters and 5 decided games from the
+  latest 25 matches within 90 days. Hidden ACT/mode filters cannot mislead users.
+- Audit no longer fetches historical rosters. Diagnosis tops up only a missing
+  minimum, at most 10 match IDs, retaining the 24h detail cache.
+- Canonical agent-role mapping now includes Hush and correctly classifies Veto;
+  unknown primary roles withhold the model. Missing stats/shots stay unavailable.
+- Rebuilt both tabs using existing tracker.gg tokens, Saira headings, v3 cards,
+  score tiles, striped tables, a 300px summary rail and mobile-first reading order.
+- Verification: 116 tests, lint/typecheck, Next and OpenNext builds; live Meiy and
+  ashrielle checks, EN/JA, 360/390/1440/1920px, methodology keyboard interaction.
+- Details/formulas/limitations: `reports/20261030-account-report-review.md`.
+  Earlier report claims in the initial implementation entry are superseded here.
+
 ## 2026-10-30 — Search history (anonymous, localStorage)
 
 - `src/lib/search-history.ts`: stores the last 10 viewed profiles

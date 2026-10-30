@@ -1,189 +1,119 @@
-import Image from "next/image";
-import { getDict, getLocale } from "@/lib/i18n/server";
-import { formatAct } from "@/lib/profile-stats";
-import { tierIcon } from "@/lib/henrikdev";
-import type { Profile, Summary } from "@/lib/types";
+import type { Profile } from "@/lib/types";
 import type { AccountReport } from "@/lib/report-model";
+import { formatAct } from "@/lib/profile-stats";
+import { AuditProgress } from "./audit-progress";
+import { AuditTimeline } from "./audit-timeline";
+import {
+  ReportCard, ReportMeter, ReportMethod, ReportRing, ReportScope, ReportSignals,
+  reportNumber as n, reportText,
+} from "./report-ui";
 
-const GRADE_COLOR: Record<string, string> = {
-  S: "#f87171", A: "#fb923c", B: "#fbbf24", C: "#34d399",
-};
-const SEVERITY_COLOR: Record<string, string> = {
-  alert: "#f87171", warn: "#fbbf24", info: "#38bdf8", normal: "#34d399",
-};
-
-/**
- * Account Audit (アカウント査定) — appraises how strongly the account history
- * suggests the person behind it changed, with the evidence shown alongside.
- */
-export async function AccountAudit({
-  profile,
-  summary,
-  capturedAt,
-  report,
-}: {
-  profile: Profile;
-  summary: Summary;
-  capturedAt: string;
-  report: AccountReport;
-}) {
-  const t = await getDict();
-  const locale = await getLocale();
-  const { audit } = report;
-  const gen = audit.lifetimeGenealogy;
-  const firstAct = report.history[report.history.length - 1];
-  const L = (ja: string, en: string) => (locale === "ja" ? ja : en);
-
-  const facts: { label: string; value: React.ReactNode }[] = [
-    { label: "Account Level", value: profile.level || "—" },
-    { label: "Region", value: profile.region?.toUpperCase() || "—" },
-    { label: "Current Rating", value: profile.currentRank || "—" },
-    { label: "Rank Rating", value: profile.rr != null ? `${profile.rr} RR` : "—" },
-    { label: "Peak Rating", value: profile.peakRank ? `${profile.peakRank}${profile.peakAct ? ` (${formatAct(profile.peakAct)})` : ""}` : "—" },
-    { label: "First Act Seen", value: firstAct ? formatAct(firstAct.act) : "—" },
-    { label: L("保存試合数", "Stored Matches"), value: gen.totalLifetimeMatches },
-    { label: L("記録期間", "Recorded Span"), value: gen.lifetimeSpanMonths ? `${gen.oldestMatchDate} → ${gen.newestMatchDate} (${gen.lifetimeSpanMonths}mo)` : "—" },
-    { label: L("直近の勝率", "Recent Win Rate"), value: summary.matches ? `${summary.winRate.toFixed(1)}%` : "—" },
-    { label: L("直近のK/D", "Recent K/D"), value: summary.matches ? summary.kd.toFixed(2) : "—" },
-    { label: "Last Updated", value: profile.lastUpdated || new Date(capturedAt).toLocaleDateString("en-US", { dateStyle: "medium" }) },
+export function AccountAudit({ profile, report }: { profile: Profile; report: AccountReport }) {
+  const { locale } = report;
+  const L = reportText(locale);
+  const { audit, comparison: cmp, lifetimeGenealogy: gen, serverStats } = report;
+  const complete = report.auditCoverage?.state === "complete";
+  const tone = !complete || audit.score === null || !cmp.comparable ? "neutral" : audit.score >= 45 ? "warn" : "good";
+  const boundary = report.auditTimeline.candidates[0];
+  const first = report.history[report.history.length - 1];
+  const metrics = [
+    ["K/D", n(cmp.before.kd, 2), n(cmp.after.kd, 2), n(cmp.kdDiff, 2)],
+    ["ACS", n(cmp.before.acs), n(cmp.after.acs), n(cmp.acsDiff)],
+    ["HS%",
+      cmp.before.accuracyCount ? `${n(cmp.before.hsRate, 1)}%` : "-",
+      cmp.after.accuracyCount ? `${n(cmp.after.hsRate, 1)}%` : "-",
+      cmp.before.accuracyCount && cmp.after.accuracyCount ? `${n(cmp.hsDiff, 1)}pt` : "-"],
+    [L("勝率", "Win rate"), `${n(cmp.before.winRate, 1)}%`, `${n(cmp.after.winRate, 1)}%`, "-"],
   ];
-
+  const breakdown = [
+    [L("ランク変化", "Rank changes"), audit.breakdown.rankScore, 30, L("隣接ACT間の差", "Differences between adjacent acts")],
+    [L("成績変化", "Performance"), audit.breakdown.performanceScore, 40, L("比較可能な期間の複数指標", "Multiple metrics in comparable periods")],
+    [L("サーバー変化", "Server pattern"), audit.breakdown.serverScore, 15, L("成績変化との組合せのみ", "Only combined with performance changes")],
+    [L("使用傾向変化", "Agent pattern"), audit.breakdown.activityScore, 15, L("成績変化との組合せのみ", "Only combined with performance changes")],
+  ] as const;
   return (
-    <div className="space-y-3">
-      <div className="v3-card">
-        <header className="v3-card__header"><h2 className="v3-card__title">{t.diagnosis.accountAudit}</h2></header>
-        <div className="v3-card__body v3-card__body--v2.5 p-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-4 text-3xl font-black"
-              style={{ background: `${GRADE_COLOR[audit.grade]}22`, color: GRADE_COLOR[audit.grade], border: `1px solid ${GRADE_COLOR[audit.grade]}55` }}>
-              {audit.grade}
+    <div className="kt-report">
+      <ReportScope report={report} locale={locale} />
+      <AuditProgress key={profile.puuid} initial={report.auditCoverage} puuid={profile.puuid}
+        name={profile.name} tag={profile.tag} locale={locale} availableMatches={report.sample.storedMatches} />
+      <div className="kt-report-layout">
+        <aside className="kt-report-rail">
+          <ReportCard title={L("アカウント査定", "Account audit")}>
+            <div className="kt-report-summary" data-tone={tone}>
+              <ReportRing value={audit.score} label={L("履歴変化指数", "History-change index")} tone={tone} />
+              <div><h3>{complete ? audit.title : L("取得範囲の暫定評価", "Provisional history assessment")}</h3><p>{audit.confidenceLabel}</p></div>
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="font-bold">{audit.title}</div>
-              <div className="mt-0.5 text-12 text-secondary">{audit.confidenceLabel}</div>
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/8">
-                <div className="h-full rounded-full" style={{ width: `${audit.score}%`, background: GRADE_COLOR[audit.grade] }} />
-              </div>
-            </div>
-            <div className="shrink-0 text-2xl font-black" style={{ color: GRADE_COLOR[audit.grade] }}>{audit.score}</div>
-          </div>
-          <p className="mt-3 text-13 text-secondary">{audit.recommendation}</p>
-          <p className="mt-1 text-11 text-tertiary">
-            {L("推定は公開データの統計的参考値であり、断定ではありません。", "Heuristic reference from public data — not a definitive judgement.")}
-          </p>
-        </div>
-      </div>
-
-      <div className="v3-card">
-        <header className="v3-card__header"><h2 className="v3-card__title">{L("内訳スコア", "Score breakdown")}</h2></header>
-        <div className="v3-card__body v3-card__body--v2.5 grid gap-y-px rounded-4 overflow-hidden">
-          {([
-            [L("ランク推移", "Rank trajectory"), audit.breakdown.rankScore, 45],
-            [L("サーバー環境", "Server environment"), audit.breakdown.serverScore, 45],
-            [L("実力推移", "Performance shift"), audit.breakdown.performanceScore, 40],
-            [L("アカウント経歴", "Account history"), audit.breakdown.activityScore, 40],
-          ] as const).map(([label, v, max]) => (
-            <div key={label} className="row relative flex min-h-12 items-center bg-[--row-color] px-4">
-              <span className="w-40 text-12 text-secondary">{label}</span>
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/8">
-                <div className="h-full rounded-full" style={{ width: `${(v / max) * 100}%`, background: v ? "#fbbf24" : "#34d399" }} />
-              </div>
-              <span className="w-12 text-right font-bold">{v}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <AuditEvidence report={report} locale={locale} />
-
-      <div className="v3-card">
-        <header className="v3-card__header"><h2 className="v3-card__title">{L("検出シグナル", "Detected signals")}</h2></header>
-        <div className="v3-card__body v3-card__body--v2.5 space-y-2 p-4">
-          {audit.signals.map((s, i) => (
-            <div key={i} className="flex gap-3">
-              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ background: SEVERITY_COLOR[s.severity] ?? "#9ca3af" }} />
-              <div>
-                <div className="text-13 font-semibold">{s.title}</div>
-                <p className="text-12 text-secondary">{s.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="v3-card">
-        <header className="v3-card__header"><h2 className="v3-card__title">{L("アカウント実績", "Account facts")}</h2></header>
-        <div className="v3-card__body v3-card__body--v2.5">
-          <div className="grid gap-y-px rounded-4 overflow-hidden">
-            <div className="row relative flex min-h-14 bg-[--row-color] items-center">
-              <div className="relative flex items-center px-4 bg-inherit">
-                <div className="stat-ver inline-flex items-center gap-x-2 w-full truncate val v3-stat-left">
-                  {profile.currentTier ? (
-                    <Image className="image rounded-2 object-contain" src={tierIcon(profile.currentTier, "small")} alt="" width={120} height={120} unoptimized />
-                  ) : null}
-                  <div className="name-value flex gap-x-space flex-col truncate">
-                    <span className="stat-value inline-flex gap-0.5 value truncate"><span className="truncate">{profile.currentRank || "—"}</span></span>
-                    {profile.rankPosition ? (
-                      <div className="substats flex text-10 leading-4/4 text-secondary mt-1"><span className="text-gold">#{profile.rankPosition.toLocaleString("en-US")}</span></div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </div>
-            {facts.map((r) => (
-              <div key={r.label} className="row relative flex min-h-14 bg-[--row-color] items-center">
-                <div className="relative flex items-center px-4 bg-inherit">
-                  <div className="stat-ver inline-flex items-center gap-x-2 w-full truncate val v3-stat-left">
-                    <div className="name-value flex gap-x-space flex-col truncate">
-                      <span className="stat-value inline-flex gap-0.5 value truncate"><span className="truncate">{r.value}</span></span>
-                      <div className="substats flex text-10 leading-4/4 text-secondary mt-1"><span>{r.label}</span></div>
+            <p className="kt-report-footnote">{audit.recommendation}</p>
+          </ReportCard>
+          <ReportCard title={L("アカウント情報", "Account record")}>
+            <dl className="kt-report-dl">
+              {[
+                [L("現在ランク", "Current rank"), profile.currentRank || "-"],
+                [L("レベル", "Account level"), profile.level > 0 ? n(profile.level) : "-"],
+                [L("初回記録ACT", "First recorded act"), first ? formatAct(first.act) : "-"],
+                [L("取得済み試合", "Retrieved matches"), n(gen.totalLifetimeMatches)],
+                [L("評価対象外の記録ID", "Excluded record IDs"), n(report.sample.excludedStoredMatches)],
+                [L("最古の記録", "Oldest record"), gen.oldestMatchDate || "-"],
+                [L("最新の記録", "Newest record"), gen.newestMatchDate || "-"],
+              ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+            </dl>
+            <p className="kt-report-footnote">{L("取得範囲のみ。生涯全試合・作成日は保証しません。", "Retrieved records only. Not guaranteed lifetime coverage or creation date.")}</p>
+          </ReportCard>
+        </aside>
+        <div className="kt-report-content">
+          <ReportCard title={L("指数の内訳", "Change index breakdown")}
+            description={L("変化を示す参考指数です。本人性や所有者変更の確率ではありません。", "Descriptive change index, not a probability of an identity or ownership change.")}>
+            <div className="kt-report-table-wrap" tabIndex={0} role="region" aria-label={L("指数の内訳", "Index breakdown")}>
+              <table className="kt-report-table">
+                <thead><tr><th>{L("評価項目", "Indicator")}</th><th>{L("参考点 / 上限", "Points / limit")}</th><th>{L("条件", "Condition")}</th></tr></thead>
+                <tbody>{breakdown.map(([label, value, max, note]) => (
+                  <tr key={label}><th scope="row">{label}</th><td>
+                    <div className="kt-report-score-cell" data-tone={value ? "warn" : "neutral"}>
+                      <ReportMeter value={audit.score === null ? null : value} max={max} label={label} />
+                      <strong>{audit.score === null ? "-" : value}</strong><small>/ {max}</small>
                     </div>
-                  </div>
+                  </td><td className="kt-report-cell-note">{note}</td></tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </ReportCard>
+          <AuditTimeline timeline={report.auditTimeline} locale={locale} />
+          <div className="kt-report-pair">
+            <ReportCard title={boundary ? L("変化点の前後比較", "Before / after boundary") : L("前半 / 後半の比較", "Early / recent comparison")}
+              description={L(`${cmp.before.count} / ${cmp.after.count}試合・${boundary ? "最大変化点の隣接窓" : "時系列で二分"}`,
+                `${cmp.before.count} / ${cmp.after.count} matches, ${boundary ? "strongest adjacent-window change" : "split chronologically"}`)}>
+              {cmp.before.count && cmp.after.count ? (
+                <div className="kt-report-table-wrap" tabIndex={0} role="region" aria-label={L("期間比較", "Period comparison")}>
+                  <table className="kt-report-table">
+                    <thead><tr><th>{L("指標", "Metric")}</th><th>{L("前半", "Early")}</th><th>{L("後半", "Recent")}</th><th>{L("差", "Delta")}</th></tr></thead>
+                    <tbody>{metrics.map(([label, before, after, diff]) => (
+                      <tr key={label}><th scope="row">{label}</th><td>{before}</td><td>{after}</td><td>{diff}</td></tr>
+                    ))}</tbody>
+                  </table>
                 </div>
-              </div>
-            ))}
+              ) : <p className="kt-report-empty">{L("比較できる履歴がありません。", "No comparable history available.")}</p>}
+              <p className="kt-report-footnote">{cmp.comparable
+                ? L("同程度の記録ランク帯で比較。役割変更や成長は区別できません。", "Similar recorded rank environments. Role changes and improvement cannot be isolated.")
+                : L("標本数・ランク帯・欠損の条件を満たさず、成績変化の採点は保留します。", "Sample, rank or completeness requirements are not met; performance-change scoring is withheld.")}
+                <br />{L("射撃データ取得済み", "Shot data available")}: {cmp.before.accuracyCount} / {cmp.before.count} + {cmp.after.accuracyCount} / {cmp.after.count}
+              </p>
+            </ReportCard>
+            <ReportCard title={L("利用サーバー", "Server distribution")}
+              description={L(`判明 ${serverStats.knownMatches} / ${serverStats.total}試合`, `Known in ${serverStats.knownMatches} / ${serverStats.total} matches`)}>
+              {serverStats.knownMatches ? <div className="kt-report-servers">
+                {Object.entries(serverStats.clusters).sort((a, b) => b[1] - a[1]).map(([name, count]) => (
+                  <div className="kt-report-server" key={name}>
+                    <div><strong>{name}</strong><span>{n(count)} / {n(serverStats.percentages[name], 1)}%</span></div>
+                    <ReportMeter value={serverStats.percentages[name]} label={name} />
+                  </div>
+                ))}
+              </div> : <p className="kt-report-empty">{L("サーバー情報は未取得です。", "Server data unavailable.")}</p>}
+              <p className="kt-report-footnote">{L("割合は判明試合が分母です。利用サーバーは所在地を証明しません。", "Percentages use known-server matches. Server choice does not establish location.")}</p>
+            </ReportCard>
           </div>
+          <ReportSignals signals={audit.signals} locale={locale} />
+          <ReportMethod locale={locale} />
         </div>
-      </div>
-    </div>
-  );
-}
-
-function AuditEvidence({ report, locale }: { report: AccountReport; locale: "en" | "ja" }) {
-  const cmp = report.comparison;
-  const gen = report.lifetimeGenealogy;
-  const L = (ja: string, en: string) => (locale === "ja" ? ja : en);
-  const row = (label: string, a: string, b: string) => (
-    <div key={label} className="row relative flex min-h-11 items-center bg-[--row-color] px-4 text-13">
-      <span className="w-36 text-secondary">{label}</span>
-      <span className="flex-1">{a}</span>
-      <span className="flex-1">{b}</span>
-    </div>
-  );
-  return (
-    <div className="v3-card">
-      <header className="v3-card__header"><h2 className="v3-card__title">{L("エビデンス", "Evidence")}</h2></header>
-      <div className="v3-card__body v3-card__body--v2.5 grid gap-y-px rounded-4 overflow-hidden">
-        <div className="row relative flex min-h-9 items-center bg-[--row-color] px-4 text-11 font-bold uppercase tracking-wider text-tertiary">
-          <span className="w-36">{L("前半 vs 後半", "Early vs recent")}</span>
-          <span className="flex-1">{L("前半", "First half")} ({cmp.before.count})</span>
-          <span className="flex-1">{L("後半", "Second half")} ({cmp.after.count})</span>
-        </div>
-        {row("K/D", cmp.before.kd.toFixed(2), cmp.after.kd.toFixed(2))}
-        {row("ACS", String(Math.round(cmp.before.acs)), String(Math.round(cmp.after.acs)))}
-        {row("HS%", `${cmp.before.hsRate.toFixed(1)}%`, `${cmp.after.hsRate.toFixed(1)}%`)}
-        {row(L("勝率", "Win rate"), `${cmp.before.winRate.toFixed(1)}%`, `${cmp.after.winRate.toFixed(1)}%`)}
-        {row(L("主使用", "Top agents"), cmp.before.topAgents.map(([a]) => a).join(", ") || "—", cmp.after.topAgents.map(([a]) => a).join(", ") || "—")}
-        <div className="row relative flex min-h-11 items-center bg-[--row-color] px-4 text-13">
-          <span className="w-36 text-secondary">{L("サーバー", "Servers")}</span>
-          <span className="flex-1">
-            {Object.entries(report.serverStats.clusters).map(([name, n]) => (
-              <span key={name} className="mr-2 inline-block rounded-2 bg-white/6 px-2 py-0.5 text-12">{name} {Math.round((n / (report.serverStats.total || 1)) * 100)}%</span>
-            ))}
-            {gen.hasClusterFlip ? <span className="text-12" style={{ color: "#f87171" }}>{L("移動あり", "relocated")}</span> : null}
-          </span>
-        </div>
-        {row(L("Riot ID", "Riot ID"), gen.originalName, gen.isRenamed ? gen.currentName : L("変更なし", "unchanged"))}
       </div>
     </div>
   );

@@ -1,21 +1,58 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
-## 2026-10-30 アカウント査定・スマーフ診断 本実装
+## 2026-10-30 複数キー・全期間の詳細補完（未デプロイ）
 
-- `AccountReport` (`src/lib/account-report.ts`) が両タブを駆動:
-  査定=履歴の交代兆候スコア (S/A/B/C 等級)、診断=ロビー内実力の
-  スマーフ/サブ垢/チートスコア + MLE 推定実力ランク (90% CI)。
-- 分解済み: `report-model`/`report-evidence`/`audit-score`/`rank-benchmarks`/
-  `lobby-analysis`/`smurf-verdict`。参照実測値は
-  `docs/research/extracted-initial-audit.json` (旧サイト RSC 抽出)。
-- ロビー標本は保存試合の competitive 行を最大50件 `/v2/match/{id}` で
-  補完 (`REPORT_DETAIL_CAP`、24h キャッシュ)。査定エビデンスは生涯行のみ。
-- `normalizeCluster` で "Tokyo 1" 系シャード接尾辞を正規化 (誤移動検知の修正)。
-- 実測確認: Meiy→0/C/NATURAL/Radiant推定、ashrielle→Sentinel基準/Silver2推定。
-  91 tests + lint/typecheck/build 全緑。未デプロイ (コミットのみ)。
+- 最新: `reports/20261030-history-queue-review.md`。
+  `plans/20261030-1852-history-queue/plan.md`に計画・完了条件。
+- ローカルに4キーを確認（値は非表示）。D1で30/分/キーを共有予約し、
+  背景取得は20/分/キーまで。独立枠は未確認なので本番前に確認、
+  共有なら`HENRIK_QUOTA_SCOPE=shared`。キーは変更・公開していない。
+- `MatchArchive`が永続キャッシュ兼リース付き取得ジョブ。
+  `AuditHistory`/`AuditMatch`で履歴補完を永続化・重複排除・中断復旧。
+  査定画面の明示操作で登録し、変化点前後→その他の順で補完する。
+- `/api/valorant/audit/{puuid}` POST/GET、
+  `/api/cron/audit`（CRON_SECRET）。Cronは毎分になったが、
+  watchの実通知はUTC毎時0分のみ、auditより先。local devは自動Cronなし。
+- 追加SQLは`kiwamero-tracking/db/upgrade-2026-10-30.sql`。
+  ローカルD1と`db/dev.db`には適用済み。本番DBには未適用。
+  大量補完はWorkers PaidのCPU/D1クエリ枠を前提とする。
+- 査定は全履歴の20+20隣接窓を比較。期間別カバレッジ・除外ID数・
+  未評価の期間・暫定状態を表示。診断の90日/25試合の範囲は変えない。
+  表示用ヘルパーは`henrik-shared.ts`へ分離しDBのブラウザ混入を防止。
+- 実APIの大量バックフィル・watch通知・本番デプロイ・commit/pushは未実施。
+  最終検証:140 tests、lint/typecheck、Next/OpenNext build通過。
+  実画面の日英1920/390/360pxで横はみ出し・page errorなし。
+  進捗のpending/partialは通信を差し替えたUI試験で確認（実キューは未作成）。
+  ブラウザ用18 JSのキー文字列・DB依存混入検査も0件。
+  下記の旧節の「24hキャッシュ」「査定の取得0件」は、この新しい
+  永続キャッシュ/非同期補完の説明を優先すること。
+
+## 2026-10-30 査定・診断の再検査とUI再構築（未デプロイ）
+
+- 最新の計算式・検証記録は `reports/20261030-account-report-review.md`。
+  初回実装の「所有者変更確率・チート判定・MLE・90% CI」は不適切なので廃止。
+  履歴変化指数、ランク差/サブ垢/外れ値の参考指数、参考ランクとモデル幅へ変更。
+- 空/欠損データで加点しない。不足時はスコア・参考ランク・比較がnull。
+  査定は有効な保存試合40件以上、診断は完全なロスター10件・決着5件以上。
+- 両タブはアカウント単位のCompetitive固定（ACT/モードの選択UIを非表示）。
+  査定は取得済み履歴、診断は直近90日・最大25試合。診断の成績/本人ランク/
+  ロールは同一標本、本人照合はPUUID。引き分け・重複・不正な標本も修正。
+- 査定の詳細取得は0件。診断だけ不足分+予備2件を最大10試合IDで補完
+  (`report-scope.ts`、24hキャッシュ)。50件一括取得は廃止。
+- `statsAvailable`/`accuracyAvailable`で欠損と実測0を区別。
+  ロール定義は`profile-stats.ts`へ統一、Hush追加・VetoをSentinelへ修正。
+  新エージェントが未知ならDuelistに代用せず判定保留。
+- UIは既存tracker.gg抽出トークンとv3-cardへ統一。
+  `report-ui.tsx`/`report.css`を共有し、左300pxの判定＋右に比較表/根拠。
+  モバイルは判定→分析→アカウント/標本情報の順。日英・横スクロール表に対応。
+- 検証: 116 tests、lint/typecheck、Next/OpenNext build通過。
+  Meiyとashrielleの実データを1920/1440/390/360pxで確認。
+  Meiyは査定0・参考Radiant、ashrielleは査定15・参考Gold2（ランク差指数0）。
+- 残る制約: ベンチマークは仮定定数。実測母集団での診断精度・誤検知率は未検証。
+  この作業ではコミット・push・デプロイを実施していない。
 
 新規アプリ: `kiwamero-tracking/` (親の旧アプリは別物)。
-**本格実装は次セッション**。先に
+作業前に最新の検証記録と以下を確認:
 `docs/project-overview-pdr.md`、`docs/system-architecture.md`、
 `plans/261027-1834-kiwamero-tracking/plan.md` を読む。
 Next.js 16 のコード変更前には `kiwamero-tracking/node_modules/next/dist/docs/` の

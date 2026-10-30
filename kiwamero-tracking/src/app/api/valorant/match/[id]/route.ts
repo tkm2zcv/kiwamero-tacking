@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMatch } from "@/lib/henrikdev";
 import { normalizeHDMatch } from "@/lib/match-normalize";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { HenrikDevError } from "@/lib/henrik-errors";
 
 /**
  * Public match-detail lookup powering the match-list expand drawer.
@@ -20,7 +21,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   try {
     const match = normalizeHDMatch(await getMatch(id));
     return NextResponse.json(match);
-  } catch {
-    return NextResponse.json({ error: "match_unavailable" }, { status: 404 });
+  } catch (error) {
+    const status = error instanceof HenrikDevError ? error.status : 503;
+    return NextResponse.json({ error: status === 429 ? "rate_limited" : "match_unavailable" }, {
+      status, headers: status === 429 && error instanceof HenrikDevError
+        ? { "Retry-After": String(error.retryAfter) } : {},
+    });
   }
 }

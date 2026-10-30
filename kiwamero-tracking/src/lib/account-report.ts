@@ -6,7 +6,6 @@
 import type { Locale } from "./i18n/dict";
 import type { Match, Profile, SeasonRank } from "./types";
 import type { StoredRow } from "./stored-stats";
-import { aggregate } from "./stored-stats.ts";
 import {
   buildClusterEvidence, buildGenealogy, buildHistory, earlyRecentComparison, statBlock,
 } from "./report-evidence.ts";
@@ -14,6 +13,9 @@ import { scoreAudit } from "./audit-score.ts";
 import { analyzeLobby } from "./lobby-analysis.ts";
 import { buildVerdict } from "./smurf-verdict.ts";
 import type { AccountReport } from "./report-model";
+import { recentReportRosters } from "./report-scope.ts";
+import { auditTimeline, validAuditRows } from "./audit-timeline.ts";
+import type { AuditCoverage } from "./audit-history";
 
 export type { AccountReport } from "./report-model";
 
@@ -25,52 +27,55 @@ export function buildAccountReport(input: {
   rosterMatches: Match[];
   locale: Locale;
   generatedAt: string;
+  auditRosters?: Match[];
+  auditCoverage?: AuditCoverage;
 }): AccountReport {
-  const { profile, seasons, storedAll, rosterMatches, locale, generatedAt } = input;
+  const { profile, seasons, locale, generatedAt } = input;
+  const storedAll = validAuditRows(input.storedAll, Date.parse(generatedAt) / 1000);
+  const rosterMatches = recentReportRosters(input.rosterMatches, generatedAt);
   const self = { name: profile.name, tag: profile.tag };
 
-  const comparison = earlyRecentComparison(storedAll);
+  const timeline = auditTimeline(storedAll, input.auditRosters, profile.puuid);
+  const strongest = timeline.candidates[0];
+  const comparison = strongest?.comparison ?? earlyRecentComparison(storedAll);
   const genealogy = buildGenealogy(storedAll, self);
   const cluster = buildClusterEvidence(storedAll);
   cluster.hasClusterFlip = genealogy.hasClusterFlip;
   const history = buildHistory(seasons, storedAll);
 
   const audit = scoreAudit({
-    locale, history, cluster, comparison, genealogy,
-    currentTier: profile.currentTier,
+    locale, history, cluster, comparison, genealogy, transition: strongest?.server,
   });
 
-  const agg = aggregate(storedAll);
   const topAgents = statBlock(storedAll).topAgents;
   const lobby = analyzeLobby(
-    rosterMatches, `${profile.name}#${profile.tag}`, topAgents, locale,
+    rosterMatches, profile.puuid, topAgents, locale,
   );
   const verdict = buildVerdict({
-    locale,
-    currentTier: profile.currentTier,
-    currentRankName: profile.currentRank || "Unrated",
-    level: profile.level,
-    role: lobby.role,
-    lobby,
-    playerStats: { hs: agg.hs, kd: agg.kd, acs: agg.acs, winRate: agg.winRate },
-    audit,
-    storedTotal: storedAll.length,
-    rosterMatches,
-    spanMonths: genealogy.lifetimeSpanMonths,
+    locale, level: profile.level, lobby,
   });
 
   const clusters = genealogy.lifetimeClusterBreakdown;
-  const total = storedAll.length || 1;
+  const total = cluster.knownMatches || 1;
+  const dates = rosterMatches.filter((m) => lobby.sampledMatchIds.includes(m.metadata.matchid))
+    .map((m) => m.metadata.game_start);
+  const date = (ts: number) => Number.isFinite(ts) ? new Date(ts * 1000).toISOString().slice(0, 10) : "";
   return {
+    locale,
     generatedAt,
     sample: {
       storedMatches: storedAll.length,
+      excludedStoredMatches: Math.max(0, new Set(input.storedAll.filter((r) =>
+        typeof r.mode === "string" && r.mode.toLowerCase() === "competitive").map((r) => r.id)).size - storedAll.length),
       rosterMatches: rosterMatches.length,
       competitiveRows: storedAll.filter((r) => /competitive/i.test(r.mode)).length,
+      diagnosisFrom: date(Math.min(...dates)),
+      diagnosisTo: date(Math.max(...dates)),
     },
     history,
     serverStats: {
       total: storedAll.length,
+      knownMatches: cluster.knownMatches,
       topCluster: cluster.home,
       clusters,
       percentages: Object.fromEntries(
@@ -82,5 +87,7 @@ export function buildAccountReport(input: {
     comparison,
     audit,
     verdict,
+    auditTimeline: timeline,
+    auditCoverage: input.auditCoverage,
   };
 }

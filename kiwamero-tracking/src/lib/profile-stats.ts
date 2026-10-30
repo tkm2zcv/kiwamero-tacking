@@ -18,13 +18,13 @@ export function summarize(matches: Match[], puuid: string): Summary {
 /** Agent → role. Used for the Roles card (tracker.gg shows the same split). */
 const AGENT_ROLES: Record<string, RoleKey> = {
   jett: "duelist", phoenix: "duelist", reyna: "duelist", raze: "duelist", yoru: "duelist",
-  neon: "duelist", iso: "duelist", waylay: "duelist",
+  neon: "duelist", iso: "duelist", waylay: "duelist", hush: "duelist",
   sova: "initiator", breach: "initiator", skye: "initiator", "kay/o": "initiator",
-  fade: "initiator", gekko: "initiator", tejo: "initiator", veto: "initiator",
+  fade: "initiator", gekko: "initiator", tejo: "initiator",
   brimstone: "controller", omen: "controller", astra: "controller", viper: "controller",
   harbor: "controller", clove: "controller", miks: "controller",
   sage: "sentinel", cypher: "sentinel", killjoy: "sentinel", chamber: "sentinel",
-  deadlock: "sentinel", vyse: "sentinel",
+  deadlock: "sentinel", vyse: "sentinel", veto: "sentinel",
 };
 
 export type RoleKey = "duelist" | "initiator" | "controller" | "sentinel";
@@ -37,7 +37,7 @@ export const ROLE_META: Record<RoleKey, { label: string; icon: string }> = {
 };
 
 export function agentRole(agent: string): RoleKey | null {
-  return AGENT_ROLES[agent.toLowerCase()] ?? null;
+  return AGENT_ROLES[agent.trim().toLowerCase()] ?? null;
 }
 
 function meOf(m: Match, puuid: string): MatchPlayer | undefined {

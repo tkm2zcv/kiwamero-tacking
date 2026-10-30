@@ -1,14 +1,14 @@
 /**
  * Per-rank-band expected performance benchmarks for the account report.
  *
- * These are heuristic model constants (not fetched population stats), used to
- * z-score a player against "what a typical player at this rank looks like".
- * Anchors are calibrated so Immortal(24-26)/Duelist ≈ kd 1.10 / acs 212.5 /
- * hs 30.1 and Radiant/Duelist ≈ kd 1.20 / acs 225 / hs 30.3, with p95 roughly
- * mean + {kd ~0.85, acs ~110, hs ~17.5}. Other roles shift the baseline.
+ * Assumed comparison constants, NOT measured population statistics.
+ * The legacy p95* field names denote upper model markers, not observed
+ * percentiles. Never derive calibrated probabilities or significance from them.
  */
 
-export type AgentRole = "duelist" | "initiator" | "controller" | "sentinel";
+import { agentRole as knownAgentRole, type RoleKey } from "./profile-stats.ts";
+
+export type AgentRole = RoleKey | "unknown";
 
 export interface BandBenchmark {
   band: string;
@@ -41,21 +41,11 @@ const ROLE_OFFSET: Record<AgentRole, { kd: number; acs: number; hs: number }> = 
   initiator:  { kd: -0.06, acs: -30, hs: -3.0 },
   controller: { kd: -0.04, acs: -22, hs: -2.5 },
   sentinel:   { kd: -0.03, acs: -18, hs: -2.0 },
-};
-
-const AGENT_ROLE: Record<string, AgentRole> = {
-  jett: "duelist", phoenix: "duelist", reyna: "duelist", raze: "duelist",
-  yoru: "duelist", neon: "duelist", iso: "duelist", waylay: "duelist",
-  sova: "initiator", breach: "initiator", skye: "initiator", "kay/o": "initiator",
-  fade: "initiator", gekko: "initiator", tejo: "initiator", veto: "initiator",
-  brimstone: "controller", omen: "controller", astra: "controller",
-  viper: "controller", harbor: "controller", clove: "controller", miks: "controller",
-  sage: "sentinel", cypher: "sentinel", killjoy: "sentinel", chamber: "sentinel",
-  deadlock: "sentinel", vyse: "sentinel",
+  unknown:    { kd: 0, acs: 0, hs: 0 },
 };
 
 export function agentRole(agent: string): AgentRole {
-  return AGENT_ROLE[agent.toLowerCase()] ?? "duelist";
+  return knownAgentRole(agent) ?? "unknown";
 }
 
 /** Dominant role across a [(agent, count)] distribution. */
@@ -65,7 +55,7 @@ export function dominantRole(topAgents: [string, number][]): AgentRole {
     const r = agentRole(agent);
     acc.set(r, (acc.get(r) ?? 0) + n);
   }
-  return [...acc.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "duelist";
+  return [...acc.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "unknown";
 }
 
 export function bandForTier(tier: number): BandBenchmark {
@@ -94,9 +84,8 @@ export function benchmarkFor(tier: number, role: AgentRole): BandBenchmark {
 }
 
 /**
- * Approximate standard deviation from the p95 marker: treating p95 as the
- * 95th percentile of a normal-ish tail, sigma = (p95 - mean) / 1.645.
- * Floors keep tiny spreads from producing absurd z-scores.
+ * Model scale from an assumed upper marker. The 1.645 factor is a legacy
+ * normalization constant, NOT evidence of a normal population or an observed SD.
  */
 export function metricSigma(mean: number, p95: number, floor: number): number {
   return Math.max((p95 - mean) / 1.645, floor);

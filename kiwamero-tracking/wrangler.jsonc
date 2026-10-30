@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "kiwamero-tracking",
-  // Custom entry: OpenNext handler + hourly cron (see src/worker.js).
+  // Custom entry: minute audit queue + hourly watch cycle (see src/worker.js).
   "main": "src/worker.js",
   "assets": {
     "directory": ".open-next/assets",
@@ -18,9 +18,9 @@
   ],
   // Custom domain (requires kiwamero.dev zone on this account).
   "routes": [{ "pattern": "tracking.kiwamero.dev", "custom_domain": true }],
-  // Hourly watch cycle (Cloudflare Cron Trigger). Requires CRON_SECRET.
+  // Background queue every minute; worker keeps notifications hourly.
   "triggers": {
-    "crons": ["0 * * * *"]
+    "crons": ["* * * * *"]
   },
   "vars": {
     "APP_URL": "https://tracking.kiwamero.dev",

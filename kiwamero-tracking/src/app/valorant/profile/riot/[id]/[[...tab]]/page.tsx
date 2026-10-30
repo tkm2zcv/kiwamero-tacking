@@ -22,6 +22,8 @@ import {
 } from "@/lib/stored-stats";
 import { getDict, getLocale } from "@/lib/i18n/server";
 import { buildAccountReport } from "@/lib/account-report";
+import { loadAuditHistory } from "@/lib/audit-history";
+import { selectDiagnosisDetailIds } from "@/lib/report-scope";
 import { ProfileHero, type ProfileTab } from "@/components/profile/hero";
 import { FiltersBar } from "@/components/profile/filters-bar";
 import { OverviewCard } from "@/components/profile/overview-card";
@@ -338,12 +340,25 @@ async function ProfileContent({
   }
 
   // Reports have an explicit account-wide Competitive scope. Reuse the recent
-  // roster response; these tabs must not fan out into dozens of detail fetches.
+  // roster response. Only diagnosis tops up a missing minimum sample (max 10
+  // cached detail requests); the audit never fetches historical rosters.
   let accountReport: ReturnType<typeof buildAccountReport> | null = null;
   if (isReport) {
+    const archived = activeTab === "assessment"
+      ? await loadAuditHistory(profile.puuid).catch(() => null) : null;
+    const rosterMatches = activeTab === "diagnosis" ? [...matches] : [];
+    if (activeTab === "diagnosis") {
+      const ids = selectDiagnosisDetailIds(storedAll, matches, profile.puuid, capturedAt);
+      const details = await Promise.allSettled(ids.map(async (id) => normalizeHDMatch(await getMatch(id))));
+      for (const detail of details) {
+        if (detail.status === "fulfilled") rosterMatches.push(detail.value);
+      }
+    }
     accountReport = buildAccountReport({
-      profile, seasons, storedAll,
-      rosterMatches: activeTab === "diagnosis" ? matches : [],
+      profile, seasons, storedAll: archived ? [...storedAll, ...archived.rows] : storedAll,
+      rosterMatches,
+      auditRosters: archived ? [...archived.rosters, ...matches] : matches,
+      auditCoverage: archived?.coverage,
       locale: await getLocale(),
       generatedAt: capturedAt,
     });

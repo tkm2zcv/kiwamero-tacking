@@ -10,6 +10,34 @@ DB 層は 2026-10-29 に Prisma から生 SQL + Kysely へ移行済み (workerd 
 残る手動作業は Discord Developer Portal への本番 callback 登録のみ (§4)。
 以降は再デプロイ・運用時の手順として参照すること。
 
+## 2026-10-30 履歴補完版の追加移行（まだ本番未反映）
+
+以下はデプロイ承認後の手順です。この作業では実行していません。
+
+1. キーの独立枠と保存データの保持条件を確認する。
+   独立枠未確認/共有枠なら`HENRIK_QUOTA_SCOPE=shared`。
+   独立なら`key`。既定`HENRIK_KEY_RPM=30`、
+   `HENRIK_BACKGROUND_RPM=20`は契約に応じて下げることもできる。
+2. Workers PaidのCPU/D1クエリ枠・D1容量/費用を確認する。
+   既定の最大100詳細/巡回は無料枠のクエリ数では保証しない。
+3. **先に**追加スキーマを適用する（認証テーブルを作り直す必要はない）。
+
+```bash
+npx wrangler d1 execute kiwamero-tracking --remote --file=db/upgrade-2026-10-30.sql
+```
+
+4. 必要なキーを`HENRIK_API_KEYS` secretへ設定する（既存単一キーと併用可）。
+   `CRON_SECRET`も必要。キーは画面/ログ/コミットに出さない。
+5. 新版Workerをビルド・承認後にデプロイ。Cronは`* * * * *`になる。
+   `src/worker.js`がUTC毎時0分だけwatchを実行してからauditを実行する。
+   Cronを手動でwatchへ向けると実通知になるので注意。
+6. 小さい履歴から査定の明示補完・進捗・429/再開を確認し、
+   キュー、D1費用、CPU、通常検索/監視の余力を観測する。
+   Cloudflare rate-limit/WAFで公開プロフィール/補完開始の濫用も制限する。
+
+ローカル適用済みなのはD1/SQLiteのみ。本番の独立枠・実行費用・負荷・保持方針は
+未検証です。[詳細レビュー](reports/20261030-history-queue-review.md)を参照。
+
 ## 前提
 
 - Cloudflare アカウント: `npx wrangler login` 済みであること。

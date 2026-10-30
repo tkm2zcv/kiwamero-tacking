@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { getDict } from "@/lib/i18n/server";
-import { tierIcon, playerCardArt } from "@/lib/henrikdev";
+import { tierIcon, playerCardArt } from "@/lib/henrik-shared";
 import type { Profile, Summary, TopAgent } from "@/lib/types";
 import { CopyLinkButton } from "./copy-link";
 

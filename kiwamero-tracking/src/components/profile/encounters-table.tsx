@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import type { EncounterStat } from "@/lib/stored-stats";
-import { tierIcon, tierName } from "@/lib/henrikdev";
+import { tierIcon, tierName } from "@/lib/henrik-shared";
 import { ActMenu } from "./act-menu";
 
 export type EncounterMode = "with" | "against";

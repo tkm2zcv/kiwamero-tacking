@@ -1,5 +1,6 @@
 import type { Match, MatchPlayer } from "./types";
-import { normalizeCluster, type HDMatch, type HDMatchPlayer } from "./henrikdev.ts";
+import { normalizeCluster } from "./henrik-shared.ts";
+import type { HDMatch, HDMatchPlayer } from "./henrikdev";
 
 /** v3 returns `{ all_players, red, blue }`; some endpoints return a flat array. */
 export function hdMatchPlayers(m: Pick<HDMatch, "players">): HDMatchPlayer[] {

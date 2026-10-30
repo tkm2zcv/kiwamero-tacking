@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
+import { execute } from "../src/lib/db.ts";
 import {
   apiKeys,
   henrikCall,
@@ -8,11 +10,17 @@ import {
 } from "../src/lib/henrik-client.ts";
 
 const realFetch = globalThis.fetch;
+process.env.DATABASE_URL = "file::memory:";
+test.before(async () => {
+  const sql = fs.readFileSync("db/upgrade-2026-10-30.sql", "utf8");
+  for (const statement of sql.split(";").map((s) => s.trim()).filter(Boolean)) await execute(statement);
+});
 const KEY_ENV = ["HENRIK_API_KEY", "HENRIK_API_KEYS"] as const;
 
 function stubFetch(
   handler: (url: string, auth?: string) => { status: number; data?: unknown; headers?: Record<string, string> },
 ) {
+  if (!apiKeys().length) process.env.HENRIK_API_KEY = "test-only-key";
   const calls: { url: string; auth?: string }[] = [];
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -43,11 +51,12 @@ function stubEdgeCache() {
   return store;
 }
 
-test.afterEach(() => {
+test.afterEach(async () => {
   globalThis.fetch = realFetch;
   delete (globalThis as { caches?: unknown }).caches;
   resetHenrikClient();
   for (const k of KEY_ENV) delete process.env[k];
+  await execute("DELETE FROM HenrikQuota");
 });
 
 test("henrikCall caches responses within the TTL", async () => {
@@ -132,9 +141,56 @@ test("expired edge entries fall through to upstream", async () => {
   assert.equal(calls.length, 2);
 });
 
-test("all keys cooling still attempts a request", async () => {
+test("all keys cooling never forces an extra request", async () => {
   process.env.HENRIK_API_KEYS = "key-a,key-b";
   const calls = stubFetch(() => ({ status: 429 }));
   await assert.rejects(henrikCall("/x"));
   assert.equal(calls.length, 2); // tried both keys before giving up
+  await assert.rejects(henrikCall("/other"));
+  assert.equal(calls.length, 2);
+});
+
+test("429 rotation can reach the fourth key without leaking upstream messages", async () => {
+  process.env.HENRIK_API_KEYS = "test-a,test-b,test-c,test-d";
+  const calls = stubFetch((_url, auth) => auth === "test-d"
+    ? { status: 200, data: { ok: true } } : { status: 429, headers: { "retry-after": "120" } });
+  assert.deepEqual(await henrikCall("/four-key"), { ok: true });
+  assert.equal(calls.length, 4);
+});
+
+test("cooldowns remain enforced after clearing isolate-local client state", async () => {
+  process.env.HENRIK_API_KEYS = "test-a";
+  const calls = stubFetch(() => ({ status: 429 }));
+  await assert.rejects(henrikCall("/one"));
+  resetHenrikClient();
+  await assert.rejects(henrikCall("/two"));
+  assert.equal(calls.length, 1);
+});
+
+test("an invalid key cools without poisoning a public match; private 403 never rotates", async () => {
+  process.env.HENRIK_API_KEYS = "invalid-test,valid-test";
+  const calls = stubFetch((_url, auth) => auth === "invalid-test"
+    ? { status: 401 } : { status: 200, data: { ok: true } });
+  assert.deepEqual(await henrikCall("/public"), { ok: true });
+  assert.equal(calls.length, 2);
+  const forbidden = stubFetch(() => ({ status: 403 }));
+  await assert.rejects(henrikCall("/private"), { status: 403 });
+  assert.equal(forbidden.length, 1);
+});
+
+test("missing credentials fail closed without any upstream request", async () => {
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return Response.json({ status: 200, data: {} }); };
+  await assert.rejects(henrikCall("/unconfigured"), { status: 503 });
+  assert.equal(calls, 0);
+});
+
+test("transport and invalid-body errors cannot expose credential-bearing messages", async () => {
+  process.env.HENRIK_API_KEY = "sensitive-test-only-value";
+  globalThis.fetch = async () => { throw new Error("invalid header: sensitive-test-only-value"); };
+  await assert.rejects(henrikCall("/network-error"), { status: 503, message: "HenrikDev transport unavailable" });
+  globalThis.fetch = async () => new Response("sensitive-test-only-value", { status: 200 });
+  await assert.rejects(henrikCall("/invalid-json"), { status: 502, message: "Invalid HenrikDev response" });
+  globalThis.fetch = async () => Response.json(null);
+  await assert.rejects(henrikCall("/invalid-envelope"), { status: 502, message: "Invalid HenrikDev response" });
 });

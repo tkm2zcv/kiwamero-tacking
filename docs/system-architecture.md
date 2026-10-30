@@ -2,15 +2,67 @@
 
 対象は `kiwamero-tracking/`。これは「実装済み」と「本番推奨」を混同しないためのメモ。
 
+## Shared Henrik Budget / History Queue (2026-10-30, Not Deployed)
+
+- `henrik-request.ts` reserves D1 slots via `henrik-quota.ts` before HTTP.
+  Default30/key/min, background20, foreground uses the remaining capacity.
+  `HENRIK_QUOTA_SCOPE=shared` applies a single account/provider budget.
+  Keys are only in server environment; D1 stores hashes/counters/cooldowns.
+  429 honors Retry-After, 401 cools bad credentials, 403 does not rotate.
+  Transport/body errors are sanitized; unavailable storage/keys fail closed.
+- `MatchArchive` persists ended-match metadata, roster and required stats.
+  `getMatch` uses120s token leases to coalesce cross-isolate fills. Round/event
+  blobs are omitted. Recent v3 rosters seed the same archive. Generic profile
+  caching remains memory/colo TTL caching, not globally durable account caching.
+- `AuditHistory` stores a bounded manifest; `AuditMatch` deduplicates shared match
+  jobs. Admission is atomic (20 active players); resync uses a conditional
+  update and retains older rows. Interrupted manifests are repairable.
+- Explicit public POST starts enrichment after same-origin/body/IP/identity
+  checks. GET polls only storage. No bulk fetching on ordinary report render.
+  Cron drains <=100 candidates/cycle with a40s start deadline, bounded retries,
+  cooldowns, priority for change windows, then older remaining history.
+- `src/worker.js` runs minute audit cron; notifications stay hourly at UTC minute0
+  and run first. Both routes use CRON_SECRET outside development.
+  Large backfill assumes Workers Paid CPU/D1 query allowances.
+- Audit uses adjacent20+20 windows over all retrieved Competitive rows. Rank
+  coverage/spread gates prevent incompatible/mixed-rank comparisons. UTC hours
+  and party continuity are context only. UI exposes provisional state, excluded
+  record IDs, per-ACT/date archived/pending/unavailable coverage.
+- Browser-safe rank/card/cluster utilities live in `henrik-shared.ts`; client
+  components must not import the credential/DB-aware API module at runtime.
+- Additive schema: `db/upgrade-2026-10-30.sql`. Only local DBs upgraded so far.
+  Provider quota independence, retention policy and production costs remain
+  rollout gates. Review: `reports/20261030-history-queue-review.md`.
+
+## Account Reports (2026-10-30 Review, Not Deployed)
+
+- `account-report.ts` composes stored Competitive evidence and recent roster
+  analysis. Both tabs explicitly use account-wide Competitive scope, not the
+  hidden ACT/playlist query. The report carries its locale for consistent copy.
+- Audit: >=40 valid stored rows; unavailable data cannot increase suspicion.
+  Historical changes are descriptive indices, not ownership probabilities.
+- Diagnosis: latest 25 Competitive rosters within 90 days, PUUID identity,
+  >=10 valid rosters and >=5 decided games. Stats/rank/role use the same sample.
+  `report-scope.ts` tops up a missing minimum with at most 10 recent detail IDs;
+  audit performs no foreground historical fetch. Details now use the persistent
+  archive and shared request budgets described above.
+- `statsAvailable`/`accuracyAvailable` preserve missing stored fields. Diagnosis
+  rejects incomplete/inconsistent teams, rounds, shot counts and ranks; draws
+  are separate and zero-death games remain valid.
+- `rank-benchmarks.ts` uses assumed constants. No empirical P95, calibrated
+  probabilities, MLE, 90% CI or cheating verdicts are exposed. Unknown roles
+  explicitly withhold scoring; role metadata is shared with `profile-stats.ts`.
+- Report views share `report-ui.tsx` and scoped `report.css`: existing v3-card
+  surfaces, tracker tokens, Saira headings, 300px rail and local table scrolling.
+- Formula/review/verification record: `reports/20261030-account-report-review.md`.
+
 ## Review Corrections (2026-10-29, Not Deployed)
 
 - Profile acquisition is coordinated by `profile-source.ts`: account first, then
   recent matches, stored matches, rating and rating history in parallel. Failures
   remain typed unavailable states; a history/rating 404 alone means no records.
-- Account Audit reports recent-sample statistics, not lifetime statistics.
-  → Superseded (2026-10-30): both audit/diagnosis tabs render a shared
-  `AccountReport` (`account-report.ts`) — lifetime stored evidence plus a
-  capped roster sample (`REPORT_DETAIL_CAP = 50`) for lobby reads.
+- Account Audit reports retrieved-sample statistics, not guaranteed lifetime
+  statistics. See the current Account Reports section for sampling and gates.
 - `profile-filters.ts` supplies the same Act predicate to recent rosters and
   stored rows; Encounters preserves Act/Played Against query state.
 - Watchlist admission uses one conditional INSERT/UPSERT with the distinct-player
@@ -32,7 +84,7 @@
 | 認証 | Better Auth 1.7 + Discord OAuth | PoC で D1 経路確認。所有者専用 API は `OWNER_DISCORD_IDS` + Discord account 紐付けで実装済み (`src/lib/owner-access.ts`) |
 | ローカル DB | `next dev` で **ローカル D1 (Miniflare)**。`better-sqlite3` は CF コンテキスト無しのフォールバック | `src/lib/db.ts` の遅延バックエンドが D1/sqlite を自動選択 (生 SQL + Kysely) |
 | 本番 DB | **Cloudflare D1 固定・PoC 済み** | `wrangler.jsonc` の `DB` バインディング。スキーマは `db/schema.sql` を `wrangler d1 execute` で適用 |
-| ゲームデータ | HenrikDev API クライアント + Meiy シード | **実装済み** — `src/lib/henrik-client.ts`: Map + Cache API の二層キャッシュ (エンドポイント別 TTL 3〜10分)、in-flight dedupe、`HENRIK_API_KEYS` カンマ区切り複数キーのラウンドロビン + 429 時 60s クールダウン・次キーへリトライ。watch サイクルは `fresh: true` で通知鮮度を維持 |
+| ゲームデータ | HenrikDev API クライアント + Meiy シード | Map/Cache APIに加え、D1共有のキー別予算・クールダウン・試合詳細アーカイブを実装（未デプロイ）。watchは`fresh: true`。履歴補完は明示操作＋毎分Cron。共有枠設定にも対応 |
 | 配信 | 未実装 | `tracking.kiwamero.dev`。Workers 対応アダプタ/ビルド/DNS/シークレットのデプロイ手順を確定 |
 | 品質 | ESLint + `tsc` + `npm test` (node:test) | 型/単体/API 契約/認証/E2E/モバイルを CI で検証 |
 | 監視通知 | **実装済み** — `src/lib/watch-core.ts` + `/api/cron/watch` + Worker scheduled | Workers Cron を毎時。D1 にシステム全体で最大100の監視対象、ユーザー別 Webhook、通知済み match ID を保持。送信失敗はカーソルを進めず次回再送 |

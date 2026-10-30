@@ -1,5 +1,7 @@
-import { normalizeCluster, type HDStoredMatch } from "./henrikdev.ts";
+import { normalizeCluster } from "./henrik-shared.ts";
+import type { HDStoredMatch } from "./henrikdev";
 import type { Match } from "./types";
+import { agentRole, ROLE_META } from "./profile-stats.ts";
 
 /** One stored match, normalized for aggregation. */
 export interface StoredRow {
@@ -33,6 +35,8 @@ export interface StoredRow {
   selfTag: string;
   /** Account level at match time (0 when the endpoint omits it). */
   level: number;
+  accuracyAvailable?: boolean;
+  statsAvailable?: boolean;
 }
 
 export function normalizeStoredMatch(m: HDStoredMatch): StoredRow {
@@ -71,6 +75,11 @@ export function normalizeStoredMatch(m: HDStoredMatch): StoredRow {
     selfName: m.stats.name ?? "",
     selfTag: m.stats.tag ?? "",
     level: m.stats.level ?? 0,
+    accuracyAvailable: [m.stats.shots?.head, m.stats.shots?.body, m.stats.shots?.leg]
+      .every((n) => typeof n === "number" && Number.isFinite(n) && n >= 0),
+    statsAvailable: (team === "red" || team === "blue") &&
+      [m.stats.kills, m.stats.deaths, m.stats.score, m.teams?.red, m.teams?.blue]
+        .every((n) => typeof n === "number" && Number.isFinite(n) && n >= 0),
   };
 }
 
@@ -175,17 +184,6 @@ export interface AgentStat {
   stats: StatAggregate;
 }
 
-const AGENT_ROLE_LABEL: Record<string, string> = {
-  jett: "Duelist", phoenix: "Duelist", reyna: "Duelist", raze: "Duelist", yoru: "Duelist",
-  neon: "Duelist", iso: "Duelist", waylay: "Duelist",
-  sova: "Initiator", breach: "Initiator", skye: "Initiator", "kay/o": "Initiator",
-  fade: "Initiator", gekko: "Initiator", tejo: "Initiator", veto: "Initiator",
-  brimstone: "Controller", omen: "Controller", astra: "Controller", viper: "Controller",
-  harbor: "Controller", clove: "Controller", miks: "Controller",
-  sage: "Sentinel", cypher: "Sentinel", killjoy: "Sentinel", chamber: "Sentinel",
-  deadlock: "Sentinel", vyse: "Sentinel",
-};
-
 export function agentIconUrl(agent: string) {
   const slug = agent.toLowerCase().replace(/\s+/g, "-").replace("kay/o", "kay-o");
   return `/agents/${slug}.webp`;
@@ -218,13 +216,16 @@ export function groupByAgent(rows: StoredRow[]): AgentStat[] {
     acc.set(r.agent, list);
   }
   return [...acc.entries()]
-    .map(([agent, list]) => ({
-      agent,
-      agentId: list[0].agentId,
-      icon: agentIconUrl(agent),
-      role: AGENT_ROLE_LABEL[agent.toLowerCase()] ?? "",
-      stats: aggregate(list),
-    }))
+    .map(([agent, list]) => {
+      const role = agentRole(agent);
+      return {
+        agent,
+        agentId: list[0].agentId,
+        icon: agentIconUrl(agent),
+        role: role ? ROLE_META[role].label : "",
+        stats: aggregate(list),
+      };
+    })
     .sort((a, b) => b.stats.matches - a.stats.matches);
 }
 

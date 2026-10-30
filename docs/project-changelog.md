@@ -1,5 +1,23 @@
 # Project Changelog
 
+## 2026-10-30 — Search history (anonymous, localStorage)
+
+- `src/lib/search-history.ts`: stores the last 10 viewed profiles
+  (`name#tag`, puuid, player-card + rank-icon URLs, timestamp). Dedupes by
+  puuid (rename-safe) or case-insensitive name#tag; tolerant of corrupt
+  storage and private-mode failures.
+- `ProfileViewRecorder` (client) mounted on the profile page records the view
+  — so history only ever contains real, successfully-rendered profiles,
+  regardless of entry point (search box, direct link, cross-player links).
+- `RecentSearches` (client) renders a "検索履歴 / Recent searches" chip strip
+  under the homepage search box (card thumbnail + name#tag + rank icon),
+  with a Clear button. Empty history renders nothing; deferred `setTimeout`
+  read avoids hydration drift and the `react-hooks/set-state-in-effect` rule.
+- i18n: `search.recent` / `search.clear` (EN + JA).
+- Verified E2E (Puppeteer): two profile views → chips appear newest-first on
+  the homepage. 94 tests green including `tests/search-history.test.ts`
+  (dedupe, cap, corrupt-storage, no-window paths).
+
 ## 2026-10-30 — Account Audit & Smurf Diagnosis implemented for real
 
 - Both tabs were stubs (audit = facts table, diagnosis always empty). They now

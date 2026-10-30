@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { getDict } from "@/lib/i18n/server";
 import { HomeSearch } from "@/components/home-search";
+import { RecentSearches } from "@/components/recent-searches";
 import { Eye, LineChart, ShieldCheck } from "lucide-react";
 
 export default async function HomePage() {
@@ -19,6 +20,7 @@ export default async function HomePage() {
         <p className="mt-3 text-secondary">{t.search.hint}</p>
         <div className="mt-8">
           <HomeSearch placeholder={t.search.placeholder} cta={t.search.cta} />
+          <RecentSearches label={t.search.recent} clearLabel={t.search.clear} />
         </div>
       </div>
 

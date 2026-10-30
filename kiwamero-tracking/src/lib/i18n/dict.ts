@@ -13,6 +13,8 @@ const en = {
     placeholder: "Search for a player (Name#TAG)",
     cta: "Search",
     hint: "Track VALORANT stats, match history and more — no sign-in required.",
+    recent: "Recent searches",
+    clear: "Clear",
   },
   tabs: {
     overview: "Overview",
@@ -150,6 +152,8 @@ const ja: Dict = {
     placeholder: "プレイヤーを検索 (Name#TAG)",
     cta: "検索",
     hint: "VALORANTの戦績・試合履歴をログイン不要でトラッキング。",
+    recent: "検索履歴",
+    clear: "クリア",
   },
   tabs: {
     overview: "概要",

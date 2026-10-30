@@ -5,7 +5,7 @@ import Image from "next/image";
 import { loadProfile } from "@/lib/data";
 import { formatAct } from "@/lib/profile-stats";
 import { createActFilter, filterProfileMatches, profileFilterHref, selectUncoveredMatchIds } from "@/lib/profile-filters";
-import { getMatch, playerCardArt, tierIcon } from "@/lib/henrikdev";
+import { getMatch, playerCardArt, tierIcon, tierName } from "@/lib/henrikdev";
 import { normalizeHDMatch } from "@/lib/match-normalize";
 import type { Match } from "@/lib/types";
 import {
@@ -38,12 +38,11 @@ import { AccountAudit } from "@/components/profile/account-audit";
 import { EmptyTab } from "@/components/profile/empty-tab";
 import { DiagnosisPanel } from "@/components/profile/diagnosis-panel";
 import { ShareCard } from "@/components/profile/share-card";
+import { ProfileViewRecorder } from "@/components/profile/profile-view-recorder";
 import { headers } from "next/headers";
 
 /** Max per-match detail fetches for one encounters render (immutable, 24h-cached upstream). */
 const ENCOUNTER_DETAIL_CAP = 150;
-/** Max roster detail fetches for one audit/diagnosis render. */
-const REPORT_DETAIL_CAP = 50;
 
 const VALID_TABS = new Set([
   "overview", "matches", "performance", "agents", "maps",
@@ -107,7 +106,8 @@ async function ProfileContent({
   page: number;
 }) {
   const t = await getDict();
-  const mode = playlist === "all" ? undefined : playlist;
+  const isReport = activeTab === "assessment" || activeTab === "diagnosis";
+  const mode = isReport ? "competitive" : playlist === "all" ? undefined : playlist;
   const result = await loadProfile(name, tag, { mode });
   if (!result.ok) {
     const messages = {
@@ -259,8 +259,6 @@ async function ProfileContent({
   const sidebar = (() => {
     switch (activeTab) {
       case "overview":
-      case "diagnosis":
-      case "assessment":
       case "share":
         return (
           <>
@@ -339,24 +337,13 @@ async function ProfileContent({
     encounterCovered = Math.min(encounterRows.length, visibleMatches.length + fetched.length);
   }
 
-  // Account audit & smurf diagnosis share one report: lifetime stored rows for
-  // trajectory/cluster/rename evidence plus a capped sample of full rosters for
-  // lobby analysis (opponent tiers are only in per-match details).
+  // Reports have an explicit account-wide Competitive scope. Reuse the recent
+  // roster response; these tabs must not fan out into dozens of detail fetches.
   let accountReport: ReturnType<typeof buildAccountReport> | null = null;
-  if (activeTab === "assessment" || activeTab === "diagnosis") {
-    const compScoped = storedScoped.filter((r) => /competitive/i.test(r.mode));
-    const uncovered = selectUncoveredMatchIds(compScoped, recentIds, REPORT_DETAIL_CAP);
-    const fetched: Match[] = [];
-    for (let i = 0; i < uncovered.length; i += 10) {
-      const batch = await Promise.allSettled(
-        uncovered.slice(i, i + 10).map((id) => getMatch(id)));
-      for (const res of batch) {
-        if (res.status === "fulfilled") fetched.push(normalizeHDMatch(res.value));
-      }
-    }
+  if (isReport) {
     accountReport = buildAccountReport({
       profile, seasons, storedAll,
-      rosterMatches: [...visibleMatches, ...fetched],
+      rosterMatches: activeTab === "diagnosis" ? matches : [],
       locale: await getLocale(),
       generatedAt: capturedAt,
     });
@@ -430,7 +417,7 @@ async function ProfileContent({
       }
       case "assessment":
         return accountReport
-          ? <AccountAudit profile={profile} summary={summary} capturedAt={capturedAt} report={accountReport} />
+          ? <AccountAudit profile={profile} report={accountReport} />
           : null;
       case "diagnosis":
         return accountReport ? <DiagnosisPanel report={accountReport} /> : null;
@@ -468,6 +455,14 @@ async function ProfileContent({
 
   return (
     <div className="kt-container">
+      <ProfileViewRecorder
+        name={profile.name}
+        tag={profile.tag}
+        puuid={profile.puuid}
+        card={cardArt ?? undefined}
+        rankIcon={profile.currentTier ? tierIcon(profile.currentTier, "small") : undefined}
+        rankName={profile.currentTier ? tierName(profile.currentTier) : undefined}
+      />
       <ProfileHero
         profile={profile}
         activeTab={activeTab}
@@ -492,14 +487,14 @@ async function ProfileContent({
         }
       />
 
-      <FiltersBar
+      {!isReport ? <FiltersBar
         basePath={basePath}
         tab={activeTab}
         playlist={playlist}
         act={act}
         acts={acts}
         played={played}
-      />
+      /> : null}
 
       {source === "seed" ? (
         <p role="status" style={{ padding: 12, fontSize: 12, color: "#e6d28c" }}>

@@ -2,7 +2,8 @@ import "server-only";
 import type {
   Match, MatchPlayer, ProfileBundle, SeasonRank, TopAgent, Teammate,
 } from "./types";
-import { getAccount, getMatches, getMmr, getMmrHistory, getStoredMatches, tierIcon, type HDStoredMatch } from "./henrikdev";
+import { getAccount, getMatches, getMmr, getMmrHistory, getStoredMatches, tierIcon } from "./henrikdev";
+import type { HDStoredMatch } from "./henrik-model";
 import { normalizeHDMatch } from "./match-normalize";
 import { loadProfileSource, type ProfileFailure, type ProfileSourceData } from "./profile-source";
 import { summarize } from "./profile-stats";

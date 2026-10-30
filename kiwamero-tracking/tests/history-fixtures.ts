@@ -1,4 +1,4 @@
-import type { HDMatch } from "../src/lib/henrikdev";
+import type { HDMatch } from "../src/lib/henrik-model";
 import type { StoredRow } from "../src/lib/stored-stats";
 
 export const selfId = "10000000-0000-4000-8000-000000000001";

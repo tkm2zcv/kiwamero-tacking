@@ -1,5 +1,20 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 2026-10-30 責務分離リファクタリング（未コミット・未デプロイ）
+
+- 直前の機能版は`951c4ae`でmasterへpush済み。今回の構造変更は未コミット。
+- `henrik-model.ts`へAPI型、`match-archive-payload.ts`へ純粋な検証/投影、
+  `audit-coverage.ts`へカバレッジ型/計算を分離。旧exportも互換維持。
+- 標本の検証は`report-scope.ts`、モデル計算は`lobby-analysis.ts`へ整理。
+  完了判定SQLは個別/全体で共通化。表示側の型はDBモジュールを参照しない。
+- 判定式・閾値・API・TTL・利用枠・スキーマ・UIの見た目は変更していない。
+  変更前に採取した全レポート3ケースのJSONハッシュも一致。
+- 最終154 tests・lint/typecheck・Next/OpenNext build通過。
+  ブラウザ18 JSの秘密情報/DB依存混入0。新たな実API取得・通知・
+  デプロイ・画面撮影は行っていない。
+- 詳細: `reports/20261030-report-refactor.md`、
+  `plans/20261030-2030-report-refactor/plan.md`。
+
 ## 2026-10-30 複数キー・全期間の詳細補完（未デプロイ）
 
 - 最新: `reports/20261030-history-queue-review.md`。

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { AuditCoverage } from "@/lib/audit-history";
+import type { AuditCoverage } from "@/lib/audit-coverage";
 import type { Locale } from "@/lib/i18n/dict";
 import { ReportCard, ReportMeter, reportText, reportNumber as n } from "./report-ui";
 

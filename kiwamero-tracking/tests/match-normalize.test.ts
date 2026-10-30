@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { normalizeHDMatch } from "../src/lib/match-normalize.ts";
-import type { HDMatch } from "../src/lib/henrikdev.ts";
-import { tierName } from "../src/lib/henrikdev.ts";
+import type { HDMatch } from "../src/lib/henrik-model.ts";
+import { tierName } from "../src/lib/henrik-shared.ts";
 
 test("tierName uses Riot's tier numbering for every ranked division", () => {
   const groups = ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Ascendant", "Immortal"];

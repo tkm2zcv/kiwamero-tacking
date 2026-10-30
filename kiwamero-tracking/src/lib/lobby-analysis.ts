@@ -1,7 +1,6 @@
 /**
- * Lobby analysis for the smurf diagnosis: bucket sampled full-roster matches
- * by average lobby tier and compare with assumed per-band model constants.
- * The reference rank/spread is heuristic, not a likelihood or confidence bound.
+ * Compare rank-bucketed roster samples with assumed reference constants.
+ * Reference rank/spread is heuristic, not a probability or confidence bound.
  */
 import {
   bandCenter, bandForTier, benchmarkFor, dominantRole, metricSigma,
@@ -10,70 +9,13 @@ import {
 import { tierName } from "./henrik-shared.ts";
 import type { BandPerformance, LobbyAnalysis, OpponentTiers } from "./report-model";
 import type { Match } from "./types";
+import { sampleMatches, type MatchSample } from "./report-scope.ts";
 
-/** Approx. z-score produced by one full tier of skill gap in a lobby. */
+export { sampleMatches } from "./report-scope.ts";
+
+// Heuristic scaling: deviation per tier and minimum spread in tier divisions.
 const Z_PER_TIER = 0.3;
-/** Minimum heuristic model spread, in tier divisions. */
 const MIN_MODEL_SPREAD = 2;
-
-interface MatchSample {
-  matchId: string;
-  lobbyTier: number;
-  selfTier: number;
-  agent: string;
-  result: "win" | "loss" | "draw";
-  kills: number; deaths: number; score: number; rounds: number;
-  head: number; shots: number;
-  opponents: { puuid: string; tier: number }[];
-}
-
-/** Require complete team/metric data; identify the owner by immutable PUUID. */
-export function sampleMatches(matches: Match[], selfKey: string): MatchSample[] {
-  const samples: MatchSample[] = [];
-  const seen = new Set<string>();
-  for (const m of [...matches].sort((a, b) => a.metadata.game_start - b.metadata.game_start)) {
-    if ((m.metadata.mode_id || m.metadata.mode || "").toLowerCase() !== "competitive" ||
-      !m.metadata.matchid || seen.has(m.metadata.matchid)) continue;
-    seen.add(m.metadata.matchid);
-    const self = m.players.find((p) => p.puuid === selfKey);
-    const selfTeam = self?.team_id?.toLowerCase();
-    const rounds = m.metadata.rounds_played;
-    if (!self || (selfTeam !== "red" && selfTeam !== "blue") ||
-      !Number.isFinite(rounds) || rounds < 5 || rounds > 60 ||
-      m.players.length !== 10 || new Set(m.players.map((p) => p.puuid)).size !== 10 ||
-      !m.players.every((p) => p.puuid) ||
-      ["red", "blue"].some((team) => m.players.filter((p) => p.team_id?.toLowerCase() === team).length !== 5)) continue;
-    const validTier = (t?: number): t is number => Number.isInteger(t) && t! >= 3 && t! <= 27;
-    const others = m.players.filter((p) => p !== self);
-    const tiered = others.filter((p) => validTier(p.currenttier));
-    if (tiered.length < 6 || !validTier(self.currenttier)) continue;
-    const opponents = others
-      .filter((p) => p.team_id?.toLowerCase() !== selfTeam && validTier(p.currenttier))
-      .map((p) => ({ puuid: p.puuid, tier: p.currenttier! }));
-    const head = self.stats.headshots ?? 0;
-    const shots = head + (self.stats.bodyshots ?? 0) + (self.stats.legshots ?? 0);
-    const own = m.teams[selfTeam];
-    const other = m.teams[selfTeam === "red" ? "blue" : "red"];
-    if (!own || !other || ![own.rounds_won, other.rounds_won, self.stats.kills,
-      self.stats.deaths, self.stats.score, self.stats.headshots, self.stats.bodyshots, self.stats.legshots]
-        .every((n) => typeof n === "number" && Number.isFinite(n) && n >= 0) ||
-      shots <= 0 || self.stats.score <= 0 ||
-      own.rounds_won + other.rounds_won !== rounds) continue;
-    samples.push({
-      matchId: m.metadata.matchid,
-      lobbyTier: tiered.reduce((s, p) => s + p.currenttier!, 0) / tiered.length,
-      selfTier: self.currenttier, agent: self.character,
-      result: own.rounds_won === other.rounds_won ? "draw" : own.rounds_won > other.rounds_won ? "win" : "loss",
-      kills: self.stats.kills ?? 0,
-      deaths: self.stats.deaths ?? 0,
-      score: self.stats.score ?? 0,
-      rounds,
-      head, shots,
-      opponents,
-    });
-  }
-  return samples;
-}
 
 function evaluation(z: number): BandPerformance["evaluation"] {
   return z >= 0.75 ? "far_above" : z >= 0.25 ? "above_average"
@@ -107,7 +49,6 @@ function bandPerformance(samples: MatchSample[], role: AgentRole): BandPerforman
     const kdZ = (kd - bench.meanKd) / metricSigma(bench.meanKd, bench.p95Kd, 0.2);
     const acsZ = (acs - bench.meanAcs) / metricSigma(bench.meanAcs, bench.p95Acs, 25);
     const hsZ = (hsRate - bench.meanHs) / metricSigma(bench.meanHs, bench.p95Hs, 4);
-    // Binomial σ around a 50% lobby win rate shrinks as the sample grows.
     // Effect size, not significance: does not grow unbounded with sample size.
     const wrZ = wins + losses ? (winRate - 50) / 25 : 0;
     const compositeZ = (kdZ + acsZ + hsZ + wrZ) / 4;
@@ -172,8 +113,6 @@ export function analyzeLobby(
   const opponents = opponentTiers(samples);
   const avgLobby = samples.length
     ? samples.reduce((s, m) => s + m.lobbyTier, 0) / samples.length : 0;
-
-  // Aggregate player stats across the sampled matches.
   const n = samples.length;
   const kills = samples.reduce((s, m) => s + m.kills, 0);
   const deaths = samples.reduce((s, m) => s + m.deaths, 0);

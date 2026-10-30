@@ -2,6 +2,20 @@
 
 対象は `kiwamero-tracking/`。これは「実装済み」と「本番推奨」を混同しないためのメモ。
 
+## Report Boundaries (2026-10-30 Refactor, Not Deployed)
+
+- `henrik-model.ts` owns provider DTOs/identifiers; `henrikdev.ts` is the server
+  endpoint facade and retains compatible type reexports.
+- `match-archive-payload.ts` is a pure validator/projector. `match-archive.ts`
+  owns persistence, leases, retry bookkeeping and coalescing.
+- `audit-coverage.ts` supplies pure aggregation/browser-safe DTOs; SQL stays in
+  `audit-history.ts`. One completion predicate serves scoped status and global
+  cron updates, including interrupted-manifest guards.
+- Roster sampling/validation lives in `report-scope.ts`; `lobby-analysis.ts`
+  computes model metrics. Client progress no longer imports types from storage.
+- Behavior is unchanged; characterization, SQL and dependency-graph regressions
+  are recorded in `reports/20261030-report-refactor.md`.
+
 ## Shared Henrik Budget / History Queue (2026-10-30, Not Deployed)
 
 - `henrik-request.ts` reserves D1 slots via `henrik-quota.ts` before HTTP.

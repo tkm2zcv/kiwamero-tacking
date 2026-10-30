@@ -1,5 +1,17 @@
 # Project Changelog
 
+## 2026-10-30 — Report/acquisition responsibility refactor (not deployed)
+
+- Extracted provider contracts, pure archive validation/projection and pure
+  progress aggregation from the SDK/storage modules; retained legacy exports.
+- Moved roster validation into report-scope, leaving lobby analysis computational.
+  Shared completion SQL preserves per-player scope and manifest/job safeguards.
+- No score, route, TTL, quota, schema or UI markup/style changes.
+- 154 tests (14 added), lint/typecheck, Next/OpenNext builds pass. Three full-report
+  baseline hashes and six provider interfaces remain unchanged; browser dependency
+  guards and credential/DB bundle scans pass.
+- Record/remaining scope: `reports/20261030-report-refactor.md`.
+
 ## 2026-10-30 — Shared Henrik budgets and historical enrichment (not deployed)
 
 - Added atomic D1 rolling quotas/cooldowns across configured keys and isolates:

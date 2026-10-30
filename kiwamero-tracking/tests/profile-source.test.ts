@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { HenrikDevError } from "../src/lib/henrik-client.ts";
 import { loadProfileSource, type ProfileSources } from "../src/lib/profile-source.ts";
-import type { HDAccount } from "../src/lib/henrikdev.ts";
+import type { HDAccount } from "../src/lib/henrik-model.ts";
 
 const account: HDAccount = {
   puuid: "p1", region: "ap", account_level: 10, name: "Player", tag: "TAG",

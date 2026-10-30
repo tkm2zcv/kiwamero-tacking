@@ -1,5 +1,5 @@
 import { HenrikDevError } from "./henrik-client.ts";
-import type { HDAccount, HDMatch, HDMmrData, HDMmrHistoryEntry, HDStoredMatch } from "./henrikdev";
+import type { HDAccount, HDMatch, HDMmrData, HDMmrHistoryEntry, HDStoredMatch } from "./henrik-model";
 
 export type ProfileFailure = "not_found" | "private" | "rate_limited" | "upstream";
 export type ProfileSources = Pick<typeof import("./henrikdev"),

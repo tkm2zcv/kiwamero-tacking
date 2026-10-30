@@ -1,25 +1,20 @@
 import { execute, queryAll, queryOne } from "./db.ts";
-import { MATCH_ID } from "./match-archive.ts";
+import { MATCH_ID, type HDMatch } from "./henrik-model.ts";
 import { auditTimeline, validAuditRows } from "./audit-timeline.ts";
 import { normalizeHDMatch } from "./match-normalize.ts";
 import { HenrikDevError } from "./henrik-errors.ts";
-import type { HDMatch } from "./henrikdev";
 import type { StoredRow } from "./stored-stats";
+import {
+  summarizeAuditCoverage, type AuditCoverage, type AuditCoveragePeriod, type AuditHistorySummary,
+} from "./audit-coverage.ts";
 
-export interface AuditCoverage {
-  total: number; cached: number; pending: number; unavailable: number;
-  syncedAt: number; nextAttemptAt: number | null; state: "idle" | "pending" | "complete" | "partial";
-  periods: AuditCoveragePeriod[];
-}
-export interface AuditCoveragePeriod {
-  period: string; from: number; to: number; total: number;
-  cached: number; unavailable: number; next: number | null;
-}
+export type { AuditCoverage, AuditCoveragePeriod } from "./audit-coverage";
+
 interface HistoryRow { rowsJson: string; syncedAt: number }
 const PROFILES_LIMIT = 20;
 
 export async function auditCoverage(puuid: string): Promise<AuditCoverage> {
-  const history = await queryOne<{ expected: number; syncedAt: number }>(
+  const history = await queryOne<AuditHistorySummary>(
     "SELECT json_array_length(rowsJson) AS expected, syncedAt FROM AuditHistory WHERE puuid = ?", [puuid],
   );
   const periods = await queryAll<AuditCoveragePeriod>(
@@ -41,20 +36,9 @@ export async function auditCoverage(puuid: string): Promise<AuditCoverage> {
        min(CASE WHEN cached = 0 AND terminal = 0 AND payload IS NULL THEN next END) AS next
      FROM recorded GROUP BY period ORDER BY min(at) DESC`, [puuid],
   );
-  const total = Math.max(periods.reduce((s, p) => s + p.total, 0), history?.expected ?? 0);
-  const cached = periods.reduce((s, p) => s + p.cached, 0);
-  const unavailable = periods.reduce((s, p) => s + p.unavailable, 0);
-  const next = periods.flatMap((p) => p.next === null ? [] : [p.next]);
-  const pending = total - cached - unavailable;
-  if (history && !pending) await execute(
-    `UPDATE AuditHistory SET active = 0 WHERE puuid = ?
-     AND json_array_length(rowsJson) <= (SELECT count(*) FROM AuditMatch WHERE puuid = ?)
-     AND NOT EXISTS (SELECT 1 FROM AuditMatch a JOIN MatchArchive m ON a.matchId = m.matchId
-       WHERE a.puuid = ? AND m.payload IS NULL AND m.terminal = 0)`, [puuid, puuid, puuid],
-  );
-  return { total, cached, pending, unavailable, syncedAt: history?.syncedAt ?? 0,
-    nextAttemptAt: next.length ? Math.min(...next) : null, periods,
-    state: !history ? "idle" : pending ? "pending" : unavailable ? "partial" : "complete" };
+  const coverage = summarizeAuditCoverage(periods, history ?? undefined);
+  if (history && !coverage.pending) await releaseCompletedAudits(puuid);
+  return coverage;
 }
 
 /** IDs come from verified upstream history, never arbitrary client-provided IDs. */
@@ -104,11 +88,13 @@ async function linkAuditRows(puuid: string, rows: StoredRow[]) {
   }
 }
 
-export async function releaseCompletedAudits() {
+export async function releaseCompletedAudits(puuid?: string) {
   await execute(`UPDATE AuditHistory SET active = 0 WHERE active = 1
+    ${puuid === undefined ? "" : "AND puuid = ?"}
     AND json_array_length(rowsJson) <= (SELECT count(*) FROM AuditMatch WHERE puuid = AuditHistory.puuid)
     AND NOT EXISTS (SELECT 1 FROM AuditMatch a JOIN MatchArchive m ON m.matchId = a.matchId
-      WHERE a.puuid = AuditHistory.puuid AND m.payload IS NULL AND m.terminal = 0)`);
+      WHERE a.puuid = AuditHistory.puuid AND m.payload IS NULL AND m.terminal = 0)`,
+    puuid === undefined ? [] : [puuid]);
 }
 
 /** Recover an interrupted POST without requiring the browser to remain open. */

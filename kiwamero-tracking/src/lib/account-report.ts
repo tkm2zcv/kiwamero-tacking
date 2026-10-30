@@ -15,7 +15,7 @@ import { buildVerdict } from "./smurf-verdict.ts";
 import type { AccountReport } from "./report-model";
 import { recentReportRosters } from "./report-scope.ts";
 import { auditTimeline, validAuditRows } from "./audit-timeline.ts";
-import type { AuditCoverage } from "./audit-history";
+import type { AuditCoverage } from "./audit-coverage";
 
 export type { AccountReport } from "./report-model";
 

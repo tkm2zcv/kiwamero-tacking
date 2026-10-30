@@ -5,7 +5,7 @@
  */
 
 import type { AuditTimeline } from "./audit-timeline";
-import type { AuditCoverage } from "./audit-history";
+import type { AuditCoverage } from "./audit-coverage";
 
 export type Severity = "normal" | "info" | "warn" | "alert";
 

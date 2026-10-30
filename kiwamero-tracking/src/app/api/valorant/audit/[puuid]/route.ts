@@ -5,7 +5,7 @@ import { HenrikDevError } from "@/lib/henrik-errors";
 import { apiKeys } from "@/lib/henrik-client";
 import { normalizeStoredMatch } from "@/lib/stored-stats";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { MATCH_ID } from "@/lib/match-archive";
+import { MATCH_ID } from "@/lib/henrik-model";
 
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ puuid: string }> };

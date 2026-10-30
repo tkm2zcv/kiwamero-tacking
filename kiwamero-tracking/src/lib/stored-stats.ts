@@ -1,5 +1,5 @@
 import { normalizeCluster } from "./henrik-shared.ts";
-import type { HDStoredMatch } from "./henrikdev";
+import type { HDStoredMatch } from "./henrik-model";
 import type { Match } from "./types";
 import { agentRole, ROLE_META } from "./profile-stats.ts";
 

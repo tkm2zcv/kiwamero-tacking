@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createActFilter, filterProfileMatches, profileFilterHref } from "../src/lib/profile-filters.ts";
+import { createActFilter, filterProfileMatches, profileFilterHref, selectUncoveredMatchIds } from "../src/lib/profile-filters.ts";
 import { buildEncounters, aggregate, storedRowToMatch, type StoredRow } from "../src/lib/stored-stats.ts";
 import { deriveMatchRows } from "../src/lib/profile-stats.ts";
 import type { Match } from "../src/lib/types.ts";
@@ -102,4 +102,20 @@ test("played and act selectors preserve each other's URL state", () => {
   const withHref = profileFilterHref("/profile/id", "encounters", "unrated", "uuid-old", "with");
   assert.equal(new URL(withHref, "https://example.test").searchParams.get("season"), "uuid-old");
   assert.equal(new URL(withHref, "https://example.test").searchParams.get("played"), null);
+});
+
+test("uncovered encounter ids skip recent matches, prefer newest, and honor the cap", () => {
+  const stored = [
+    { id: "a", startedAt: 100 },
+    { id: "b", startedAt: 300 },
+    { id: "dup", startedAt: 400 }, // also in the recent v3 set
+    { id: "c", startedAt: 200 },
+    { id: "", startedAt: 500 },   // no match id — cannot be fetched
+    { id: undefined, startedAt: 600 },
+  ] as StoredRow[];
+  const recent = new Set(["dup"]);
+  assert.deepEqual(selectUncoveredMatchIds(stored, recent, 10), ["b", "c", "a"]);
+  assert.deepEqual(selectUncoveredMatchIds(stored, recent, 2), ["b", "c"]);
+  assert.deepEqual(selectUncoveredMatchIds(stored, recent, 0), []);
+  assert.deepEqual(selectUncoveredMatchIds([], recent, 10), []);
 });

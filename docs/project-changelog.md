@@ -1,5 +1,26 @@
 # Project Changelog
 
+## 2026-10-30 — Encounters across every act via on-demand match details (deployed)
+
+- The encounters tab previously only counted the recent v3 matches
+  (`visibleMatches`), so players met in older acts never appeared. HenrikDev's
+  stored-matches endpoint carries no rosters, so the tab now fetches
+  `/v2/match/{id}` for each stored match in the selected act that isn't
+  already covered by the recent response — deduped via
+  `selectUncoveredMatchIds` (newest first, `ENCOUNTER_DETAIL_CAP = 150`),
+  fetched in `Promise.allSettled` batches of 10 so individual 404/429s are
+  skipped. Details are immutable and cached 24h, so coverage grows on
+  revisits; a notice states "computed from N of M matches" when partial.
+- Works for every act selector (`season=e11a5`, `season=all`, `latest`,
+  UUID) and respects the playlist filter implicitly — `storedScoped` is
+  already act+mode-scoped upstream.
+- Verified on production (Version 487d1f58): ashrielle#4sh `season=e11a5`
+  → "59 of 199 matches" in ~15s with real historical players
+  (Zackmailer#TKS, Arcturus#5340 in Played With); `season=all` locally
+  → "116 of 664" with cached carry-over.
+- Tests: `selectUncoveredMatchIds` covers recent-dedup, newest-first order,
+  cap, and missing-id skips (85 total passing).
+
 ## 2026-10-30 — Server-country chip on match rows (deployed)
 
 - Match rows and the expanded match header now show the VALORANT server

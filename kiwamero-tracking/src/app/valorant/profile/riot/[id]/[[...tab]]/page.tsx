@@ -4,8 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { loadProfile } from "@/lib/data";
 import { formatAct } from "@/lib/profile-stats";
-import { createActFilter, filterProfileMatches, profileFilterHref } from "@/lib/profile-filters";
-import { playerCardArt, tierIcon } from "@/lib/henrikdev";
+import { createActFilter, filterProfileMatches, profileFilterHref, selectUncoveredMatchIds } from "@/lib/profile-filters";
+import { getMatch, playerCardArt, tierIcon } from "@/lib/henrikdev";
+import { normalizeHDMatch } from "@/lib/match-normalize";
+import type { Match } from "@/lib/types";
 import {
   activityByDay,
   aggregate,
@@ -36,6 +38,9 @@ import { EmptyTab } from "@/components/profile/empty-tab";
 import { DiagnosisPanel } from "@/components/profile/diagnosis-panel";
 import { ShareCard } from "@/components/profile/share-card";
 import { headers } from "next/headers";
+
+/** Max per-match detail fetches for one encounters render (immutable, 24h-cached upstream). */
+const ENCOUNTER_DETAIL_CAP = 150;
 
 const VALID_TABS = new Set([
   "overview", "matches", "performance", "agents", "maps",
@@ -295,6 +300,27 @@ async function ProfileContent({
     }
   })();
 
+  // Encounters: recent v3 rosters plus on-demand detail fetches for stored
+  // matches in the selected act — HenrikDev's stored endpoint carries no
+  // rosters, so each uncovered match needs one /v2/match/{id} call. Details
+  // are immutable and cached 24h, so repeat visits are cheap; fetches run in
+  // parallel batches and individual failures are skipped.
+  let encounterMatches: Match[] = visibleMatches;
+  let encounterCovered = 0;
+  if (activeTab === "encounters") {
+    const uncovered = selectUncoveredMatchIds(storedScoped, recentIds, ENCOUNTER_DETAIL_CAP);
+    const fetched: Match[] = [];
+    for (let i = 0; i < uncovered.length; i += 10) {
+      const batch = await Promise.allSettled(
+        uncovered.slice(i, i + 10).map((id) => getMatch(id)));
+      for (const res of batch) {
+        if (res.status === "fulfilled") fetched.push(normalizeHDMatch(res.value));
+      }
+    }
+    encounterMatches = [...visibleMatches, ...fetched];
+    encounterCovered = Math.min(storedScoped.length, visibleMatches.length + fetched.length);
+  }
+
   const main = (() => {
     switch (activeTab) {
       case "matches": {
@@ -338,18 +364,25 @@ async function ProfileContent({
       case "maps":
         return <MapsTable maps={groupByMap(storedScoped)} />;
       case "encounters": {
-        // Only the retrieved recent rosters are available, but both filters still apply.
         const playedHref = (p: "with" | "against") =>
           profileFilterHref(basePath, "encounters", playlist, act, p);
         return (
-          <EncountersTable
-            encounters={buildEncounters(visibleMatches, name, tag)}
-            mode={played}
-            filterItems={[
-              { label: "Played With", href: playedHref("with"), active: played === "with" },
-              { label: "Played Against", href: playedHref("against"), active: played === "against" },
-            ]}
-          />
+          <>
+            {encounterCovered < storedScoped.length ? (
+              <p className="text-secondary text-13" style={{ padding: "4px 2px" }}>
+                Encounters computed from {encounterCovered} of {storedScoped.length} matches in this act
+                (newest first — details load progressively as you revisit).
+              </p>
+            ) : null}
+            <EncountersTable
+              encounters={buildEncounters(encounterMatches, name, tag)}
+              mode={played}
+              filterItems={[
+                { label: "Played With", href: playedHref("with"), active: played === "with" },
+                { label: "Played Against", href: playedHref("against"), active: played === "against" },
+              ]}
+            />
+          </>
         );
       }
       case "assessment":

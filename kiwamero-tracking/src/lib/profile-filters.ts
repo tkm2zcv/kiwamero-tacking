@@ -29,6 +29,23 @@ export function filterProfileMatches(
   );
 }
 
+/**
+ * Pick stored match ids whose rosters still need a /v2/match/{id} detail fetch
+ * for encounters — newest first, skipping matches already covered by the recent
+ * v3 response, capped so one render stays within upstream rate limits.
+ */
+export function selectUncoveredMatchIds(
+  rows: ReadonlyArray<{ id?: string; startedAt: number }>,
+  coveredIds: ReadonlySet<string>,
+  cap: number,
+): string[] {
+  return rows
+    .filter((r) => r.id && !coveredIds.has(r.id))
+    .sort((a, b) => b.startedAt - a.startedAt)
+    .slice(0, Math.max(0, cap))
+    .map((r) => r.id!);
+}
+
 export function profileFilterHref(
   basePath: string,
   tab: string,

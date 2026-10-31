@@ -28,7 +28,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const locale = await getLocale();
   const dict = await getDict();
   return (
-    <html lang={locale} className={`${roboto.variable} ${saira.variable}`}>
+    <html lang={locale} className={`${roboto.variable} ${saira.variable}`} suppressHydrationWarning>
       <body className="antialiased">
         <I18nProvider locale={locale} dict={dict}>
           <div className="kt-shell">

@@ -1,5 +1,49 @@
 # Project Changelog
 
+## 2026-10-31 — Home search opens tracker.gg alongside the local profile (not deployed)
+
+- A submitted `Name#TAG` navigates to the local profile immediately — the
+  local search always runs, regardless of the external check.
+- In parallel a new tab is reserved inside the user gesture (so popup
+  blockers stay quiet) and `/api/valorant/account` is checked. When the
+  account resolves — a reliable proxy for "tracker.gg renders a proper
+  profile" — the reserved tab navigates to
+  `tracker.gg/valorant/profile/riot/...`; when it fails (missing player or
+  upstream error) the blank tab is closed instead.
+- A blocked popup simply skips the tracker tab; the local navigation
+  already happened and no extra upstream call is made.
+- `src/lib/tracker-gg.ts` builds the external URL (mirroring the local route
+  encoding); covered by unit tests and the harness flow checks in
+  `tools/check-orbit-home.cjs` (local nav always, opened URL, tab close,
+  popup-blocked path).
+
+## 2026-10-31 — Orbit-style full-screen home hero (not deployed)
+
+- Replaced the stacked home layout with a full-screen, non-scrolling hero:
+  the looping space video (`public/orbit/sky.mp4`, `sky.png` poster) sits
+  behind a dark veil while the nav, pill, two-line headline, sub-line and
+  the real search form centre above the artwork.
+- Scaling follows the supplied 1563x1006 reference: every size derives from
+  `--u` (`max(min(100vw/1563,100dvh/460),0.80px)`, plus the media-query
+  overrides), so the composition scales as one rigid unit. All selectors are
+  `.orbit`-scoped in `src/app/orbit.css` so tracker styles are untouched.
+- Entrance timeline (~1.7 s) is opt-in via an inline `intro` boot script,
+  starts only after `document.fonts.ready` inside a double rAF, and the
+  classes are removed on the last CTA animation (3 s/5 s failsafes);
+  `prefers-reduced-motion` skips it entirely.
+- `OrbitScripts` owns resilient video autoplay (play on canplay, visibility
+  and first gesture), the hamburger sheet (aria-expanded/label swap, outside
+  click and Escape), and a body scroll lock; it unmounts with the page.
+- Inter v4 variable font loads through `next/font` with the `opsz` axis and
+  `display:block`; per-element `font-variation-settings` stay in the CSS.
+- The hero keeps real functionality: Riot ID validation/navigation, the
+  image-search dialog, recent searches and localized strings; the search
+  form occupies the original CTA slot. Site nav/footer are covered by the
+  fixed frame (z 60) for the hero only.
+- `tools/check-orbit-home.cjs` serves the shipped CSS/assets against the
+  real markup and asserts the intro, video playback, tablet menu and phone
+  fit; screenshots verified at 1563/800/390. 195 tests, lint, types, build.
+
 ## 2026-10-31 — Resilient match history rendering
 
 - HenrikDev can return 200 responses whose match list contains null or

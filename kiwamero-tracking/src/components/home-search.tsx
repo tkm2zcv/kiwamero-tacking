@@ -3,8 +3,9 @@
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { ImageSearchButton, type ImageSearchDict } from "./image-search";
 
-export function HomeSearch({ placeholder, cta }: { placeholder: string; cta: string }) {
+export function HomeSearch({ placeholder, cta, imageSearch }: { placeholder: string; cta: string; imageSearch: ImageSearchDict }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [err, setErr] = useState(false);
@@ -20,8 +21,9 @@ export function HomeSearch({ placeholder, cta }: { placeholder: string; cta: str
   }
 
   return (
-    <form onSubmit={submit} className="flex gap-2">
-      <div className="relative flex-1">
+    <div className="flex items-start gap-2">
+    <form onSubmit={submit} className="flex min-w-0 flex-1 gap-2">
+      <div className="relative min-w-0 flex-1">
         <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-tertiary" />
         <input
           value={q}
@@ -37,9 +39,11 @@ export function HomeSearch({ placeholder, cta }: { placeholder: string; cta: str
           }}
         />
       </div>
-      <button type="submit" className="trn-button trn-button--action h-14 px-8 text-base">
+      <button type="submit" className="trn-button trn-button--action h-14 px-4 text-base sm:px-8">
         {cta}
       </button>
     </form>
+    <ImageSearchButton t={imageSearch} />
+    </div>
   );
 }

@@ -2,6 +2,24 @@
 
 対象は `kiwamero-tracking/`。これは「実装済み」と「本番推奨」を混同しないためのメモ。
 
+## Screenshot Search (2026-10-31, Not Deployed)
+
+- Home search opens a portalled native dialog, outside the manual search form.
+  Browser-only Tesseract is lazy-loaded after explicit crop confirmation.
+- `image-search-core.ts` preserves full name identity and Unicode tags, suggests
+  dark horizontal tooltips, and validates bounded crop percentages.
+  `image-search-browser.ts` decodes bounded images, releases object URLs on every
+  path and prepares only the selected region for two OCR passes.
+- `image-search-session.ts` gives each run its own cancellation signal and worker
+  lifetime; late results/errors cannot mutate a newer run. Pending initialization
+  is disposed when ready. The hook adds a 90-second deadline and guarded state.
+- The zoomed source remains visible while users edit extracted IDs. Candidate
+  clicks never navigate; a separate submit does. OCR does not validate account
+  existence, remove legitimate name spaces or guarantee recognition accuracy.
+- Images stay local; versioned worker/core/model downloads use CDN resources.
+  Production first-load CDN delivery remains separate from the local-model
+  Chrome component verification in `tools/check-image-search.cjs`.
+
 ## Report Boundaries (2026-10-30 Refactor, Not Deployed)
 
 - `henrik-model.ts` owns provider DTOs/identifiers; `henrikdev.ts` is the server

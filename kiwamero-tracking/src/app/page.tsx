@@ -24,7 +24,7 @@ export default async function HomePage() {
         </h1>
         <p className="mt-3 text-secondary">{t.search.hint}</p>
         <div className="mt-8">
-          <HomeSearch placeholder={t.search.placeholder} cta={t.search.cta} />
+          <HomeSearch placeholder={t.search.placeholder} cta={t.search.cta} imageSearch={t.search} />
           <RecentSearches label={t.search.recent} clearLabel={t.search.clear} />
         </div>
       </div>

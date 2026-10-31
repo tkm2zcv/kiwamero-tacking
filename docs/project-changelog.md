@@ -1,5 +1,24 @@
 # Project Changelog
 
+## 2026-10-31 — Reviewed screenshot search (not deployed)
+
+- Added browser-only Japanese/English OCR with a visible crop selection, dark
+  tooltip suggestion, keyboard-adjustable bounds and a zoomed preview.
+- Candidates populate an editable Riot ID; only explicit confirmation searches.
+  Names retain their spaces/width/symbols, Japanese tags are not truncated, and
+  numeric names and OCR-inserted tag whitespace are supported.
+- Each OCR run owns its worker. Close/replacement/unmount cancels stale updates;
+  late initialization disposes its worker without touching the next run.
+- A native modal dialog outside the home form provides Escape, modal focus,
+  keyboard file selection and mobile scrolling. The independent confirmation
+  form prevents double navigation and ignores IME-confirmation Enter.
+- Added 14 unit regressions and a repeatable local-model Chrome component check
+  (`tools/check-image-search.cjs`). Full check: 179 tests, lint, types and build.
+- The supplied screenshot yields a candidate containing Bober and #1994 after
+  cropping, but OCR-inserted name spaces remain possible and require review.
+- Images are not uploaded. CDN model loading is still required on first use;
+  invalid files and failed/timed-out OCR have separate errors and retry paths.
+
 ## 2026-10-31 — Watchlist eye toggle hardening (not deployed)
 
 - Replaced the profile star action with an eye-based watch toggle. Watching entries

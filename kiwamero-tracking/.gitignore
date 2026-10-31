@@ -62,3 +62,6 @@ worker-configuration.d.ts
 
 # Local temp dir for builds (Windows %TEMP% write blocks)
 /.build-tmp/
+
+# Tesseract's local test cache (runtime models are loaded by the browser)
+/*.traineddata

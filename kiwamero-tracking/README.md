@@ -130,6 +130,31 @@ curl -X POST http://localhost:3002/api/cron/watch \
 
 ## 検証
 
+### 画像から検索
+
+ホームの画像ボタン → 画像を選択/ドロップ/貼り付け → 青枠で黒い名前欄を
+選択 → 読み取り → 拡大画像と比較して名前/タグを修正 →「このIDで検索」。
+範囲はドラッグまたはスライダーで調整できます。候補クリックでは検索しません。
+
+画像はブラウザ内で処理します（8 MB・2000万画素まで）。初回のみOCRモデルを
+CDNからダウンロードします。小さい文字、記号、日本語の空白等の認識は
+保証しないため、検索前に確認してください。
+
+画像検索の14単体回帰は通常の `npm test` に含まれます。
+任意のChromeコンポーネントチェックは、別途Puppeteerとローカルの
+`jpn.traineddata` / `eng.traineddata`を用意して実行します:
+
+```bash
+IMAGE_SEARCH_FIXTURE="/path/to/name-tooltip.png" \
+IMAGE_SEARCH_MODELS="/path/to/models" \
+PUPPETEER_MODULE="/path/to/puppeteer" \
+node tools/check-image-search.cjs
+```
+
+チェックはローカル専用HTTPサーバーで実コンポーネントとOCRを動かし、
+モデルはローカル配信、Nextの遷移は記録用に差し替えます。実アカウントAPIや
+Discordへは送信しません。CDN初回配信や認証のE2Eチェックとは別です。
+
 ```bash
 npm run check        # lint + typecheck + test + build
 npm run build:worker # OpenNext (Workers) バンドル

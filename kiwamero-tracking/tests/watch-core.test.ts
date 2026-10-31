@@ -4,8 +4,8 @@ import {
   MAX_WATCHED_PLAYERS,
   batch,
   buildMatchEmbed,
-  buildPartyMemberEmbed,
   buildWebhookPayload,
+  countEncounters,
   normalizeDiscordWebhook,
   pickNewMatches,
   playerKey,
@@ -169,24 +169,53 @@ test("summarizeMatchForNotify detects same-party members and their images", () =
   assert.equal(summary.partyMembers[0].agentIcon, "https://img.test/omen.png");
   assert.equal(summary.agentIcon, "https://img.test/jett.png");
 
-  const embed = buildPartyMemberEmbed(
+  const embed = buildMatchEmbed(
+    { name: "Meiy", tag: "B3L" },
     {
-      ...summary.partyMembers[0],
-      season: { matches: 12, kills: 120, deaths: 80, kd: 1.5, act: "E13A1" },
+      ...summary,
+      partyMembers: [
+        {
+          ...summary.partyMembers[0],
+          season: { matches: 12, kills: 120, deaths: 80, kd: 1.5, act: "E13A1" },
+          encountersAct: 2,
+          encountersAll: 3,
+        },
+      ],
     },
-    "https://example.test/party",
+    "https://example.test/meiy",
   );
-  assert.equal(embed.thumbnail?.url, "https://img.test/omen.png");
-  assert.match(embed.title, /DuoOne#111/);
-  assert.match(embed.fields?.[0].name ?? "", /Season K\/D/);
-  assert.equal(embed.fields?.[0].value, "1.50 (120/80)");
+  assert.equal(embed.author?.name, "Meiy#B3L");
+  assert.equal(embed.author?.url, "https://example.test/meiy");
+  const party = embed.fields?.find((f) => f.name.includes("パーティ"));
+  assert.match(party?.value ?? "", /\[DuoOne#111\]\(https:\/\/tracking\.kiwamero\.dev\/valorant\/profile\/riot\/DuoOne%23111\/overview\)/);
+  assert.match(party?.value ?? "", /szn K\/D 1\.50/);
+  assert.match(party?.value ?? "", /act 2 \/ all 3/);
+});
+
+test("countEncounters splits current act from all acts", () => {
+  const mk = (id: string, season: string, memberPuuid?: string): RawMatchForNotify => ({
+    metadata: { matchid: id, map: "Ascent", game_start: 1, season_id: season },
+    teams: {},
+    players: { all_players: [
+      { puuid: "me", stats: {} },
+      ...(memberPuuid ? [{ puuid: memberPuuid, stats: {} }] : []),
+    ] },
+  });
+  const recent = [
+    mk("m1", "act-c", "mate"),
+    mk("m2", "act-c", "mate"),
+    mk("m3", "act-old", "mate"),
+    mk("m4", "act-c"), // member absent — not counted
+  ];
+  assert.deepEqual(countEncounters(recent, "mate", "act-c"), { act: 2, all: 3 });
+  assert.deepEqual(countEncounters(recent, "ghost", "act-c"), { act: 0, all: 0 });
 });
 
 test("buildMatchEmbed colours wins and losses differently", () => {
   const win = buildMatchEmbed({ name: "Meiy", tag: "B3L" }, {
     matchid: "m1", map: "Sunset", mode: "Competitive", score: "13 : 11", won: true,
     kills: 20, deaths: 15, assists: 4, acs: 200, agent: "Jett",
-    partyLabel: "Solo", partyMembers: [],
+    partyLabel: "Solo", partyMembers: [], scoreboard: [],
   }, "https://example.test/p");
   assert.equal(win.color, 0x16e5b4);
   assert.match(win.title, /Meiy#B3L — WIN on Sunset/);
@@ -194,7 +223,7 @@ test("buildMatchEmbed colours wins and losses differently", () => {
   const loss = buildMatchEmbed({ name: "Meiy", tag: "B3L" }, {
     matchid: "m2", map: "Lotus", mode: "Competitive", score: "11 : 13", won: false,
     kills: 10, deaths: 20, assists: 2, acs: 120,
-    partyLabel: "Duo", partyMembers: [],
+    partyLabel: "Duo", partyMembers: [], scoreboard: [],
   }, "https://example.test/p");
   assert.equal(loss.color, 0xe4485d);
   assert.match(loss.title, /LOSS/);
@@ -204,7 +233,7 @@ test("buildWebhookPayload never mentions anyone and caps embeds", () => {
   const embeds = Array.from({ length: 14 }, (_, i) => buildMatchEmbed({ name: "a", tag: "b" }, {
     matchid: `m${i}`, map: "Bind", mode: "Competitive", score: "13 : 0", won: true,
     kills: 1, deaths: 1, assists: 1, acs: 100,
-    partyLabel: "Solo", partyMembers: [],
+    partyLabel: "Solo", partyMembers: [], scoreboard: [],
   }, "https://example.test/p"));
   const payload = buildWebhookPayload(embeds);
   assert.equal(payload.embeds.length, 10);

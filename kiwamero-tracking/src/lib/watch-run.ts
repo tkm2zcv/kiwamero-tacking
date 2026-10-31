@@ -1,6 +1,5 @@
 import "server-only";
 import {
-  MAX_MATCHES_PER_RUN,
   runWatchCycle,
   type RawMatchForNotify,
   type WatchDb,
@@ -22,7 +21,9 @@ export function createWatchDeps(): WatchDeps {
     fetchMatches: async (puuid, region) => {
       const { getMatches } = await import("./henrikdev");
       // Fresh fetch — a stale cached list could delay new-match notifications.
-      const matches = await getMatches(region, puuid, { size: MAX_MATCHES_PER_RUN + 5, fresh: true });
+      // 30 is the HenrikDev matchlist cap; the extra rows feed the
+      // current-act / all-acts encounter counters on party members.
+      const matches = await getMatches(region, puuid, { size: 30, fresh: true });
       return matches as unknown as RawMatchForNotify[];
     },
     fetchSeasonStats: async (puuid, region, seasonId) => {
@@ -43,12 +44,25 @@ export function createWatchDeps(): WatchDeps {
         act: rows[0].meta.season.short || rows[0].meta.season.id,
       };
     },
-    sendWebhook: async (url, payload) => {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    renderMatchCard: async (match, watched) => {
+      const { renderWatchCard } = await import("./watch-card");
+      return renderWatchCard(match, watched);
+    },
+    sendWebhook: async (url, payload, files) => {
+      let body: BodyInit;
+      let headers: Record<string, string> | undefined;
+      if (files?.length) {
+        const form = new FormData();
+        form.append("payload_json", JSON.stringify(payload));
+        files.forEach((f, i) => {
+          form.append(`files[${i}]`, new Blob([f.data.slice().buffer], { type: f.type }), f.name);
+        });
+        body = form;
+      } else {
+        headers = { "content-type": "application/json" };
+        body = JSON.stringify(payload);
+      }
+      const res = await fetch(url, { method: "POST", headers, body });
       return res.ok;
     },
   };

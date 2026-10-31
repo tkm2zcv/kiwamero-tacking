@@ -20,7 +20,25 @@
   から集計した Season K/D を表示。未取得は `—`。
 - Season K/Dはrun内 `puuid+season_id` でキャッシュし、パーティメンバーがいる
   試合だけ追加取得する。
-- コミット・push・デプロイは未実施。
+- 通知を画像カード化（`src/lib/watch-card.ts`）。satori + @resvg/resvg-wasm で
+  1200×675 PNGを生成し、embed + `attachment://watch-match.png` の
+  multipart 1メッセージで送信。画像は縦長（880×可変高）で監視対象＋
+  パーティメンバーのみ：結果バナー、監視対象ヒーロー（agent icon/名前/
+  rankアイコン/K/D/A・K/D・ACS、K/Dは緑/赤）、パーティメンバーカード
+  （agent icon/ランクアイコン/match K/D/A・K/D色付け・szn K/D・遭遇回数
+  `met act/all`）。ランクは`currenttier`数値→valorant-apiのtierアイコン。
+  embed側は1試合=1メッセージで、authorは監視対象名（リンクはKiwamero
+  プロフィール）、titleリンクはtracker.ggの試合ページ、フィールドは
+  👥パーティのみ（ソロ時はフィールド無し）— 戦績詳細は画像側に集約。
+  パーティ欄はメンバー名の
+  Markdownリンク（→Kiwameroプロフィール）＋szn K/D＋act/all遭遇回数。
+  別送していたメンバー別embedは重複のため廃止。遭遇回数は監視対象の直近
+  マッチリスト（fetch size=30、HenrikDev上限）内で`countEncounters`が
+  集計するため、窓を超えた過去分はカウントされない点に注意。
+- wasmは `public/resvg.wasm` 経由でWorkerからfetch（Nodeではnode_modulesを直接
+  読む）。フォントはGoogle Fonts `text=` サブセットで日本語名も描画。
+- 画像生成に失敗した場合のみembedのみのメッセージへフォールバック。
+- 9511d44 までコミット・push済み。画像カード化は未コミット・未デプロイ。
 
 ## 2026-10-31 限定公開ゲート＋サイト内共有パネル（未コミット・未デプロイ）
 

@@ -46,6 +46,7 @@ function rawMatch(matchid: string, gameStart: number): RawMatchForNotify {
 
 function deps(matches: RawMatchForNotify[], opts: { failWebhook?: boolean; failAfter?: number } = {}) {
   const sent: unknown[] = [];
+  const sentFiles: { name: string; data: Uint8Array; type: string }[][] = [];
   const fetchCalls: string[] = [];
   let webhookCalls = 0;
   const deps: WatchDeps = {
@@ -54,15 +55,16 @@ function deps(matches: RawMatchForNotify[], opts: { failWebhook?: boolean; failA
       fetchCalls.push(puuid);
       return matches;
     },
-    sendWebhook: async (_url, payload) => {
+    sendWebhook: async (_url, payload, files) => {
       webhookCalls += 1;
       if (opts.failWebhook || (opts.failAfter != null && webhookCalls > opts.failAfter)) return false;
       sent.push(payload);
+      sentFiles.push(files ?? []);
       return true;
     },
     sleep: async () => {},
   };
-  return { deps, sent, fetchCalls };
+  return { deps, sent, sentFiles, fetchCalls };
 }
 
 test("first cycle delivers only the newest match per entry", async () => {
@@ -104,7 +106,7 @@ test("only matches newer than the last delivered one are sent", async () => {
   for (const payload of sent as { embeds: unknown[] }[]) assert.equal(payload.embeds.length, 1);
 });
 
-test("party members are delivered as separate image embeds with season K/D", async () => {
+test("party member info lands inside the single match message", async () => {
   const match = rawMatch("m1", 100);
   match.metadata.season_id = "season-1";
   const players = match.players as RawPlayerForNotify[];
@@ -131,12 +133,44 @@ test("party members are delivered as separate image embeds with season K/D", asy
   const summary = await runWatchCycle(db, d);
 
   assert.equal(summary.matchesSent, 1);
-  assert.equal(sent.length, 2);
+  assert.equal(sent.length, 1, "one message per match, no separate member embeds");
   assert.deepEqual(seasonCalls, ["mate-1:season-1"]);
-  const partyEmbed = (sent[1] as { embeds: { title: string; thumbnail?: { url: string }; fields?: { name: string; value: string }[] }[] }).embeds[0];
-  assert.match(partyEmbed.title, /PARTY — DuoOne#111/);
-  assert.equal(partyEmbed.thumbnail?.url, "https://img.test/omen.png");
-  assert.equal(partyEmbed.fields?.[0].value, "1.50 (120/80)");
+  const embed = (sent[0] as { embeds: { fields?: { name: string; value: string }[] }[] }).embeds[0];
+  const party = embed.fields?.find((f) => f.name.includes("パーティ"));
+  assert.match(party?.value ?? "", /\[DuoOne#111\]\(https:\/\/tracking\.kiwamero\.dev/);
+  assert.match(party?.value ?? "", /szn K\/D 1\.50/);
+});
+
+test("a rendered match card is sent as one image attachment", async () => {
+  const rows = [entry({ id: "e1" })];
+  const { db } = fakeDb(rows);
+  const { deps: d, sent, sentFiles } = deps([rawMatch("m1", 100)]);
+  d.renderMatchCard = async () => new Uint8Array([1, 2, 3]);
+
+  const summary = await runWatchCycle(db, d);
+
+  assert.equal(summary.matchesSent, 1);
+  assert.equal(sent.length, 1, "single message, not one per embed");
+  const payload = sent[0] as { embeds: { image?: { url: string } }[]; attachments?: { filename: string }[] };
+  assert.equal(payload.embeds[0].image?.url, "attachment://watch-match.png");
+  assert.equal(payload.attachments?.[0].filename, "watch-match.png");
+  assert.equal(sentFiles[0][0].name, "watch-match.png");
+  assert.deepEqual([...sentFiles[0][0].data], [1, 2, 3]);
+});
+
+test("a failed card render falls back to separate embed messages", async () => {
+  const rows = [entry({ id: "e1" })];
+  const { db } = fakeDb(rows);
+  const { deps: d, sent, sentFiles } = deps([rawMatch("m1", 100)]);
+  d.renderMatchCard = async () => null;
+
+  const summary = await runWatchCycle(db, d);
+
+  assert.equal(summary.matchesSent, 1);
+  assert.equal(sent.length, 1);
+  assert.equal(sentFiles[0].length, 0);
+  const payload = sent[0] as { embeds: { image?: unknown }[] };
+  assert.equal(payload.embeds[0].image, undefined);
 });
 
 test("a failed webhook keeps the cursor so the next run retries", async () => {

@@ -26,6 +26,14 @@
 - Season K/D uses stored-match rows filtered by the match's `season_id`; it is
   cached per run, omitted when unavailable, and is only fetched for detected
   party members to limit HenrikDev calls.
+- Notifications now render a 1200x675 PNG scoreboard card (`src/lib/watch-card.ts`,
+  satori + @resvg/resvg-wasm) sent as a single webhook attachment instead of
+  separate embeds. The vertical card shows only the watched player and their
+  premade members: a result banner, a hero block with colour-coded K/D and ACS,
+  and one card per party member with agent icon, rank, match K/D/A and season
+  K/D. The embed uses sectioned fields (🎮試合/📊戦績/👥パーティ) with ANSI
+  colour-coded K/D inside code blocks. Rendering failure falls back to the
+  previous per-embed messages.
 - Not committed, pushed or deployed.
 
 ## 2026-10-31 — Private access gate and site-owned sharing (not deployed)

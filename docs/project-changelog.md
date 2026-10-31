@@ -1,6 +1,6 @@
 # Project Changelog
 
-## 261101 - Intermittent Entry Request Hangs (Rollout Pending)
+## 261101 - Intermittent Entry Request Hangs (Deployed)
 
 - Anonymous HTML requests sometimes received no headers for 8-12s, while the
   session API/static assets were fast. Worker tail recorded canceled requests
@@ -17,6 +17,15 @@
 - 247/247 tests, lint/typecheck and OpenNext build pass. Tests execute the actual
   patched Next module, verify per-request identity/null arguments, retain legacy
   no-argument support, and reject a missing compatibility patch.
+- Rolled out code `47a01f5`, Worker `93e54639-51e6-4fca-a3f8-84a6a33c0b18`.
+  Four anonymous routes tested ten times each: 40/40 HTTP 200, 27-1,335ms,
+  zero timeouts. Normal `/login` and `/` URLs also render in desktop/mobile Chrome:
+  6/6 visible sign-in pages, 75-343ms, zero application runtime errors.
+  Observed new-version Worker samples are `ok` with no exceptions/cancellations.
+- Cloudflare-injected analytics beacon remains CSP-blocked (six policy warnings
+  in the browser check); policy is intentionally not weakened. This is distinct
+  from the repaired entry hang. Authenticated provider-data latency is not covered
+  by these anonymous entry checks.
 
 ## 261101 - Bounded Profile Loading (Deployed)
 

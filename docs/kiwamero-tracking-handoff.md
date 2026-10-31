@@ -1,6 +1,6 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
-## 261101 - Entry Hang Compatibility Fix (Rollout Pending)
+## 261101 - Entry Hang Compatibility Fix (Deployed)
 
 - Intermittent anonymous page hangs reproduce in HTTP and Chrome. Session API
   and assets remain fast; tail shows canceled low-CPU HTML requests.
@@ -11,8 +11,15 @@
   Worker both contain request-local signal scoping. Never bypass this build step.
 - `npm run build:worker` / `npm run deploy` include the fix. No package edits,
   credential rotation, auth relaxation, schema migration or manual notifications.
-- 247 tests + lint/typecheck + Worker build pass. Live rollout and repeated browser
-  checks are approved and still pending at this entry's creation.
+- 247 tests + lint/typecheck + Worker build pass. Code `47a01f5` deployed as
+  `93e54639-51e6-4fca-a3f8-84a6a33c0b18`.
+- Post-rollout: 40/40 anonymous HTTP checks across root/login/watchlist/profile
+  gate pass (27-1,335ms); normal root/login in desktop/mobile Chrome pass 6/6
+  (75-343ms) with no application runtime errors. Tail samples show `ok` and no
+  exceptions/cancellations. Anonymous stats API still returns 403.
+- Existing Cloudflare beacon injection is blocked by the site's CSP; console
+  policy warnings remain, without blocking rendering. Do not relax CSP merely
+  to silence analytics. No real Discord login/provider-data measurement performed.
 
 ## 261101 - Profile Loading Budget (Deployed)
 

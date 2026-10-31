@@ -12,6 +12,8 @@
   fix, not a global timer override or application timeout workaround.
 - Keep `npm run build:worker` as the deployment path. If adapter/Next changes break
   the checked rule, review compatibility rather than deleting the build guard.
+- Deployed in `93e54639-51e6-4fca-a3f8-84a6a33c0b18` (`47a01f5`); repeated
+  HTTP and desktop/mobile browser entry checks no longer reproduce the hang.
 
 ## Profile Latency Budget (261101, Deployed)
 

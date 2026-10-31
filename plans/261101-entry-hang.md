@@ -16,7 +16,17 @@
 - [x] Verify real Next module request isolation and legacy constructor support.
 - [x] Verify generated Worker signal scoping; fail builds when patch is absent.
 - [x] Run tests/lint/typecheck/build and review diff (247/247 tests).
-- [ ] Obtain approval for production rollout; repeat live/browser checks.
+- [x] Obtain approval for production rollout; repeat live/browser checks.
+
+## Rollout Evidence
+- Code `47a01f5`; Worker `93e54639-51e6-4fca-a3f8-84a6a33c0b18`.
+- 40/40 anonymous page requests pass, 27-1,335ms, zero timeouts.
+- Normal root/login desktop/mobile Chrome: 6/6 visible sign-in pages,
+  75-343ms; zero app runtime errors. New-version tail samples show no exceptions
+  or cancellations; API access gates remain intact.
+- Analytics-only CSP warnings remain intentionally blocked, not hidden or fixed
+  by weakening policy. Authenticated profile/provider latency remains outside
+  this entry-render verification.
 
 ## Scope
 - No new timeouts as a substitute for resolving cross-request timer ownership.

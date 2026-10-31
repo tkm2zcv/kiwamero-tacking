@@ -1,6 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "kiwamero-tracking",
+  // Custom domain only; disable the default *.workers.dev host so the attack
+  // surface stays behind tracking.kiwamero.dev.
+  "workers_dev": false,
   // Custom entry: minute audit queue + hourly watch cycle (see src/worker.js).
   "main": "src/worker.js",
   "assets": {

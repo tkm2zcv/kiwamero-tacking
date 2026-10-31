@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  normalizeDiscordWebhook,
   runWatchCycle,
   type RawMatchForNotify,
   type WatchDb,
@@ -49,6 +50,10 @@ export function createWatchDeps(): WatchDeps {
       return renderWatchCard(match, watched);
     },
     sendWebhook: async (url, payload, files) => {
+      // Re-validate at send time: a stored URL may predate the write-time rules,
+      // and redirects must never carry the payload to another host.
+      const safeUrl = normalizeDiscordWebhook(url);
+      if (!safeUrl) return false;
       let body: BodyInit;
       let headers: Record<string, string> | undefined;
       if (files?.length) {
@@ -62,7 +67,7 @@ export function createWatchDeps(): WatchDeps {
         headers = { "content-type": "application/json" };
         body = JSON.stringify(payload);
       }
-      const res = await fetch(url, { method: "POST", headers, body });
+      const res = await fetch(safeUrl, { method: "POST", headers, body, redirect: "error" });
       return res.ok;
     },
   };

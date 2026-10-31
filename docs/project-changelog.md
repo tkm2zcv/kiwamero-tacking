@@ -1,5 +1,30 @@
 # Project Changelog
 
+## 261101 — Audit hardening follow-ups
+
+- `MatchArchive` garbage collection: `gcMatchArchive` runs once per cron tick
+  in `runAuditQueue` and deletes unlinked dead ends — attempted rows
+  (`attempts > 0`, lease expired, no `AuditMatch` row, no payload) that are
+  either tombstoned or stale-pending >24 h. Freshly queued and leased rows are
+  never touched; audit-linked rows are evidence and never collected.
+- Webhook send-time defence: `sendWebhook` re-runs `normalizeDiscordWebhook`
+  on the stored URL (rows may predate the write-time rules) and posts with
+  `redirect: "error"`, so a redirect can never carry the payload elsewhere.
+- `iconCache` in `watch-card.ts` is capped at 128 entries (FIFO eviction) so a
+  hostile stream of distinct icon URLs cannot grow isolate memory.
+- `wrangler.jsonc` sets `workers_dev: false` — the worker answers only on
+  `tracking.kiwamero.dev`; the default `*.workers.dev` host stops serving.
+- Global security headers via `next.config.ts`: `nosniff`, `X-Frame-Options:
+  DENY`, `strict-origin-when-cross-origin`, HSTS (180 d), `Permissions-Policy`,
+  and a CSP (`default-src 'self'`, WASM eval allowed for the OCR engine,
+  `worker-src 'self' blob:`, `frame-ancestors 'none'`).
+- `/api/auth/*` GET surface inventory: better-auth GET endpoints are the
+  Discord OAuth initiation/callback only (state + PKCE bound); mutating routes
+  are POST and get better-auth's default Origin check. No extra gate — the
+  `Sec-Fetch-Site` block must NOT cover OAuth callbacks, which legitimately
+  arrive cross-site.
+- Tests: 231 (+2) — GC predicate coverage and webhook send guard.
+
 ## 2026-10-31 — Home search opens tracker.gg alongside the local profile (not deployed)
 
 - A submitted `Name#TAG` navigates to the local profile immediately — the

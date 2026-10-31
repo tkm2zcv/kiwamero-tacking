@@ -3,6 +3,7 @@ import { getMatch } from "./henrikdev.ts";
 import { HenrikDevError } from "./henrik-errors.ts";
 import { apiKeys } from "./henrik-client.ts";
 import { releaseCompletedAudits, repairAuditManifest } from "./audit-history.ts";
+import { gcMatchArchive } from "./match-archive.ts";
 
 export async function runAuditQueue(options: { maxMatches?: number; maxMs?: number } = {}) {
   if (!apiKeys().length) throw new HenrikDevError(503, "No HenrikDev keys configured");
@@ -12,6 +13,11 @@ export async function runAuditQueue(options: { maxMatches?: number; maxMs?: numb
     await repairAuditManifest();
   } catch (e) {
     console.error("Audit manifest repair failed", e);
+  }
+  try {
+    await gcMatchArchive();
+  } catch (e) {
+    console.error("Match archive GC failed", e);
   }
   const cap = Math.max(1, Math.min(options.maxMatches ?? 100, 100));
   const summary = { completed: 0, failed: 0, deferred: 0 };

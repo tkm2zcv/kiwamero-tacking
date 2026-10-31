@@ -119,3 +119,19 @@ export function archivedMatch(id: string, fetcher: () => Promise<HDMatch>, fresh
   pending.set(id, task);
   return task;
 }
+
+/**
+ * Drop unlinked dead ends: rows nobody queued cannot produce evidence (nav- or
+ * encounter-enqueued rows carry no AuditMatch row, so the left join in
+ * runAuditQueue alone cannot tell them apart from audit work). Terminal or
+ * stale-pending unlinked rows are deleted; linked rows are never touched.
+ */
+export async function gcMatchArchive(now = Date.now(), staleMs = 24 * 60 * 60 * 1000) {
+  await execute(
+    `DELETE FROM MatchArchive WHERE payload IS NULL
+       AND attempts > 0 AND leaseUntil <= ?
+       AND matchId NOT IN (SELECT matchId FROM AuditMatch)
+       AND (terminal = 1 OR retryAt < ?)`,
+    [now, now - staleMs],
+  );
+}

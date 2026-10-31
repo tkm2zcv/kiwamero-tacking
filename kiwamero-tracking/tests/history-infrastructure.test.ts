@@ -5,7 +5,7 @@ import { register } from "node:module";
 import { execute, queryAll, queryOne } from "../src/lib/db.ts";
 import { reserveQuota, coolQuota, retryAfterMs } from "../src/lib/henrik-quota.ts";
 import {
-  archivedMatch, claimMatch, finishMatch, failMatch, queueMatchDetails,
+  archivedMatch, claimMatch, finishMatch, failMatch, gcMatchArchive, queueMatchDetails,
   readArchivedMatch, readArchivedMatches, rememberMatch,
 } from "../src/lib/match-archive.ts";
 import { enqueueAudit, auditCoverage, loadAuditHistory, releaseCompletedAudits, repairAuditManifest } from "../src/lib/audit-history.ts";
@@ -295,4 +295,54 @@ test("watch deps book the background quota lane", async () => {
   const uses = JSON.parse(row!.uses) as { priority: string }[];
   assert.equal(uses.length, 3);
   assert.ok(uses.every((u) => u.priority === "background"), JSON.stringify(uses));
+});
+
+test("archive GC drops only unlinked dead ends", async () => {
+  const now = Date.now();
+  // Unlinked terminal tombstone -> collected.
+  await execute(`INSERT INTO MatchArchive(matchId, payload, leaseUntil, retryAt, attempts, lastStatus, terminal)
+    VALUES (?, NULL, 0, ?, 1, 404, 1)`, [matchId(1), now]);
+  // Unlinked stale pending (attempted >24h ago) -> collected.
+  await execute(`INSERT INTO MatchArchive(matchId, payload, leaseUntil, retryAt, attempts)
+    VALUES (?, NULL, 0, ?, 1)`, [matchId(2), now - 25 * 60 * 60 * 1000]);
+  // Unlinked fresh queued row (never attempted) -> kept.
+  await queueMatchDetails([matchId(3)]);
+  // Unlinked active lease -> kept even though retryAt is 0.
+  await execute(`INSERT INTO MatchArchive(matchId, payload, leaseUntil, retryAt, attempts)
+    VALUES (?, NULL, ?, 0, 1)`, [matchId(4), now + 60_000]);
+  // Linked terminal row (audit evidence state) -> kept.
+  await execute(`INSERT INTO MatchArchive(matchId, payload, leaseUntil, retryAt, attempts, lastStatus, terminal)
+    VALUES (?, NULL, 0, ?, 1, 404, 1)`, [matchId(5), now]);
+  await execute(`INSERT INTO AuditHistory(puuid, riotName, riotTag, region, rowsJson, syncedAt, active)
+    VALUES (?, 'P', 'T', 'ap', '[]', ?, 1)`, [selfId, now]);
+  await execute(`INSERT INTO AuditMatch(puuid, matchId, startedAt, priority) VALUES (?, ?, ?, 0)`, [selfId, matchId(5), now]);
+  // Archived payload -> never collected even if unlinked.
+  await rememberMatch(rawMatch(6));
+
+  await gcMatchArchive(now);
+  const remaining = new Set((await queryAll<{ matchId: string }>("SELECT matchId FROM MatchArchive")).map((r) => r.matchId));
+  assert.deepEqual([...remaining].sort(), [matchId(3), matchId(4), matchId(5), matchId(6)].sort());
+});
+
+test("webhook send re-validates the URL and blocks redirects", async () => {
+  const { createWatchDeps } = await import("../src/lib/watch-run.ts");
+  const deps = createWatchDeps();
+  let calls = 0;
+  const seen: { url: string; init?: RequestInit } = { url: "" };
+  globalThis.fetch = async (input: unknown, init?: RequestInit) => {
+    calls++;
+    seen.url = String(input instanceof Request ? input.url : input);
+    seen.init = init;
+    return new Response(null, { status: 204 });
+  };
+  const payload = { content: "x" } as never;
+  assert.equal(await deps.sendWebhook("https://evil.example.com/hook", payload), false);
+  assert.equal(await deps.sendWebhook("http://discord.com/api/webhooks/1/abcdefghijklmnopqrst", payload), false);
+  assert.equal(calls, 0, "non-Discord URLs must never reach fetch");
+  const good = "https://discord.com/api/webhooks/12345678901234567890/abcdefghijklmnopqrstuv";
+  assert.equal(await deps.sendWebhook(good, payload), true);
+  assert.equal(calls, 1);
+  assert.equal(seen.url, good);
+  assert.equal(seen.init?.redirect, "error");
+  assert.equal(seen.init?.method, "POST");
 });

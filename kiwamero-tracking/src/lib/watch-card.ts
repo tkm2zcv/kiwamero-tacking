@@ -101,6 +101,7 @@ export async function iconData(url: string | undefined): Promise<string | null> 
         return null;
       }
     })();
+    if (iconCache.size >= 128) iconCache.delete(iconCache.keys().next().value!);
     iconCache.set(url, p);
   }
   return p;

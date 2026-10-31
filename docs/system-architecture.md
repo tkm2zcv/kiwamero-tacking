@@ -2,7 +2,7 @@
 
 対象は `kiwamero-tracking/`。これは「実装済み」と「本番推奨」を混同しないためのメモ。
 
-## Profile Latency Budget (261101, Not Deployed)
+## Profile Latency Budget (261101, Deployed)
 
 - A request-scoped absolute deadline starts at profile route entry (8 seconds),
   including the access check, identity lookup, parallel source reads and optional
@@ -22,6 +22,9 @@
 - This bounds application waiting, not physical delivery during network outages
   or the availability of fresh upstream evidence. A cache miss with a slow
   identity ends in a retry state; known identities can show honest partial data.
+- Rollout: `e5cd950`, Worker `472e648d-41dd-47bb-bf03-2731d1d75ad2`.
+  Live smoke preserves page/API access gates; authenticated data latency still
+  requires real-session measurement rather than extrapolation from login HTML.
 
 ## Screenshot Search (2026-10-31, Not Deployed)
 

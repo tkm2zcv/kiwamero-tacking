@@ -1,6 +1,6 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
-## 261101 - Profile Loading Budget (Not Deployed)
+## 261101 - Profile Loading Budget (Deployed)
 
 - User target: useful profile within 10 seconds rather than intermittent long waits.
 - `profile-source.ts` shares one absolute 8s deadline from the route; identity
@@ -25,6 +25,11 @@
   env snapshots scrubbed. Latest offline browser check: slow optional API 8,118ms,
   saved snapshot 80ms; all-source stall, identity timeout, slow valid session,
   private-refresh eviction and access-before-cache assertions pass.
+- Production: code `e5cd950`, version `472e648d-41dd-47bb-bf03-2731d1d75ad2`.
+  Root/login/watchlist/anonymous profile return 200; profile stays access-gated,
+  unauthenticated stats API returns 403. The profile smoke request measured 78ms
+  to the login gate, not to authenticated stats. No schema/data migration and no
+  manual webhook/cron invocation. Real authenticated stats latency remains unmeasured.
 
 ## 2026-10-31 試合履歴のnull耐性・プロフィールの障害境界
 

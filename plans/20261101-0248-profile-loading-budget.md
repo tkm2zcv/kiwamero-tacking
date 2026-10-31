@@ -32,3 +32,7 @@
   Offline browser: stalled optional source 8,118ms; cached snapshot 80ms.
   Auth remains checked before cache; slow valid sessions and private invalidation
   are exercised. Production auth/provider latency is not measured or guaranteed.
+- [x] Approved commit/push/deploy: code `e5cd950`, Worker
+  `472e648d-41dd-47bb-bf03-2731d1d75ad2`. Live page smoke 200 and anonymous API
+  403; auth gate intact. No DB migration or manual notifications. Authenticated
+  data latency is a remaining observational check, not a verified live SLA.

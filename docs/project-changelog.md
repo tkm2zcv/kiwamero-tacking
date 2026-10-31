@@ -1,6 +1,6 @@
 # Project Changelog
 
-## 261101 - Bounded Profile Loading (Not Deployed)
+## 261101 - Bounded Profile Loading (Deployed)
 
 - One absolute 8s foreground deadline includes the profile access gate and all
   upstream/section reads, leaving delivery/render headroom for the 10s UX target.
@@ -24,7 +24,12 @@
   not a guarantee of fresh upstream data during provider or network outages.
 - Final local evidence: 244/244 tests, lint, typecheck, Next/OpenNext Worker build
   and deployment-bundle scrub pass. Controlled stalled upstream: browser profile
-  visible in 8,118ms; stale snapshot render in 80ms. No production deployment yet.
+  visible in 8,118ms; stale snapshot render in 80ms.
+- Deployed code commit `e5cd950`, Worker version
+  `472e648d-41dd-47bb-bf03-2731d1d75ad2`. Live `/`, `/login`, `/watchlist`
+  and the anonymous profile route return 200; profile access gate remains present,
+  and unauthenticated stats API remains 403. These are smoke checks, not measured
+  authenticated profile-data latency. No migration or manual notifications.
 
 ## 261101 — Audit hardening follow-ups
 

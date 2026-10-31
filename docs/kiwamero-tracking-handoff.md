@@ -16,7 +16,19 @@
   が実パイプライン＋ブラウザerror UIを検証。npm run check 通過（192 tests）。
 - 本番 `tracking.kiwamero.dev` で間欠的に `/` `/watchlist` GETが30s+ハングし
   `waitUntil cancelled` を観測（`src/lib/db.ts` に記録済みのコールド起動パターン）。
-  本修正に直接関係しない継続監視案件。
+    本修正に直接関係しない継続監視案件。
+
+### デプロイ記録（2026-10-31）
+- `npx wrangler deploy` はこのWindows環境で失敗する。OpenNext委譲先の
+  `getPlatformProxy` がローカルworkerdを起動し、project rootへの
+  `miniflare-email-store` 作成がOS側で拒否される（アクセス拒否 #5）。
+- 回避: `OPEN_NEXT_DEPLOY=true npx wrangler deploy`。委譲とMiniflare起動を
+  スキップしwrangler本体のdeployのみ実行。既存シークレットは保持される。
+- 今回のデプロイで 7f857d1/93c6d5d/161c74f/ab5e804/78a405a が一括本番化
+  （スクリーンショット検索、PaddleOCR資産、監視画像通知、null耐性）。
+- 本番確認: `/` `/login` `/watchlist` が200・高速、OCR assets.json 200。
+  間欠的waitUntilハングは引き続き観測対象。
+
 
 
 ## 2026-10-31 PaddleOCR採用・正当な空白を保持（未コミット・未デプロイ）

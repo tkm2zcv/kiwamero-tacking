@@ -1,0 +1,2 @@
+# Pinned OCR assets are byte-hashed; preserve upstream bytes on every platform.
+kiwamero-tracking/public/ocr/** -text

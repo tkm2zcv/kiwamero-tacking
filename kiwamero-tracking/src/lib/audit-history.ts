@@ -36,9 +36,8 @@ export async function auditCoverage(puuid: string): Promise<AuditCoverage> {
        min(CASE WHEN cached = 0 AND terminal = 0 AND payload IS NULL THEN next END) AS next
      FROM recorded GROUP BY period ORDER BY min(at) DESC`, [puuid],
   );
-  const coverage = summarizeAuditCoverage(periods, history ?? undefined);
-  if (history && !coverage.pending) await releaseCompletedAudits(puuid);
-  return coverage;
+  // Reads must not mutate lifecycle state; enqueueAudit/runAuditQueue release.
+  return summarizeAuditCoverage(periods, history ?? undefined);
 }
 
 /** IDs come from verified upstream history, never arbitrary client-provided IDs. */
@@ -46,11 +45,16 @@ export async function enqueueAudit(input: {
   puuid: string; name: string; tag: string; region: string; rows: StoredRow[];
 }) {
   const old = await queryOne<HistoryRow>("SELECT rowsJson, syncedAt FROM AuditHistory WHERE puuid = ?", [input.puuid]);
-  const rows = validAuditRows([...input.rows, ...(old ? JSON.parse(old.rowsJson) as StoredRow[] : [])]);
-  const rowsJson = JSON.stringify(rows);
-  if (rows.length > 5000 || new TextEncoder().encode(rowsJson).length > 1_800_000) {
-    throw new HenrikDevError(413, "History exceeds the configured analysis limit");
+  const merged = validAuditRows([...input.rows, ...(old ? JSON.parse(old.rowsJson) as StoredRow[] : [])]);
+  // Keep the newest rows inside both bounds instead of permanently wedging the
+  // manifest at 413 once cumulative history crosses the cap (rows are sorted
+  // ascending, so slicing off the head drops the oldest entries).
+  let rows = merged.slice(-5000);
+  const encoder = new TextEncoder();
+  while (rows.length && encoder.encode(JSON.stringify(rows)).length > 1_800_000) {
+    rows = rows.slice(Math.ceil(rows.length / 20));
   }
+  const rowsJson = JSON.stringify(rows);
   const admitted = await queryOne<{ puuid: string }>(
     `INSERT INTO AuditHistory(puuid, riotName, riotTag, region, rowsJson, syncedAt)
      SELECT ?, ?, ?, ?, ?, ? WHERE
@@ -64,6 +68,7 @@ export async function enqueueAudit(input: {
   );
   if (!admitted) throw new HenrikDevError(429, "Historical analysis queue is busy", 60);
   await linkAuditRows(input.puuid, rows);
+  await releaseCompletedAudits(input.puuid);
   return auditCoverage(input.puuid);
 }
 
@@ -75,10 +80,16 @@ async function linkAuditRows(puuid: string, rows: StoredRow[]) {
       id: r.id, at: r.startedAt, priority: priority.has(r.id) ? 1 : 0,
       terminal: MATCH_ID.test(r.id) ? 0 : 1,
     })));
-    await execute(`INSERT OR IGNORE INTO MatchArchive(matchId, terminal, lastStatus)
+    // Revive transient terminal tombstones so a past upstream failure cannot
+    // suppress the matchId for every current and future audit. Non-tombstone
+    // conflicts (payload archived, fetch in flight, leased) are untouched.
+    await execute(`INSERT INTO MatchArchive(matchId, terminal, lastStatus)
       SELECT json_extract(value, '$.id'), json_extract(value, '$.terminal'),
         CASE WHEN json_extract(value, '$.terminal') = 1 THEN 400 ELSE NULL END
-      FROM json_each(?)`, [batch]);
+      FROM json_each(?) WHERE true
+      ON CONFLICT(matchId) DO UPDATE SET terminal = 0, retryAt = 0, attempts = 0, lastStatus = NULL
+      WHERE MatchArchive.payload IS NULL AND MatchArchive.terminal = 1
+        AND excluded.terminal = 0 AND MatchArchive.leaseUntil <= ?`, [batch, Date.now()]);
     await execute(
       `INSERT INTO AuditMatch(puuid, matchId, startedAt, priority)
        SELECT ?, json_extract(value, '$.id'), json_extract(value, '$.at'), json_extract(value, '$.priority')

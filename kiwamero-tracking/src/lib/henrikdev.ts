@@ -21,10 +21,10 @@ const TTL_STORED_MATCHES = 300_000;
 
 const call = henrikCall;
 
-export async function getAccount(name: string, tag: string, opts?: { fresh?: boolean }) {
+export async function getAccount(name: string, tag: string, opts?: { fresh?: boolean; priority?: "interactive" | "background" }) {
   return call<HDAccount>(
     `/valorant/v1/account/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`,
-    { ttl: TTL_ACCOUNT, fresh: opts?.fresh },
+    { ttl: TTL_ACCOUNT, fresh: opts?.fresh, priority: opts?.priority },
   );
 }
 
@@ -35,26 +35,26 @@ export async function getMmr(region: string, puuid: string, opts?: { fresh?: boo
   );
 }
 
-export async function getMatches(region: string, puuid: string, opts?: { mode?: string; size?: number; fresh?: boolean }) {
+export async function getMatches(region: string, puuid: string, opts?: { mode?: string; size?: number; fresh?: boolean; priority?: "interactive" | "background" }) {
   const params = new URLSearchParams();
   if (opts?.mode) params.set("mode", opts.mode);
   if (opts?.size) params.set("size", String(opts.size));
   const q = params.toString();
   const matches = await call<HDMatch[]>(
     `/valorant/v3/by-puuid/matches/${region}/${puuid}${q ? `?${q}` : ""}`,
-    { ttl: TTL_MATCHES, fresh: opts?.fresh }
+    { ttl: TTL_MATCHES, fresh: opts?.fresh, priority: opts?.priority }
   );
   await Promise.allSettled(matches.map(rememberMatch));
   return matches;
 }
 
-export async function getStoredMatches(region: string, puuid: string, opts?: { mode?: string; fresh?: boolean }) {
+export async function getStoredMatches(region: string, puuid: string, opts?: { mode?: string; fresh?: boolean; priority?: "interactive" | "background" }) {
   const params = new URLSearchParams();
   if (opts?.mode) params.set("mode", opts.mode);
   const q = params.toString();
   return call<HDStoredMatch[]>(
     `/valorant/v1/by-puuid/stored-matches/${region}/${puuid}${q ? `?${q}` : ""}`,
-    { ttl: TTL_STORED_MATCHES, fresh: opts?.fresh }
+    { ttl: TTL_STORED_MATCHES, fresh: opts?.fresh, priority: opts?.priority }
   );
 }
 

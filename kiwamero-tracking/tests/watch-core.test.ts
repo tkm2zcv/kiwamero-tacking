@@ -11,6 +11,7 @@ import {
   playerKey,
   redactWebhook,
   summarizeMatchForNotify,
+  verifyWatchlistBinding,
   type RawMatchForNotify,
 } from "../src/lib/watch-core.ts";
 
@@ -86,6 +87,45 @@ test("pickNewMatches caps the batch to avoid webhook spam", () => {
 test("playerKey is case insensitive", () => {
   assert.equal(playerKey("Meiy", "B3L"), playerKey("meiy", "b3l"));
   assert.equal(MAX_WATCHED_PLAYERS, 100);
+});
+
+// The watch cycle fetches once per deduplicated player using the earliest
+// entry's stored puuid, so POST /api/watchlist verifies caller-supplied values
+// against the upstream account (injected here — no network needed).
+test("verifyWatchlistBinding stores the upstream-verified puuid/region", async () => {
+  const calls: string[] = [];
+  const resolve = async (name: string, tag: string) => {
+    calls.push(`${name}#${tag}`);
+    return { puuid: "canonical-puuid", region: "ap" }; // upstream region is lowercase
+  };
+  assert.deepEqual(
+    await verifyWatchlistBinding("Name", "TAG", "canonical-puuid", resolve),
+    { puuid: "canonical-puuid", region: "AP" }, // upstream truth beats caller input
+  );
+  // Region-only submissions resolve to the canonical puuid too.
+  assert.deepEqual(
+    await verifyWatchlistBinding("Name", "TAG", undefined, resolve),
+    { puuid: "canonical-puuid", region: "AP" },
+  );
+  assert.deepEqual(calls, ["Name#TAG", "Name#TAG"]);
+});
+
+test("verifyWatchlistBinding rejects mismatched or unresolvable bindings", async () => {
+  // A puuid that belongs to a different account -> the route answers 400 puuid_mismatch.
+  assert.equal(
+    await verifyWatchlistBinding("Name", "TAG", "other-puuid", async () => ({
+      puuid: "canonical-puuid",
+      region: "ap",
+    })),
+    null,
+  );
+  // Upstream lookup failure (unknown player, upstream down) is also a mismatch.
+  assert.equal(
+    await verifyWatchlistBinding("Name", "TAG", "any-puuid", async () => {
+      throw new Error("HTTP 404");
+    }),
+    null,
+  );
 });
 
 const teamMatch: RawMatchForNotify = {

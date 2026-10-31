@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { execute, queryAll } from "@/lib/db";
 import type { ApiKeyRow } from "@/lib/db-schema";
 import { ownerUserId } from "@/lib/owner-access";
+import { liveApiKeyCount, MAX_API_KEYS_PER_USER } from "@/lib/owner-access-core";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 async function authorize(req: NextRequest): Promise<{ userId: string } | NextResponse> {
@@ -15,6 +16,13 @@ async function authorize(req: NextRequest): Promise<{ userId: string } | NextRes
 export async function POST(req: NextRequest) {
   const auth = await authorize(req);
   if (auth instanceof NextResponse) return auth;
+  // Each key gets its own rate bucket, so live keys are capped per owner.
+  if ((await liveApiKeyCount(auth.userId)) >= MAX_API_KEYS_PER_USER) {
+    return NextResponse.json(
+      { error: "key_limit", message: `At most ${MAX_API_KEYS_PER_USER} active keys.` },
+      { status: 409 },
+    );
+  }
   const key = `kt_${Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
   const hash = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");

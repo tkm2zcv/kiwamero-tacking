@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { ownerUserId } from "@/lib/owner-access";
 import { execute, queryAll } from "@/lib/db";
 import type { WatchlistEntryRow } from "@/lib/db-schema";
-import { MAX_WATCHED_PLAYERS } from "@/lib/watch-core";
+import { getAccount } from "@/lib/henrikdev";
+import { MAX_WATCHED_PLAYERS, verifyWatchlistBinding } from "@/lib/watch-core";
 import { upsertWatchlistEntry, watchedPlayerCount } from "@/lib/watch-db";
 
 async function userId(req: NextRequest) {
@@ -43,8 +44,24 @@ export async function POST(req: NextRequest) {
       (region != null && !/^[A-Z0-9]{2,16}$/.test(region))) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
+  // The shared watch cycle fetches once per player using the earliest entry's
+  // stored puuid, so caller-supplied values must provably belong to the
+  // claimed riotName#riotTag. When neither is supplied the cycle resolves
+  // canonically instead, so no upstream call is made here.
+  let verified: { puuid: string; region: string } | null = null;
+  if (puuid != null || region != null) {
+    verified = await verifyWatchlistBinding(riotName, riotTag, puuid, getAccount);
+    if (!verified) {
+      return NextResponse.json(
+        { error: "puuid_mismatch", message: "puuid does not match this player." },
+        { status: 400 },
+      );
+    }
+  }
   const entry = await upsertWatchlistEntry({
-    userId: uid, riotName, riotTag, puuid, region,
+    userId: uid, riotName, riotTag,
+    puuid: verified ? verified.puuid : puuid,
+    region: verified ? verified.region : region,
   });
   if (!entry) {
     return NextResponse.json(

@@ -6,6 +6,7 @@ import { apiKeys } from "@/lib/henrik-client";
 import { normalizeStoredMatch } from "@/lib/stored-stats";
 import { resolveOwnerAccess } from "@/lib/owner-access";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { sameSiteInitiator } from "@/lib/fetch-metadata";
 import { MATCH_ID } from "@/lib/henrik-model";
 
 export const dynamic = "force-dynamic";
@@ -36,8 +37,11 @@ async function smallBody(req: Request) {
 }
 
 export async function GET(req: NextRequest, ctx: Context) {
+  if (!sameSiteInitiator(req.headers)) return json({ error: "forbidden" }, 403);
   const access = await resolveOwnerAccess(req.headers);
   if (!access) return json({ error: "forbidden" }, 403);
+  const rate = checkRateLimit(`audit-view:${access.rateLimitKey}`, 30);
+  if (!rate.ok) return rateLimitResponse(rate);
   const { puuid } = await ctx.params;
   if (!MATCH_ID.test(puuid)) return json({ error: "invalid_player" }, 400);
   try { return json(await auditCoverage(puuid)); }

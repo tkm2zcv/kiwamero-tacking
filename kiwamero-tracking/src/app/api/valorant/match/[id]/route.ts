@@ -4,9 +4,13 @@ import { normalizeHDMatch } from "@/lib/match-normalize";
 import { resolveOwnerAccess } from "@/lib/owner-access";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { HenrikDevError } from "@/lib/henrik-errors";
+import { sameSiteInitiator } from "@/lib/fetch-metadata";
 
 /** Match-detail lookup powering the match-list expand drawer. */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  if (!sameSiteInitiator(req.headers)) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
   const access = await resolveOwnerAccess(req.headers);
   if (!access) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const rate = checkRateLimit(`match-detail:${access.rateLimitKey}`);
@@ -17,7 +21,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   }
   try {
     const match = normalizeHDMatch(await getMatch(id));
-    return NextResponse.json(match);
+    return NextResponse.json(match, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const status = error instanceof HenrikDevError ? error.status : 503;
     return NextResponse.json({ error: status === 429 ? "rate_limited" : "match_unavailable" }, {

@@ -7,7 +7,12 @@ import { releaseCompletedAudits, repairAuditManifest } from "./audit-history.ts"
 export async function runAuditQueue(options: { maxMatches?: number; maxMs?: number } = {}) {
   if (!apiKeys().length) throw new HenrikDevError(503, "No HenrikDev keys configured");
   const until = Date.now() + Math.min(options.maxMs ?? 40_000, 40_000);
-  await repairAuditManifest();
+  // A broken manifest must not starve the drain loop or later repairs.
+  try {
+    await repairAuditManifest();
+  } catch (e) {
+    console.error("Audit manifest repair failed", e);
+  }
   const cap = Math.max(1, Math.min(options.maxMatches ?? 100, 100));
   const summary = { completed: 0, failed: 0, deferred: 0 };
   // Leases are acquired by getMatch; concurrent cron invocations share that path.

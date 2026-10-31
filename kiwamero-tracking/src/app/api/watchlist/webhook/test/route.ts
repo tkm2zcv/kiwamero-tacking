@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ownerUserId } from "@/lib/owner-access";
 import { queryOne } from "@/lib/db";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,10 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const uid = await ownerUserId(req.headers);
   if (!uid) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  // This route posts to an external Discord webhook, so it gets a tighter
+  // per-user bucket than the default API limit.
+  const rate = checkRateLimit(`webhook-test:${uid}`, 10);
+  if (!rate.ok) return rateLimitResponse(rate);
 
   const user = await queryOne<{ webhookUrl: string | null }>(
     `SELECT "webhookUrl" FROM "User" WHERE "id" = ?`,

@@ -48,6 +48,7 @@ import { ProfileRouteSkeleton, ReportSkeleton, SectionSkeleton } from "@/compone
 import { QueuedRefresh } from "@/components/profile/queued-refresh";
 import { AccessGate } from "@/components/access-gate";
 import { getSiteAccess } from "@/lib/site-access";
+import { sameSiteInitiator } from "@/lib/fetch-metadata";
 import { headers } from "next/headers";
 
 /** Max historical rows queued for one encounters render (details are immutable). */
@@ -88,8 +89,12 @@ export default async function ProfilePage({
   params: Promise<{ id: string; tab?: string[] }>;
   searchParams: Promise<{ playlist?: string; act?: string; season?: string; played?: string; page?: string }>;
 }) {
-  const access = await getSiteAccess(await headers());
+  const hdrs = await headers();
+  const access = await getSiteAccess(hdrs);
   if (access.status !== "allowed") return <AccessGate status={access.status} />;
+  // Cross-site navigations carry the ambient Lax session cookie; the profile
+  // render performs implicit writes and paid upstream calls, so refuse them.
+  if (!sameSiteInitiator(hdrs)) return <AccessGate status="denied" />;
   const { id, tab } = await params;
   const decoded = decodeURIComponent(id);
   const m = decoded.match(/^(.+?)#(.+)$/);

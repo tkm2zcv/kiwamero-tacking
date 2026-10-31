@@ -16,7 +16,7 @@ test.afterEach(async () => {
   for (const table of ["AuditMatch", "AuditHistory", "MatchArchive"]) await execute(`DELETE FROM ${table}`);
 });
 
-test("status releases only its player while the cron completion guard can release all", async () => {
+test("status reads never release; the write-path guard releases scoped or all audits", async () => {
   const second = "30000000-0000-4000-8000-000000000001";
   await rememberMatch(rawMatch(1));
   for (const puuid of [selfId, second]) {
@@ -26,6 +26,8 @@ test("status releases only its player while the cron completion guard can releas
   const active = async (puuid: string) =>
     (await queryOne<{ active: number }>("SELECT active FROM AuditHistory WHERE puuid = ?", [puuid]))?.active;
   assert.equal((await auditCoverage(selfId)).state, "complete");
+  assert.equal(await active(selfId), 1, "a GET-side coverage read must not write");
+  await releaseCompletedAudits(selfId);
   assert.equal(await active(selfId), 0);
   assert.equal(await active(second), 1);
   await releaseCompletedAudits();

@@ -75,6 +75,30 @@ export function playerKey(riotName: string, riotTag: string): string {
   return `${riotName.toLowerCase()}#${riotTag.toLowerCase()}`;
 }
 
+export interface VerifiedWatchBinding {
+  puuid: string;
+  region: string;
+}
+
+/**
+ * Bind caller-supplied puuid/region to the claimed riotName#riotTag via an
+ * upstream account lookup (injected; production wires it to `getAccount`).
+ * The watch cycle fetches once per player using the earliest entry's stored
+ * puuid, so a per-entry value must provably belong to the claimed player.
+ * Returns the canonical {puuid, region} to store — upstream truth beats caller
+ * input — or null when the binding cannot be verified.
+ */
+export async function verifyWatchlistBinding(
+  riotName: string,
+  riotTag: string,
+  puuid: string | undefined,
+  resolveAccount: (name: string, tag: string) => Promise<{ puuid: string; region: string }>,
+): Promise<VerifiedWatchBinding | null> {
+  const account = await resolveAccount(riotName, riotTag).catch(() => null);
+  if (!account || (puuid != null && account.puuid !== puuid)) return null;
+  return { puuid: account.puuid, region: account.region.toUpperCase() };
+}
+
 export interface DiscordEmbed {
   title: string;
   url: string;

@@ -15,7 +15,7 @@ export function createWatchDeps(): WatchDeps {
   return {
     resolvePlayer: async (riotName, riotTag) => {
       const { getAccount } = await import("./henrikdev");
-      const account = await getAccount(riotName, riotTag);
+      const account = await getAccount(riotName, riotTag, { priority: "background" });
       return { puuid: account.puuid, region: account.region };
     },
     fetchMatches: async (puuid, region) => {
@@ -23,13 +23,13 @@ export function createWatchDeps(): WatchDeps {
       // Fresh fetch — a stale cached list could delay new-match notifications.
       // 30 is the HenrikDev matchlist cap; the extra rows feed the
       // current-act / all-acts encounter counters on party members.
-      const matches = await getMatches(region, puuid, { size: 30, fresh: true });
+      const matches = await getMatches(region, puuid, { size: 30, fresh: true, priority: "background" });
       return matches as unknown as RawMatchForNotify[];
     },
     fetchSeasonStats: async (puuid, region, seasonId) => {
       if (!seasonId) return null;
       const { getStoredMatches } = await import("./henrikdev");
-      const stored = await getStoredMatches(region, puuid);
+      const stored = await getStoredMatches(region, puuid, { priority: "background" });
       const rows = stored.filter((m) =>
         m.meta.season.id === seasonId || m.meta.season.short === seasonId,
       );

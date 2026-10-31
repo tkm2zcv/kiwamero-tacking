@@ -1,10 +1,7 @@
 import Image from "next/image";
 import type { CSSProperties } from "react";
 import { agentColor25, type MapStat } from "@/lib/stored-stats";
-
-function mapSplash(mapId: string) {
-  return `https://media.valorant-api.com/maps/${mapId}/splash.png`;
-}
+import { mapSplash } from "@/lib/henrik-shared";
 
 interface Col {
   label: string;

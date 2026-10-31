@@ -36,8 +36,20 @@ const text = (value: string, style: Record<string, unknown>): El =>
 
 let wasmPromise: Promise<BufferSource> | null = null;
 let wasmInitPromise: Promise<unknown> | null = null;
-const fontCache = new Map<string, Promise<{ name: string; data: ArrayBuffer; weight: 400 | 700; style: "normal" }[]>>();
+type CardFont = { name: string; data: ArrayBuffer; weight: 400 | 700; style: "normal" };
+let fontPromise: Promise<CardFont[]> | null = null;
 const iconCache = new Map<string, Promise<string | null>>();
+
+// Upstream (HenrikDev/Riot) icon URLs are CDN-hosted game assets; anything
+// else is not a legitimate fetch target for server-side rendering.
+const ICON_HOSTS = new Set([
+  "media.valorant-api.com",
+  "trackercdn.com",
+  "imgsvc.trackercdn.com",
+  "titles.trackercdn.com",
+]);
+const MAX_ICON_BYTES = 512 * 1024;
+const MAX_FONT_BYTES = 4 * 1024 * 1024;
 
 async function loadWasm(): Promise<BufferSource> {
   wasmPromise ??= (async () => {
@@ -67,46 +79,67 @@ function b64(buf: ArrayBuffer): string {
   return btoa(s);
 }
 
-async function iconData(url: string | undefined): Promise<string | null> {
+// Exported for tests — internal rendering helper.
+export async function iconData(url: string | undefined): Promise<string | null> {
   if (!url) return null;
   let p = iconCache.get(url);
   if (!p) {
-    p = fetch(url)
-      .then((r) => (r.ok ? r.arrayBuffer() : null))
-      .then((b) => (b ? `data:image/png;base64,${b64(b)}` : null))
-      .catch(() => null);
+    p = (async () => {
+      try {
+        const u = new URL(url);
+        if (u.protocol !== "https:" || !ICON_HOSTS.has(u.hostname)) return null;
+        const r = await fetch(u, { redirect: "error" });
+        if (!r.ok) return null;
+        const type = (r.headers.get("content-type") ?? "").split(";")[0].trim();
+        if (!type.startsWith("image/")) return null;
+        const len = Number(r.headers.get("content-length") ?? 0);
+        if (len > MAX_ICON_BYTES) return null;
+        const b = await r.arrayBuffer();
+        if (b.byteLength > MAX_ICON_BYTES) return null;
+        return `data:${type};base64,${b64(b)}`;
+      } catch {
+        return null;
+      }
+    })();
     iconCache.set(url, p);
   }
   return p;
 }
 
-/** Google Fonts text= subset -> tiny TTFs that cover every glyph on the card. */
-function loadFonts(cardText: string) {
-  const key = [...new Set(cardText)].join("");
-  let p = fontCache.get(key);
-  if (!p) {
-    p = (async () => {
-      const css = await fetch(
-        `https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&text=${encodeURIComponent(key)}`,
-        { headers: { "user-agent": "Mozilla/4.0" } },
-      ).then((r) => r.text());
-      const blocks = css.split("@font-face").slice(1);
-      return Promise.all(
-        blocks.map(async (block) => {
-          const weight = (Number(block.match(/font-weight:\s*(\d+)/)?.[1] ?? 400) === 700 ? 700 : 400) as 400 | 700;
-          const url = block.match(/url\((https:[^)]+)\)/)?.[1];
-          if (!url) throw new Error("font url missing");
-          const data = await fetch(url).then((r) => r.arrayBuffer());
-          return { name: "Noto Sans JP", data, weight, style: "normal" as const };
-        }),
-      );
-    })().catch(() => {
-      fontCache.delete(key);
-      throw new Error("fonts unavailable");
-    });
-    fontCache.set(key, p);
-  }
-  return p;
+/**
+ * Google Fonts css2 with no text= subset: player names are owner-private
+ * watchlist data and must never be sent to Google. The css2 URL is constant,
+ * so the (larger, full-charset) font set is cached once per isolate.
+ */
+// Exported for tests — internal rendering helper.
+export function loadFonts(): Promise<CardFont[]> {
+  fontPromise ??= (async () => {
+    const css = await fetch(
+      "https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700",
+      { headers: { "user-agent": "Mozilla/4.0" } },
+    ).then((r) => r.text());
+    const blocks = css.split("@font-face").slice(1);
+    return Promise.all(
+      blocks.map(async (block) => {
+        const weight = (Number(block.match(/font-weight:\s*(\d+)/)?.[1] ?? 400) === 700 ? 700 : 400) as 400 | 700;
+        const url = block.match(/url\((https:[^)]+)\)/)?.[1];
+        if (!url) throw new Error("font url missing");
+        const u = new URL(url);
+        if (u.protocol !== "https:" || u.hostname !== "fonts.gstatic.com") {
+          throw new Error("font url rejected");
+        }
+        const res = await fetch(u, { redirect: "error" });
+        if (!res.ok) throw new Error(`font fetch ${res.status}`);
+        const data = await res.arrayBuffer();
+        if (data.byteLength > MAX_FONT_BYTES) throw new Error("font too large");
+        return { name: "Noto Sans JP", data, weight, style: "normal" as const };
+      }),
+    );
+  })().catch(() => {
+    fontPromise = null;
+    throw new Error("fonts unavailable");
+  });
+  return fontPromise;
 }
 
 function kdColor(kills: number, deaths: number): string {
@@ -224,23 +257,7 @@ export async function renderWatchCard(
       : "";
     const cardH = CARD_H + match.partyMembers.length * 116;
 
-    const cardText = [
-      "KIAMWERO PARTY WATCH", "Kiwamero Tracking", "PARTY", "SOLO",
-      "K/D/A", "K/D", "ACS", "szn", "Queued solo",
-      `${watched.name}#${watched.tag}`, result, match.map, match.mode, match.score,
-      match.partyLabel, date, match.agent ?? "", match.rank ?? "",
-      kdValue(match.kills, match.deaths),
-      `${match.kills}/${match.deaths}/${match.assists}`, String(match.acs),
-      ...match.partyMembers.flatMap((m) => [
-        `${m.name}#${m.tag}`, m.agent ?? "", m.rank ?? "",
-        `${m.kills}/${m.deaths}/${m.assists}`, kdValue(m.kills, m.deaths),
-        m.season ? kdValue(m.season.kills, m.season.deaths) : "",
-        m.encountersAll != null ? `met ${m.encountersAct ?? 0}/${m.encountersAll}` : "",
-      ]),
-      "0123456789./:#—·() ",
-    ].join("");
-
-    const fonts = await loadFonts(cardText);
+    const fonts = await loadFonts();
     wasmInitPromise ??= initWasm(await wasm).catch((e) => {
       wasmInitPromise = null;
       throw e;

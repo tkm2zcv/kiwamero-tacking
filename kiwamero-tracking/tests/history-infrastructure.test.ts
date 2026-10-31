@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { register } from "node:module";
 import { execute, queryAll, queryOne } from "../src/lib/db.ts";
 import { reserveQuota, coolQuota, retryAfterMs } from "../src/lib/henrik-quota.ts";
 import {
@@ -14,6 +15,8 @@ import { HenrikDevError } from "../src/lib/henrik-errors.ts";
 import { rawMatch, matchId, selfId, stored } from "./history-fixtures.ts";
 
 process.env.DATABASE_URL = "file::memory:";
+// Lets dynamic imports of server-only modules (e.g. watch-run) load in Node.
+register("./route-hooks.mjs", import.meta.url);
 const realFetch = globalThis.fetch;
 test.before(async () => {
   for (const s of fs.readFileSync("db/upgrade-2026-10-30.sql", "utf8").split(";").filter((s) => s.trim())) await execute(s);
@@ -206,4 +209,90 @@ test("invalid upstream lookup IDs stay visible as unavailable without being fetc
   assert.equal(coverage.unavailable, 1);
   assert.equal(coverage.pending, 0);
   assert.equal(coverage.state, "partial");
+});
+
+test("coverage reads never mutate the stored audit lifecycle state", async () => {
+  await enqueueAudit({ puuid: selfId, name: "Player", tag: "TAG", region: "ap", rows: [stored(1)] });
+  await rememberMatch(rawMatch(1));
+  await execute("UPDATE AuditHistory SET active = 1 WHERE puuid = ?", [selfId]);
+  const before = await queryOne("SELECT active, rowsJson, syncedAt FROM AuditHistory WHERE puuid = ?", [selfId]);
+  assert.equal((await auditCoverage(selfId)).state, "complete");
+  assert.deepEqual(
+    await queryOne("SELECT active, rowsJson, syncedAt FROM AuditHistory WHERE puuid = ?", [selfId]),
+    before,
+    "a GET-side coverage read must leave AuditHistory untouched",
+  );
+});
+
+test("an over-cap manifest is windowed to the newest rows instead of wedged at 413", async () => {
+  const base = Math.floor(Date.now() / 1000) - 5100 * 600;
+  const rows = Array.from({ length: 5100 }, (_, i) => stored(i + 1, { startedAt: base + i * 600 }));
+  await enqueueAudit({ puuid: selfId, name: "Player", tag: "TAG", region: "ap", rows });
+  const history = await queryOne<{ rowsJson: string }>(
+    "SELECT rowsJson FROM AuditHistory WHERE puuid = ?", [selfId]);
+  const kept = JSON.parse(history!.rowsJson) as { id: string }[];
+  assert.ok(kept.length <= 5000 && kept.length > 0, `expected a windowed manifest, got ${kept.length}`);
+  assert.ok(new TextEncoder().encode(history!.rowsJson).length <= 1_800_000, "byte cap must hold");
+  assert.equal(kept[kept.length - 1].id, matchId(5100), "the newest rows are retained");
+  assert.equal(kept[0].id, matchId(5100 - kept.length + 1), "the oldest rows are dropped first");
+  assert.equal((await auditCoverage(selfId)).total, kept.length);
+});
+
+test("re-linking revives terminal tombstones for valid ids only", async () => {
+  const claim = await claimMatch(matchId(1), Date.now());
+  await failMatch(matchId(1), claim!.token, claim!.attempts, new HenrikDevError(404, "gone"));
+  assert.equal((await queryOne<{ terminal: number }>(
+    "SELECT terminal FROM MatchArchive WHERE matchId = ?", [matchId(1)]))!.terminal, 1);
+  const rows = [stored(1), stored(2, { id: "invalid-upstream-id" })];
+  const input = { puuid: selfId, name: "Player", tag: "TAG", region: "ap", rows };
+  await enqueueAudit(input);
+  const revived = await queryOne<{ terminal: number; attempts: number; retryAt: number; lastStatus: number | null }>(
+    "SELECT terminal, attempts, retryAt, lastStatus FROM MatchArchive WHERE matchId = ?", [matchId(1)]);
+  assert.deepEqual(revived, { terminal: 0, attempts: 0, retryAt: 0, lastStatus: null },
+    "a past transient failure must not suppress the match forever");
+  const invalid = async () => queryOne<{ terminal: number; lastStatus: number | null }>(
+    "SELECT terminal, lastStatus FROM MatchArchive WHERE matchId = ?", ["invalid-upstream-id"]);
+  assert.deepEqual(await invalid(), { terminal: 1, lastStatus: 400 });
+  // Re-linking the same manifest must not clear the permanent invalid tombstone.
+  await enqueueAudit(input);
+  assert.deepEqual(await invalid(), { terminal: 1, lastStatus: 400 });
+});
+
+test("a broken manifest cannot starve the queue drain", async () => {
+  await execute(`INSERT INTO AuditHistory(puuid, riotName, riotTag, region, rowsJson, syncedAt)
+    VALUES (?, 'Player', 'TAG', 'ap', '[null]', ?)`, [selfId, Date.now()]);
+  await queueMatchDetails([matchId(1)]);
+  process.env.HENRIK_API_KEYS = "repair-test";
+  globalThis.fetch = async () => Response.json({ status: 200, data: rawMatch(1) });
+  const errors: unknown[] = [];
+  const realError = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  try {
+    assert.deepEqual(await runAuditQueue({ maxMatches: 1, maxMs: 2000 }),
+      { completed: 1, failed: 0, deferred: 0 });
+  } finally {
+    console.error = realError;
+  }
+  assert.equal(errors.length, 1, "the repair failure is logged, not propagated");
+  assert.equal((await readArchivedMatches([matchId(1)])).size, 1);
+});
+
+test("watch deps book the background quota lane", async () => {
+  const { createWatchDeps } = await import("../src/lib/watch-run.ts");
+  process.env.HENRIK_API_KEYS = "watch-quota";
+  globalThis.fetch = async (input) => {
+    const url = String(input instanceof Request ? input.url : input);
+    if (url.includes("/v1/account/")) {
+      return Response.json({ status: 200, data: { puuid: "p-1", region: "ap", name: "N", tag: "T" } });
+    }
+    return Response.json({ status: 200, data: [] });
+  };
+  const deps = createWatchDeps();
+  await deps.resolvePlayer("N", "T");
+  await deps.fetchMatches("p-1", "ap");
+  await deps.fetchSeasonStats!("p-1", "ap", "e11a6");
+  const row = await queryOne<{ uses: string }>("SELECT uses FROM HenrikQuota");
+  const uses = JSON.parse(row!.uses) as { priority: string }[];
+  assert.equal(uses.length, 3);
+  assert.ok(uses.every((u) => u.priority === "background"), JSON.stringify(uses));
 });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { ownerUserId } from "@/lib/owner-access";
 import { execute, queryOne } from "@/lib/db";
 import { normalizeDiscordWebhook, redactWebhook } from "@/lib/watch-core";
 import { createWatchDeps, runWatchCycle } from "@/lib/watch-run";
@@ -9,14 +9,13 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 async function userId(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: req.headers });
-  return session?.user?.id ?? null;
+  return ownerUserId(req.headers);
 }
 
 /** Current webhook status (never returns the secret URL). */
 export async function GET(req: NextRequest) {
   const uid = await userId(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!uid) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const user = await queryOne<{ webhookUrl: string | null; webhookUpdatedAt: string | null }>(
     `SELECT "webhookUrl", "webhookUpdatedAt" FROM "User" WHERE "id" = ?`,
     [uid],
@@ -34,7 +33,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   const uid = await userId(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!uid) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const body = (await req.json().catch(() => ({}))) as { url?: string };
   const normalized = normalizeDiscordWebhook(body.url ?? "");
@@ -68,7 +67,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const uid = await userId(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!uid) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   await execute(`UPDATE "User" SET "webhookUrl" = NULL, "webhookUpdatedAt" = ? WHERE "id" = ?`, [
     new Date(),
     uid,

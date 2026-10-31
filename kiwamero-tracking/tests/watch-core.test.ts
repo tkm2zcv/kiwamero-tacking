@@ -4,6 +4,7 @@ import {
   MAX_WATCHED_PLAYERS,
   batch,
   buildMatchEmbed,
+  buildPartyMemberEmbed,
   buildWebhookPayload,
   normalizeDiscordWebhook,
   pickNewMatches,
@@ -130,10 +131,62 @@ test("summarizeMatchForNotify returns null when the player is missing", () => {
   assert.equal(summarizeMatchForNotify(teamMatch, "nobody"), null);
 });
 
+test("summarizeMatchForNotify detects same-party members and their images", () => {
+  const match: RawMatchForNotify = {
+    metadata: { matchid: "party-1", map: "Ascent", mode: "Competitive", rounds_played: 24, game_start: 3000, season_id: "season-1" },
+    teams: { red: { has_won: true, rounds_won: 13 }, blue: { has_won: false, rounds_won: 9 } },
+    players: [
+      {
+        puuid: "me", name: "Meiy", tag: "B3L", character: "Jett", team: "Red", party_id: "party-a",
+        currenttier_patched: "Radiant",
+        assets: { agent: { small: "https://img.test/jett.png" }, card: { small: "https://img.test/card.png" } },
+        stats: { score: 5000, kills: 20, deaths: 10, assists: 5 },
+      },
+      {
+        puuid: "mate-1", name: "DuoOne", tag: "111", character: "Omen", team: "Red", party_id: "party-a",
+        currenttier_patched: "Immortal 3",
+        assets: { agent: { small: "https://img.test/omen.png" } },
+        stats: { score: 3000, kills: 12, deaths: 14, assists: 6 },
+      },
+      {
+        puuid: "mate-2", name: "DuoTwo", tag: "222", character: "Sage", team: "Red", party_id: "party-a",
+        currenttier_patched: "Diamond 2",
+        assets: { agent: { small: "https://img.test/sage.png" } },
+        stats: { score: 2800, kills: 10, deaths: 12, assists: 8 },
+      },
+      {
+        puuid: "enemy", name: "Enemy", tag: "999", character: "Reyna", team: "Blue", party_id: "party-b",
+        stats: { score: 2500, kills: 10, deaths: 16, assists: 2 },
+      },
+    ],
+  };
+
+  const summary = summarizeMatchForNotify(match, "me");
+  assert.ok(summary);
+  assert.equal(summary.partyLabel, "Trio");
+  assert.equal(summary.partyMembers.length, 2);
+  assert.equal(summary.partyMembers[0].name, "DuoOne");
+  assert.equal(summary.partyMembers[0].agentIcon, "https://img.test/omen.png");
+  assert.equal(summary.agentIcon, "https://img.test/jett.png");
+
+  const embed = buildPartyMemberEmbed(
+    {
+      ...summary.partyMembers[0],
+      season: { matches: 12, kills: 120, deaths: 80, kd: 1.5, act: "E13A1" },
+    },
+    "https://example.test/party",
+  );
+  assert.equal(embed.thumbnail?.url, "https://img.test/omen.png");
+  assert.match(embed.title, /DuoOne#111/);
+  assert.match(embed.fields?.[0].name ?? "", /Season K\/D/);
+  assert.equal(embed.fields?.[0].value, "1.50 (120/80)");
+});
+
 test("buildMatchEmbed colours wins and losses differently", () => {
   const win = buildMatchEmbed({ name: "Meiy", tag: "B3L" }, {
     matchid: "m1", map: "Sunset", mode: "Competitive", score: "13 : 11", won: true,
     kills: 20, deaths: 15, assists: 4, acs: 200, agent: "Jett",
+    partyLabel: "Solo", partyMembers: [],
   }, "https://example.test/p");
   assert.equal(win.color, 0x16e5b4);
   assert.match(win.title, /Meiy#B3L — WIN on Sunset/);
@@ -141,6 +194,7 @@ test("buildMatchEmbed colours wins and losses differently", () => {
   const loss = buildMatchEmbed({ name: "Meiy", tag: "B3L" }, {
     matchid: "m2", map: "Lotus", mode: "Competitive", score: "11 : 13", won: false,
     kills: 10, deaths: 20, assists: 2, acs: 120,
+    partyLabel: "Duo", partyMembers: [],
   }, "https://example.test/p");
   assert.equal(loss.color, 0xe4485d);
   assert.match(loss.title, /LOSS/);
@@ -150,6 +204,7 @@ test("buildWebhookPayload never mentions anyone and caps embeds", () => {
   const embeds = Array.from({ length: 14 }, (_, i) => buildMatchEmbed({ name: "a", tag: "b" }, {
     matchid: `m${i}`, map: "Bind", mode: "Competitive", score: "13 : 0", won: true,
     kills: 1, deaths: 1, assists: 1, acs: 100,
+    partyLabel: "Solo", partyMembers: [],
   }, "https://example.test/p"));
   const payload = buildWebhookPayload(embeds);
   assert.equal(payload.embeds.length, 10);

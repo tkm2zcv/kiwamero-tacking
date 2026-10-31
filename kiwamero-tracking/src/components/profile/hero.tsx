@@ -3,9 +3,11 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Eye } from "lucide-react";
 import type { Profile } from "@/lib/types";
+import type { ShareCardModel } from "@/lib/share-card-data";
 import { WatchlistButton } from "./watchlist-button";
 import { RefreshProfileButton } from "./refresh-profile-button";
 import { ShareProfileButton } from "./share-profile-button";
+import { CopyRiotId } from "./copy-riot-id";
 
 export type ProfileTab =
   | "overview" | "matches" | "performance" | "agents" | "maps"
@@ -28,6 +30,7 @@ export function ProfileHero({
   basePath,
   banner,
   cardArt,
+  shareCard,
   heroExtra,
   tabLabels = {},
 }: {
@@ -36,10 +39,12 @@ export function ProfileHero({
   basePath: string;
   banner: string | null;
   cardArt: string | null;
+  shareCard: ShareCardModel;
   heroExtra?: ReactNode;
   tabLabels?: Record<string, string>;
 }) {
   const isJapan = profile.region?.toUpperCase() === "AP";
+  const trackerProfileUrl = `https://tracker.gg/valorant/profile/riot/${encodeURIComponent(`${profile.name.trim()}#${profile.tag.trim()}`)}/overview`;
   return (
     <div className="kt-hero-wrap">
       {banner ? (
@@ -71,12 +76,11 @@ export function ProfileHero({
             <div className="kt-hero-names">
               <div className="kt-hero-views">
                 <Eye size={14} aria-hidden="true" />
-                <span>Public profile</span>
+                <span>Private profile</span>
               </div>
               <div className="kt-hero-name-row">
                 <RiotVerified />
-                <span className="kt-hero-name">{profile.name}</span>
-                <span className="kt-hero-tag">#{profile.tag}</span>
+                <CopyRiotId name={profile.name} tag={profile.tag} />
               </div>
             </div>
 
@@ -85,12 +89,23 @@ export function ProfileHero({
                 riotName={profile.name}
                 riotTag={profile.tag}
                 puuid={profile.puuid}
+                region={profile.region}
                 addLabel="Add to Watchlist"
                 watchingLabel="Remove from Watchlist"
                 signInLabel="Sign in to watch this player"
                 variant="icon"
               />
-              <ShareProfileButton />
+              <ShareProfileButton card={shareCard} />
+              <a
+                href={trackerProfileUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="kt-icon-btn kt-icon-btn--tracker"
+                aria-label="View on tracker.gg"
+                title="View on tracker.gg"
+              >
+                <Image src="https://trackercdn.com/cdn/tracker.gg/icon-128.png" alt="" width={22} height={22} />
+              </a>
             </div>
           </div>
 

@@ -1,5 +1,81 @@
 # Project Changelog
 
+## 2026-10-31 — Watchlist eye toggle hardening (not deployed)
+
+- Replaced the profile star action with an eye-based watch toggle. Watching entries
+  use the tracked blue active state; removal remains one click from the profile.
+- Watchlist registration now sends the profile region as well as the PUUID, keeps
+  the previous state on API failures, and exposes status text for full/error
+  states instead of silently flipping the icon.
+- `/api/watchlist` validates trimmed Riot ID fields plus bounded `puuid`/`region`
+  values before writing, preserving the system-wide 100-player admission cap.
+- `/watchlist` now shows the user's watched count, global capacity, watching
+  status icon, last-alert state, profile navigation and Discord webhook settings.
+- Remove buttons report failure and only refresh after a successful delete.
+- Watch notifications now send one Discord message per match instead of bundling
+  multiple embeds into one message, because Discord may only surface the first
+  embed. Mid-backlog delivery failures advance the cursor only through delivered
+  matches, so unsent matches retry without duplicating successful sends.
+- Verified live locally with Meiy: the missing 100:90 and 100:81 TDM matches were
+  delivered as two separate webhook messages; the earlier 100:97 message was not
+  duplicated.
+- Watch notifications are now party-focused: the main match embed reports the
+  queue type and watched player's agent image, while each same-`party_id`
+  teammate is sent as a separate image embed with agent icon, rank, match K/D/A
+  and current-season K/D when available.
+- Season K/D uses stored-match rows filtered by the match's `season_id`; it is
+  cached per run, omitted when unavailable, and is only fetched for detected
+  party members to limit HenrikDev calls.
+- Not committed, pushed or deployed.
+
+## 2026-10-31 — Private access gate and site-owned sharing (not deployed)
+
+- The site is now private: every UI page requires Discord sign-in and the linked
+  Discord account ID must be present in `OWNER_DISCORD_IDS`. Anonymous visitors
+  get an in-site sign-in gate; signed-in but unregistered accounts get a
+  dedicated "not registered" state with a sign-out/switch-account action.
+- `/api/valorant/match`, `/api/valorant/audit` and all `/api/watchlist/*` routes
+  now use the same allowlist. `/api/valorant/*` continues to accept valid
+  `kt_` API keys; `/api/auth/*` and `CRON_SECRET` cron routes remain exceptions.
+- The profile share button no longer calls `navigator.share()` automatically.
+  It opens a Kiwamero-styled modal that renders the generated 1400×700 Canvas
+  PNG preview with explicit PNG download, profile-link copy and browser-supported
+  image-copy actions.
+- `share-card-data.ts` builds a serializable model from the account's current act
+  (`profile.actCode`, or latest stored act only when no act code exists) and the
+  selected playlist. Older act filters and lifetime totals no longer leak into
+  the card; empty scopes show dashes rather than invented stats.
+- The card follows the supplied reference layout: name/tag, level, region,
+  dominant server, current rank/icon/RR, K/D, HS%, ADR, ACS, Win%, matches,
+  wins and losses, plus Kiwamero Tracking branding.
+- `/share` uses the same current-act model for its HTML preview.
+- The generated card, HTML preview and share-panel accents now use the logo's
+  royal-blue brand color (`#0155fd`, with a brighter related text blue).
+- Added a Discord account menu beside the language switcher. Signed-in users get
+  their avatar/name/Discord ID plus Watchlist, Developers/API and sign-out
+  actions; anonymous users get a Discord sign-in action.
+- Verified anonymous/allowed/unregistered browser states, the custom share panel,
+  PNG preview, link copy and Escape/reopen behavior.
+- Not committed, pushed or deployed.
+
+## 2026-10-30 — Profile performance and route skeletons (not deployed)
+
+- Encounters no longer awaits up to150 historical `/v2/match/{id}` calls during
+  rendering. It combines recent rosters with persisted `MatchArchive` payloads,
+  queues uncovered IDs into the shared match-detail jobs, and reports partial
+  coverage until cron fills them.
+- The shared audit runner now drains generic pending `MatchArchive` jobs without
+  requiring an `AuditMatch` manifest, preserving audit-link priority.
+- Tabs skip unused recent/stored upstream requests; match-list normalization is
+  deferred to the rendered page/slice and stored-row normalization is memoized.
+- Added `loading.tsx` plus hero/filter/sidebar/card-shaped route skeletons and
+  nested report/encounter section fallbacks with reduced-motion support.
+- Local measurements on Meiy#B3L: Encounters ~49.4s → ~1.24s; overview ~1.56s,
+  matches ~1.41s, agents ~1.63s, performance ~1.53s.
+- Verification: 156 tests, lint/typecheck, Next/OpenNext builds, route HTML
+  fallback markup and desktop/mobile skeleton render checks.
+- Not committed, pushed or deployed.
+
 ## 2026-10-30 — Report/acquisition responsibility refactor (not deployed)
 
 - Extracted provider contracts, pure archive validation/projection and pure

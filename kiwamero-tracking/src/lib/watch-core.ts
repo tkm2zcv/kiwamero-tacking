@@ -81,8 +81,31 @@ export interface DiscordEmbed {
   description: string;
   color: number;
   timestamp?: string;
+  author?: { name: string; url?: string; icon_url?: string };
+  thumbnail?: { url: string };
   footer?: { text: string };
   fields?: { name: string; value: string; inline?: boolean }[];
+}
+
+export interface SeasonStatsSummary {
+  matches: number;
+  kills: number;
+  deaths: number;
+  kd: number | null;
+  act?: string;
+}
+
+export interface PartyMemberSummary {
+  puuid: string;
+  name: string;
+  tag: string;
+  agent?: string;
+  agentIcon?: string;
+  rank?: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  season?: SeasonStatsSummary | null;
 }
 
 export interface NewMatchSummary {
@@ -96,6 +119,11 @@ export interface NewMatchSummary {
   assists: number;
   acs: number;
   agent?: string;
+  agentIcon?: string;
+  cardIcon?: string;
+  gameStart?: number;
+  partyLabel: string;
+  partyMembers: PartyMemberSummary[];
 }
 
 export function buildMatchEmbed(
@@ -109,15 +137,45 @@ export function buildMatchEmbed(
   return {
     title: `${player.name}#${player.tag} — ${result} on ${match.map}`,
     url: profileUrl,
-    description: `${match.mode} · ${match.score}`,
+    description: `${match.mode} · ${match.score} · ${match.partyLabel}`,
     color,
-    timestamp: new Date().toISOString(),
+    timestamp: match.gameStart ? new Date(match.gameStart * 1000).toISOString() : new Date().toISOString(),
+    author: { name: "Kiwamero Party Watch", url: profileUrl, icon_url: match.cardIcon ?? match.agentIcon },
+    thumbnail: match.agentIcon ? { url: match.agentIcon } : undefined,
     footer: { text: "Kiwamero Tracking" },
     fields: [
       { name: "Agent", value: match.agent ?? "—", inline: true },
       { name: "K/D/A", value: `${match.kills} / ${match.deaths} / ${match.assists}`, inline: true },
       { name: "K/D", value: kd, inline: true },
       { name: "ACS", value: String(match.acs), inline: true },
+      { name: "Queue", value: match.partyLabel, inline: true },
+      { name: "Party members", value: match.partyMembers.length ? `${match.partyMembers.length}` : "—", inline: true },
+    ],
+  };
+}
+
+function kdLine(kills: number, deaths: number): string {
+  return `${deaths ? (kills / deaths).toFixed(2) : kills.toFixed(2)} (${kills}/${deaths})`;
+}
+
+export function buildPartyMemberEmbed(
+  member: PartyMemberSummary,
+  profileUrl: string,
+): DiscordEmbed {
+  const season = member.season;
+  const seasonLabel = season?.act ? `Season K/D (${season.act})` : "Season K/D";
+  return {
+    title: `PARTY — ${member.name}#${member.tag}`,
+    url: profileUrl,
+    description: `${member.agent ?? "Unknown agent"}${member.rank ? ` · ${member.rank}` : ""}`,
+    color: 0x3a86ff,
+    author: { name: "Party member", url: profileUrl, icon_url: member.agentIcon },
+    thumbnail: member.agentIcon ? { url: member.agentIcon } : undefined,
+    footer: { text: "Kiwamero Party Watch" },
+    fields: [
+      { name: seasonLabel, value: season ? kdLine(season.kills, season.deaths) : "—", inline: true },
+      { name: "Season matches", value: season ? String(season.matches) : "—", inline: true },
+      { name: "Match K/D/A", value: `${member.kills} / ${member.deaths} / ${member.assists}`, inline: true },
     ],
   };
 }
@@ -143,6 +201,7 @@ export interface WatchDb {
 export interface WatchDeps {
   fetchMatches: (puuid: string, region: string) => Promise<RawMatchForNotify[]>;
   resolvePlayer: (riotName: string, riotTag: string) => Promise<{ puuid: string; region: string } | null>;
+  fetchSeasonStats?: (puuid: string, region: string, seasonId: string | undefined) => Promise<SeasonStatsSummary | null>;
   sendWebhook: (url: string, payload: unknown) => Promise<boolean>;
   sleep?: (ms: number) => Promise<void>;
   log?: (msg: string) => void;
@@ -210,6 +269,17 @@ export async function runWatchCycle(
   const cap = Math.min(options.maxPlayers ?? MAX_WATCHED_PLAYERS, MAX_WATCHED_PLAYERS);
   const players = [...byPlayer.entries()].slice(0, cap);
   summary.skipped = Math.max(0, byPlayer.size - players.length);
+  const seasonCache = new Map<string, Promise<SeasonStatsSummary | null>>();
+  const seasonFor = (playerPuuid: string, playerRegion: string, seasonId: string | undefined) => {
+    if (!deps.fetchSeasonStats) return Promise.resolve(null);
+    const cacheKey = `${playerRegion}:${playerPuuid}:${seasonId ?? ""}`;
+    let cached = seasonCache.get(cacheKey);
+    if (!cached) {
+      cached = deps.fetchSeasonStats(playerPuuid, playerRegion, seasonId).catch(() => null);
+      seasonCache.set(cacheKey, cached);
+    }
+    return cached;
+  };
 
   for (const [key, group] of players) {
     summary.playersChecked += 1;
@@ -237,41 +307,53 @@ export async function runWatchCycle(
         );
         if (!fresh.length) continue;
 
-        const embeds = fresh
-          .map((item) => summarizeMatchForNotify(item.raw, puuid!))
-          .filter((m): m is NonNullable<typeof m> => m !== null)
-          .map((match) =>
-            buildMatchEmbed(
-              { name: entry.riotName, tag: entry.riotTag },
-              match,
-              `https://tracking.kiwamero.dev/valorant/profile/riot/${encodeURIComponent(`${entry.riotName}#${entry.riotTag}`)}/overview`,
+        const profileUrlFor = (name: string, tag: string) =>
+          `https://tracking.kiwamero.dev/valorant/profile/riot/${encodeURIComponent(`${name}#${tag}`)}/overview`;
+        const deliveries: { item: (typeof fresh)[number]; embeds: DiscordEmbed[] }[] = [];
+        for (const item of fresh) {
+          const match = summarizeMatchForNotify(item.raw, puuid!);
+          if (!match) continue;
+          if (deps.fetchSeasonStats) {
+            for (const member of match.partyMembers) {
+              member.season = await seasonFor(member.puuid, region, item.raw.metadata.season_id);
+            }
+          }
+          const embeds = [
+            buildMatchEmbed({ name: entry.riotName, tag: entry.riotTag }, match, profileUrlFor(entry.riotName, entry.riotTag)),
+            ...match.partyMembers.map((member) =>
+              buildPartyMemberEmbed(member, profileUrlFor(member.name, member.tag)),
             ),
-          );
-        if (!embeds.length) continue;
-
-        let delivered = true;
-        for (const chunk of batch(embeds, 10)) {
-          const ok = await deps.sendWebhook(webhookUrl, buildWebhookPayload(chunk));
-          if (!ok) delivered = false;
+          ];
+          deliveries.push({ item, embeds });
         }
+        if (!deliveries.length) continue;
 
-        if (!delivered) {
-          summary.webhookFailures += 1;
-          // Keep lastSeenGameStart unchanged so the next run retries.
-          continue;
+        let delivered = 0;
+        for (const delivery of deliveries) {
+          let complete = true;
+          for (let i = 0; i < delivery.embeds.length; i += 1) {
+            const ok = await deps.sendWebhook(webhookUrl, buildWebhookPayload([delivery.embeds[i]]));
+            if (!ok) {
+              summary.webhookFailures += 1;
+              complete = false;
+              break;
+            }
+            if (i + 1 < delivery.embeds.length) await sleep(120);
+          }
+          if (!complete) break;
+          delivered += 1;
+          summary.matchesSent += 1;
+          await db.watchlistEntry.update({
+            where: { id: entry.id },
+            data: {
+              lastSeenGameStart: delivery.item.game_start,
+              lastNotifiedMatchId: delivery.item.matchid,
+              lastNotifiedAt: new Date(),
+            },
+          });
         }
-
-        summary.matchesSent += fresh.length;
-        const newest = fresh.reduce((a, b) => (a.game_start > b.game_start ? a : b));
-        await db.watchlistEntry.update({
-          where: { id: entry.id },
-          data: {
-            lastSeenGameStart: newest.game_start,
-            lastNotifiedMatchId: newest.matchid,
-            lastNotifiedAt: new Date(),
-          },
-        });
-        log(`${key}: delivered ${fresh.length} match(es)`);
+        if (delivered < deliveries.length) continue;
+        log(`${key}: delivered ${delivered} match(es)`);
       }
       // Be polite to the upstream API (free tier is per-minute limited).
       await sleep(250);
@@ -286,7 +368,7 @@ export async function runWatchCycle(
   return summary;
 }
 
-/** Discord webhook payload (one embed per match, max 10 per message). */
+/** Discord webhook payload builder; Discord accepts up to 10 embeds per request. */
 export function buildWebhookPayload(embeds: DiscordEmbed[], content?: string) {
   return {
     content: content ?? undefined,
@@ -297,9 +379,17 @@ export function buildWebhookPayload(embeds: DiscordEmbed[], content?: string) {
 
 export interface RawPlayerForNotify {
   puuid: string;
+  name?: string;
+  tag?: string;
   character?: string;
   team?: string;
   team_id?: string;
+  party_id?: string;
+  currenttier_patched?: string;
+  assets?: {
+    agent?: { small?: string; bust?: string; full?: string; killfeed?: string };
+    card?: { small?: string; large?: string; wide?: string };
+  };
   stats: { score?: number; kills?: number; deaths?: number; assists?: number };
 }
 
@@ -311,6 +401,7 @@ export interface RawMatchForNotify {
     mode_id?: string;
     rounds_played?: number;
     game_start: number;
+    season_id?: string;
   };
   teams: Record<string, { has_won?: boolean | null; rounds_won?: number } | undefined>;
   players: RawPlayerForNotify[] | { all_players?: RawPlayerForNotify[]; red?: RawPlayerForNotify[]; blue?: RawPlayerForNotify[] };
@@ -319,6 +410,27 @@ export interface RawMatchForNotify {
 function playersOf(raw: RawMatchForNotify): RawPlayerForNotify[] {
   const p = raw.players;
   return Array.isArray(p) ? p : (p?.all_players ?? []);
+}
+
+function partyLabel(size: number): string {
+  if (size <= 1) return "Solo";
+  if (size === 2) return "Duo";
+  if (size === 3) return "Trio";
+  return `${size}-stack`;
+}
+
+function partyMember(player: RawPlayerForNotify): PartyMemberSummary {
+  return {
+    puuid: player.puuid,
+    name: player.name ?? "Unknown",
+    tag: player.tag ?? "",
+    agent: player.character,
+    agentIcon: player.assets?.agent?.small ?? player.assets?.agent?.killfeed,
+    rank: player.currenttier_patched,
+    kills: player.stats.kills ?? 0,
+    deaths: player.stats.deaths ?? 0,
+    assists: player.stats.assists ?? 0,
+  };
 }
 
 /** Turn a HenrikDev-shaped match into the small summary used in Discord. */
@@ -334,6 +446,9 @@ export function summarizeMatchForNotify(raw: RawMatchForNotify, puuid: string): 
   const score = own?.rounds_won != null && other?.rounds_won != null
     ? `${own.rounds_won} : ${other.rounds_won}`
     : `${me.stats.kills ?? 0} K`;
+  const partyMembers = me.party_id
+    ? players.filter((p) => p.puuid !== puuid && p.party_id === me.party_id).map(partyMember)
+    : [];
   return {
     matchid: raw.metadata.matchid,
     map,
@@ -345,6 +460,11 @@ export function summarizeMatchForNotify(raw: RawMatchForNotify, puuid: string): 
     assists: me.stats.assists ?? 0,
     acs: Math.round((me.stats.score ?? 0) / rounds),
     agent: me.character,
+    agentIcon: me.assets?.agent?.small ?? me.assets?.agent?.killfeed,
+    cardIcon: me.assets?.card?.small,
+    gameStart: raw.metadata.game_start,
+    partyLabel: partyLabel(partyMembers.length + 1),
+    partyMembers,
   };
 }
 

@@ -1,41 +1,41 @@
 import Link from "next/link";
 import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import { queryAll } from "@/lib/db";
 import type { WatchlistEntryRow } from "@/lib/db-schema";
 import { getDict } from "@/lib/i18n/server";
+import { getSiteAccess } from "@/lib/site-access";
+import { AccessGate } from "@/components/access-gate";
 import { Eye, Trash2 } from "lucide-react";
 import { WatchlistRemoveButton } from "@/components/watchlist-remove";
 import { WatchlistWebhook } from "@/components/watchlist-webhook";
+import { MAX_WATCHED_PLAYERS } from "@/lib/watch-core";
+import { watchedPlayerCount } from "@/lib/watch-db";
 
 export const metadata = { title: "Watchlist" };
 
 export default async function WatchlistPage() {
+  const access = await getSiteAccess(await headers());
+  if (access.status !== "allowed") return <AccessGate status={access.status} />;
   const t = await getDict();
-  const session = await auth.api.getSession({ headers: await headers() }).catch(() => null);
 
-  if (!session) {
-    return (
-      <div className="kt-container flex min-h-[50vh] items-center justify-center">
-        <div className="trn-card max-w-sm p-8 text-center">
-          <Eye className="mx-auto size-8 text-tertiary" />
-          <p className="mt-4 text-secondary">{t.watchlist.signInCta}</p>
-          <Link href="/login" className="trn-button trn-button--action mt-6 h-11 w-full">
-            {t.nav.signIn}
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const entries = await queryAll<WatchlistEntryRow>(
-    `SELECT * FROM "WatchlistEntry" WHERE "userId" = ? ORDER BY "createdAt" DESC`,
-    [session.user.id],
-  );
+  const [entries, systemWatched] = await Promise.all([
+    queryAll<WatchlistEntryRow>(
+      `SELECT * FROM "WatchlistEntry" WHERE "userId" = ? ORDER BY "createdAt" DESC`,
+      [access.userId],
+    ),
+    watchedPlayerCount(),
+  ]);
 
   return (
     <div className="kt-container py-8" style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 1000 }}>
-      <h1 style={{ fontFamily: "var(--kt-title)", fontSize: 28, margin: 0 }}>{t.watchlist.title}</h1>
+      <div className="kt-watch-head">
+        <div>
+          <h1 style={{ fontFamily: "var(--kt-title)", fontSize: 28, margin: 0 }}>{t.watchlist.title}</h1>
+          <p className="kt-watch-sub">
+            {entries.length} {entries.length === 1 ? "player" : "players"} watched · system capacity {systemWatched}/{MAX_WATCHED_PLAYERS}
+          </p>
+        </div>
+      </div>
 
       <WatchlistWebhook />
 
@@ -44,7 +44,10 @@ export default async function WatchlistPage() {
       ) : (
         <div className="grid gap-2">
           {entries.map((e) => (
-            <div key={e.id} className="trn-card flex flex-wrap items-center gap-4 p-4">
+            <div key={e.id} className="trn-card kt-watch-row">
+              <div className="kt-watch-status" aria-hidden="true">
+                <Eye size={18} />
+              </div>
               <div className="flex-1 font-bold">
                 {e.riotName}
                 <span className="text-tertiary">#{e.riotTag}</span>

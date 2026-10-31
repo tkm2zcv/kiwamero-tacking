@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMatch } from "@/lib/henrikdev";
 import { normalizeHDMatch } from "@/lib/match-normalize";
+import { resolveOwnerAccess } from "@/lib/owner-access";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { HenrikDevError } from "@/lib/henrik-errors";
 
-/**
- * Public match-detail lookup powering the match-list expand drawer.
- * Anonymous (profile pages are public); the data is public match data and
- * upstream responses are cached long-term since finished matches are immutable.
- * Rate-limited per client IP like the rest of the public surface.
- */
+/** Match-detail lookup powering the match-list expand drawer. */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for") ?? "anon";
-  const rate = checkRateLimit(`match-detail:${ip}`);
+  const access = await resolveOwnerAccess(req.headers);
+  if (!access) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const rate = checkRateLimit(`match-detail:${access.rateLimitKey}`);
   if (!rate.ok) return rateLimitResponse(rate);
   const { id } = await ctx.params;
   if (!/^[0-9a-f-]{30,40}$/i.test(id)) {

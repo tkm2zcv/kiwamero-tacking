@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { ownerUserId } from "@/lib/owner-access";
 import { queryOne } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 /** Send a harmless test message so users can verify the webhook themselves. */
 export async function POST(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: req.headers });
-  const uid = session?.user?.id;
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const uid = await ownerUserId(req.headers);
+  if (!uid) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const user = await queryOne<{ webhookUrl: string | null }>(
     `SELECT "webhookUrl" FROM "User" WHERE "id" = ?`,

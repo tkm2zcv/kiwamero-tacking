@@ -1,7 +1,7 @@
 # Kiwamero Tracking
 
-tracker.gg 風の VALORANT トラッカー。公開プロフィールはログイン不要で閲覧でき、
-Discord OAuth は監視リスト・所有者専用開発者 API に使います。
+tracker.gg 風の VALORANT トラッカー。Discord ログイン必須の限定公開サイトで、
+`OWNER_DISCORD_IDS` に登録された Discord ID のみ閲覧・API利用できます。
 親ディレクトリの `kiwamero-tracker` は別の旧アプリです。
 
 作業開始前に [要件定義](../docs/project-overview-pdr.md)、
@@ -13,12 +13,13 @@ Discord OAuth は監視リスト・所有者専用開発者 API に使います�
 - Next.js 16 (App Router, Turbopack) + React 19 + TypeScript
 - Tailwind CSS v4 (`@tailwindcss/turbopack` ローダー、`next.config.ts` で設定済み)
 - HenrikDev API (非公式 VALORANT データ)
-- Better Auth + Discord OAuth (監視リスト用、所有者判定は `OWNER_DISCORD_IDS`、
+- Better Auth + Discord OAuth (サイトゲート/監視リスト用、許可判定は `OWNER_DISCORD_IDS`、
   Kysely アダプタ経由)
 - DB: 生 SQL — Cloudflare: D1 バインディング / ローカル・テスト: better-sqlite3
   (`src/lib/db.ts` が実行コンテキストで自動切替。Prisma は workerd 非対応のため除去済み)
 - 本番構成: Cloudflare Workers + D1 (OpenNext、`@opennextjs/cloudflare` 1.20.x)
-- 監視通知: Workers Cron (毎時) → ユーザーごとの Discord Webhook
+- 監視対象: プロフィールの目アイコンで登録/解除 → `/watchlist` で一覧・Discord Webhook設定
+- 監視通知: Workers Cron (毎時) → ユーザーごとの Discord Webhook（試合embed＋同パーティメンバー別embed）
 
 ## ローカル起動
 
@@ -30,6 +31,16 @@ npm run dev -- -p 3002
 `.env` は Git 管理外。必要な環境変数は `.env.example` を参照。
 `HENRIK_API_KEY` / Discord OAuth / `OWNER_DISCORD_IDS` は設定済みなら
 実データ連携が有効になり、未設定・失敗時でも `Meiy#B3L` のシードのみ表示します。
+
+## アクセス制御
+
+- UIページはすべてDiscordログイン必須です。未ログイン時はサイト内の
+  ログイン/許可リクエスト画面だけを表示します。
+- ログイン後、Better Auth の `Account` に紐づく Discord `accountId` が
+  `OWNER_DISCORD_IDS`（カンマ区切り）に含まれない場合は「未登録アカウント」画面を表示します。
+- `/api/valorant/*`・`/api/watchlist/*` も同じ許可判定を使います。
+  既存の `kt_` APIキーは `/api/valorant/*` では引き続き有効です。
+- `/api/auth/*` と `CRON_SECRET` 保護の `/api/cron/*` は例外です。
 
 ## スクリプト
 
@@ -86,6 +97,15 @@ curl -X POST http://localhost:3002/api/cron/audit \
 本番への適用は[追加の移行手順](../docs/deployment-guide.md)、
 設計・制約は[キューのレビュー](../docs/reports/20261030-history-queue-review.md)を参照。
 
+## 成績カード共有
+
+- プロフィールの共有ボタンはOS共有シートではなく、サイト内の共有パネルを開き、
+  現在Act × 選択中プレイリストの統計から1400×700 PNGをブラウザCanvasで生成します。
+- パネルには画像プレビュー・PNG保存・プロフィールURLコピー・対応環境での
+  画像コピーを配置します。
+- カードには `name#tag`、レベル、地域/主要サーバー、現在ランク、K/D・HS%・
+  ADR・ACS・勝率・試合/勝敗数を含めます。統計不足時はダッシュ表示です。
+
 ## 監視通知 (Discord Webhook)
 
 1. Discord のチャンネル設定 → 連携サービス → ウェブフックで URL を発行。
@@ -123,8 +143,9 @@ npm run build:worker # OpenNext (Workers) バンドル
   診断だけ標本不足時に最大10試合IDを補完（D1の試合詳細キャッシュを共用）。
   確率・実測P95・90%信頼区間・不正の断定は行いません。
   計算式と制約: [再検査レポート](../docs/reports/20261030-account-report-review.md)。
-- Encounters は選択Act/モードで取得できたロスターの範囲を集計し、
-  詳細取得の上限と部分カバレッジを表示します。全Act選択時の補完は最新2Actです。
+- Encounters は選択Act/モードで直近ロスターと `MatchArchive` 済み詳細を先に集計し、
+  未取得分は共有バックグラウンドキューで補完します。画面には詳細取得の上限と
+  部分カバレッジを表示します。全Act選択時の補完対象は最新2Actです。
 - 初期言語は `Accept-Language` (日英・品質値順) から決定し、
   手動で選んだ `lang` cookie があればそちらを優先します。
 - ~~Prisma 7 は workerd 上で動作しません~~ → **解消 (2026-10-29)**。

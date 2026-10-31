@@ -31,16 +31,18 @@ export async function loadProfileSource(
   sources: ProfileSources,
   name: string,
   tag: string,
-  opts?: { mode?: string },
+  opts?: { mode?: string; includeRecentMatches?: boolean; includeStoredMatches?: boolean },
 ): Promise<ProfileSourceResult> {
   try {
     const account = await sources.getAccount(name, tag);
     const { region, puuid } = account;
+    const recent = opts?.includeRecentMatches !== false;
+    const stored = opts?.includeStoredMatches !== false;
     const [mmr, hdMatches, history, storedMatches] = await Promise.all([
       emptyOnNotFound<HDMmrData | null>(sources.getMmr(region, puuid), null),
-      emptyOnNotFound(sources.getMatches(region, puuid, { size: 25, mode: opts?.mode }), []),
+      recent ? emptyOnNotFound(sources.getMatches(region, puuid, { size: 25, mode: opts?.mode }), []) : Promise.resolve([]),
       emptyOnNotFound(sources.getMmrHistory(region, puuid), []),
-      emptyOnNotFound(sources.getStoredMatches(region, puuid, { mode: opts?.mode }), []),
+      stored ? emptyOnNotFound(sources.getStoredMatches(region, puuid, { mode: opts?.mode }), []) : Promise.resolve([]),
     ]);
     return { ok: true, data: { account, mmr, hdMatches, history, storedMatches } };
   } catch (error) {

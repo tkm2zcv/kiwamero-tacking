@@ -11,6 +11,7 @@ export interface Profile {
   rankPosition?: number;
   elo?: number;
   peakRank: string;
+  peakTier?: number;
   peakAct?: string;
   peakRr?: number;
   radiantWins?: number;

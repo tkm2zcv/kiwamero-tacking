@@ -48,6 +48,46 @@
   Provider quota independence, retention policy and production costs remain
   rollout gates. Review: `reports/20261030-history-queue-review.md`.
 
+## Private Access Control (2026-10-31, Not Deployed)
+
+- Every UI page calls `getSiteAccess()` before loading profile/search data. Anonymous
+  visitors receive the in-site Discord sign-in gate; signed-in Discord accounts not
+  present in `OWNER_DISCORD_IDS` receive a dedicated "not registered" state.
+- `owner-access.ts` now separates the human allowlist check
+  (`allowedDiscordAccess`) from API-key auth (`resolveOwnerAccess`). Watchlist APIs
+  accept only allowlisted Discord sessions; `/api/valorant/*` accepts either an
+  allowlisted session or a valid `kt_` key. Cron stays under `CRON_SECRET`.
+
+## Share Card Rendering (2026-10-31, Not Deployed)
+
+- `share-card-data.ts` builds the serializable card model server-side: identity,
+  current rank, current-act rows and the selected playlist. It never substitutes
+  lifetime or older-act totals for an explicit current-act scope.
+- `share-image.ts` renders a 1400×700 Canvas PNG in the browser. Remote rank/card
+  assets pass through the configured `/_next/image` host allowlist; failed assets
+  degrade to text-only sections instead of tainting or blocking the canvas.
+- `ShareProfileButton` opens a Kiwamero-styled dialog instead of the OS share
+  sheet. It previews the generated PNG and offers explicit PNG download, profile
+  URL copy, and image-copy actions where the browser supports them.
+- `/share` renders the same model as an HTML preview for link/manual sharing.
+
+## Profile Rendering / Detail Enrichment (2026-10-30, Not Deployed)
+
+- Profile acquisition remains coordinated by `profile-source.ts`, but tabs may
+  independently omit the recent-roster or stored-history request. Empty tabs skip
+  both; aggregation/report tabs keep the sources they actually consume.
+- Match-list rows are converted to the v3 shape only for the requested page or
+  Overview slice. `normalizeStoredMatches()` memoizes normalization per cached
+  upstream payload array.
+- Encounters no longer performs foreground bulk detail fills. It renders recent
+  v3 rosters plus payload rows already in `MatchArchive`, queues uncovered IDs
+  via `queueMatchDetails()`, and exposes partial coverage honestly.
+- The shared `/api/cron/audit` runner now drains pending `MatchArchive` jobs even
+  when no `AuditMatch` link exists; audit-linked rows retain priority ordering.
+  Generic encounter jobs therefore reuse the same D1 quota, leases and retries.
+- Route `loading.tsx` and section-level Suspense use tracker-shaped skeletons
+  matching the real hero, tabs, filter rail, sidebar and content cards.
+
 ## Account Reports (2026-10-30 Review, Not Deployed)
 
 - `account-report.ts` composes stored Competitive evidence and recent roster
@@ -95,7 +135,7 @@
 | Web | Next.js 16.4.3 App Router / React 19.3 / TypeScript 5 | 継続確定。`@opennextjs/cloudflare` 1.20.13 が Next 16.4 をサポート |
 | CSS/UI | Tailwind CSS 4、lucide-react、抽出した配色 | **修正済み** — `next.config.ts` に `@tailwindcss/turbopack` loader rules を追加。ユーティリティ生成と hero 画像を検証済み |
 | 言語 | `src/lib/i18n/` の en/ja 辞書と cookie | 初回は `Accept-Language`、手動選択は cookie を優先。翻訳漏れ/SSR 整合をテスト |
-| 認証 | Better Auth 1.7 + Discord OAuth | PoC で D1 経路確認。所有者専用 API は `OWNER_DISCORD_IDS` + Discord account 紐付けで実装済み (`src/lib/owner-access.ts`) |
+| 認証 | Better Auth 1.7 + Discord OAuth | サイト全体は `OWNER_DISCORD_IDS` + Discord account 紐付けで限定公開。`kt_` APIキーは `/api/valorant/*` で併用可 (`src/lib/owner-access.ts`, `src/lib/site-access.ts`) |
 | ローカル DB | `next dev` で **ローカル D1 (Miniflare)**。`better-sqlite3` は CF コンテキスト無しのフォールバック | `src/lib/db.ts` の遅延バックエンドが D1/sqlite を自動選択 (生 SQL + Kysely) |
 | 本番 DB | **Cloudflare D1 固定・PoC 済み** | `wrangler.jsonc` の `DB` バインディング。スキーマは `db/schema.sql` を `wrangler d1 execute` で適用 |
 | ゲームデータ | HenrikDev API クライアント + Meiy シード | Map/Cache APIに加え、D1共有のキー別予算・クールダウン・試合詳細アーカイブを実装（未デプロイ）。watchは`fresh: true`。履歴補完は明示操作＋毎分Cron。共有枠設定にも対応 |
@@ -106,12 +146,13 @@
 
 ## データフロー案
 
-匿名ユーザー → Next.js 表示/検索 → サーバー側 HenrikDev クライアント
-→ 正規化・一時キャッシュ → 公開プロフィール表示。
+匿名ユーザー → `/login` または各ページの限定公開ゲート → Discord OAuth。
 
-Discord ユーザー → Better Auth セッション → 自分の監視リスト → D1。
-サイト所有者のみ開発者 API のキー管理へアクセスできる。
-所有者判定は Better Auth の紐付いた Discord provider account ID と
+許可Discordユーザー → Better Auth セッション → `OWNER_DISCORD_IDS` 照合
+→ Next.js 表示/検索 → サーバー側 HenrikDev クライアント → 正規化・
+一時キャッシュ → プロフィール表示。同じ許可セッションのみ監視リストと
+プロフィール向けAPIを利用できる。`/api/valorant/*` は有効な `kt_` APIキーも
+受け付ける。所有者判定は Better Auth の Discord provider account ID と
 サーバー側の `OWNER_DISCORD_IDS` 許可リストを照合する (実値はコミットしない)。
 
 Workers Cron (毎時) → D1 から重複除去した監視対象を最大100件取得
@@ -121,7 +162,8 @@ Workers Cron (毎時) → D1 から重複除去した監視対象を最大100件
 Webhook URL は機密情報として保管し、Discord の URL だけを許可する。
 再実行時の重複排除と配信失敗時の再試行を設計し、レート制限の予算を超えない。
 HenrikDev 資格情報、ユーザーセッション、開発者 API キーは別物。
-公開プロフィール表示は匿名可。開発者 API は所有者以外 403 とし、レート制限も適用する。
+プロフィール表示とwatchlist APIは許可Discordセッションのみ。開発者APIは
+許可セッションまたは有効APIキー以外 403 とし、レート制限も適用する。
 
 ## 監視通知の実装 (2026-10-28)
 
@@ -133,9 +175,13 @@ HenrikDev 資格情報、ユーザーセッション、開発者 API キーは�
 - 登録直後は Webhook 保存時に同じサイクルを `{ userId, maxPlayers: 5 }` で実行し、
   直近1試合だけを送る (2回目以降は新着のみ、最大5件/回)。
 - 重複排除は `WatchlistEntry.lastSeenGameStart` (Riot の `game_start`)。
-  送信に失敗した場合はカーソルを更新せず、次回に再送する。
+  送信失敗した試合はその試合のカーソルを進めず、届いた試合までだけ進める。
+- 通知は試合embed＋同じ `party_id` のメンバー別embedを順次送る。メンバーembedは
+  agent icon、rank、match K/D/A、同 `season_id` の stored-match から集計した
+  Season K/D を出し、未取得は `—` にする。
 - 監視対象はシステム全体で 100 プレイヤー (`MAX_WATCHED_PLAYERS`)。同一プレイヤーを
-  複数ユーザーが監視する場合も HenrikDev への照会は 1 回で済ませる。
+  複数ユーザーが監視する場合も HenrikDev への照会は 1 回で済ませ、Season K/Dも
+  run内 `puuid+season_id` でキャッシュする。
 
 ## Workers 実行時の制約 → 解消 (2026-10-29)
 
@@ -257,5 +303,5 @@ DB 接続のようなモジュールスコープの遅延 Promise は必ず失�
   → **Prisma 7 は workerd 不可**。D1 ネイティブ / Drizzle への移行可否を判断する。
 - HenrikDev のアクセス条件、公開データの範囲、費用上限。
 - 監視・診断・共有 API の費用上限/呼び出し上限。
-- 毎時100件の監視で HenrikDev のレート制限に収まるか (現在は 1 プレイヤー 1 リクエスト +
-  250ms 間隔で直列処理)。
+- 毎時100件の監視で HenrikDev のレート制限に収まるか (対象プレイヤー1リクエスト +
+  パーティメンバーがいる試合だけ Season K/D 取得、run内キャッシュ + 250ms 間隔)。

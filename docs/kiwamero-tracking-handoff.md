@@ -1,8 +1,67 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
-## 2026-10-30 責務分離リファクタリング（未コミット・未デプロイ）
+## 2026-10-31 監視対象ボタン/一覧の実用化（未コミット・未デプロイ）
 
-- 直前の機能版は`951c4ae`でmasterへpush済み。今回の構造変更は未コミット。
+- プロフィールの星アイコンを目アイコンへ変更。未監視は `Eye`、監視中は
+  `EyeOff`＋青いactive状態。`aria-pressed`とtitleで状態を明示する。
+- WatchlistButtonは `/api/watchlist/check` で初期状態を取得し、POST/DELETE
+  成功時のみローカル状態を反転。409はcapacity、他失敗はerror statusとして保持。
+- POST/DELETEはRiot IDをtrimして検証。POSTは`puuid`/`region`も上限付きで受け、
+  regionを保存するのでwatch cycleのresolve負荷を下げられる。
+- `/watchlist`は自分の監視数、全体capacity、最終通知、プロフィール遷移、
+  Discord webhook設定を表示。削除失敗はボタンtitle/screen-reader statusで通知。
+- 通知は1試合=1 Discordメッセージへ変更。複数embedを1メッセージへ束ねると
+  先頭だけ見えるため。途中失敗時は届いた試合までカーソルを進め、未送信分だけ再試行する。
+- Meiyの直近3試合で実検証。初回は1メッセージに3 embedとなり先頭100:97のみ表示、
+  修正後に残り100:90/100:81を個別メッセージとして2件送信成功。
+- 通知内容を「監視対象が誰とパーティを組んだか」中心へ変更。`party_id`一致の
+  メンバーを抽出し、試合embedとは別に各メンバーの画像embedを送る。
+- メンバーembedは agent icon、rank、match K/D/A、同じ `season_id` の stored-match
+  から集計した Season K/D を表示。未取得は `—`。
+- Season K/Dはrun内 `puuid+season_id` でキャッシュし、パーティメンバーがいる
+  試合だけ追加取得する。
+- コミット・push・デプロイは未実施。
+
+## 2026-10-31 限定公開ゲート＋サイト内共有パネル（未コミット・未デプロイ）
+
+- 全UIページを `getSiteAccess()` でDiscordログイン必須化。Better Auth `Account`
+  のDiscord `accountId` が `OWNER_DISCORD_IDS` に無い場合は `AccessGate` の
+  「登録されていないアカウント」画面を表示。`/login` のみ例外。
+- `/api/valorant/match`、`/api/valorant/audit`、`/api/watchlist/*` も同じ
+  許可判定へ統一。`/api/valorant/*` では既存 `kt_` APIキーも有効。
+- `share-card-data.ts` が共有カード専用の直列化モデルを作る。統計はページで
+  選択中のActではなく `profile.actCode`（未取得時は保存済み最新Act）に固定し、
+  選択中プレイリストだけを集計する。サーバーは同スコープの最多クラスター。
+- `share-image.ts` がブラウザCanvasで1400×700 PNGを描画。外部画像は
+  `/_next/image` 経由で読み込み、失敗時は画像なしで続行する。
+- `ShareProfileButton` はOS共有シートを使わず、Kiwameroデザインのモーダルを開く。
+  PNGプレビュー、PNG保存、リンクコピー、対応環境では画像コピーを提供。
+- `/share` のHTMLプレビューも同じモデルで、名前・レベル・サーバー・現在ランク・
+  現在Actの K/D/HS%/ADR/ACS/勝率/勝敗数を表示する。
+- 実ブラウザで匿名/許可/未登録Discordの3状態、共有パネルの画像・コピー・
+  Escape/再表示を確認。コミット・push・デプロイは未実施。
+
+## 2026-10-30 プロフィール高速化と tracker風 skeleton（未コミット・未デプロイ）
+
+- Encounters の初回描画から最大150件の `/v2/match/{id}` 同期待ちを除去。
+  直近v3ロスター＋`MatchArchive` の既保存詳細だけ先に集計し、未取得分は
+  `queueMatchDetails()` で共有 `MatchArchive` ジョブ化。`/api/cron/audit` は
+  AuditMatch未リンクの pending match job も取り込む。
+- 未取得がある場合は coverage を明示し、`QueuedRefresh` が約20秒ごと最大6回
+  `router.refresh()`。local devには自動Cronがないため、補完は本番Cron前提。
+- タブ別に不要な recent/stored API を省略。matches/overview以外では保存行を
+  疑似Match化しない。`normalizeStoredMatches()` はキャッシュ配列単位でメモ化。
+- report/encountersの重い節は内側`Suspense`へ分離。ルート用`loading.tsx`と
+  `ProfileRouteSkeleton`/`SectionSkeleton`/`ReportSkeleton`を追加。
+  hero/tabs/filter/sidebar/mainの実形状に合わせ、`prefers-reduced-motion`対応。
+- 実測（既存 dev server・Meiy#B3L）: Encounters 約49.4s→1.24s。
+  overview1.56s、matches1.41s、agents1.63s、performance1.53s。
+- 156 tests、lint/typecheck、Next/OpenNext build通過。skeletonは実CSS上で
+  desktop1440/mobile390を確認。コミット・push・デプロイは未実施。
+
+## 2026-10-30 責務分離リファクタリング（`ccfabb3` push済み）
+
+- `951c4ae`の後に`ccfabb3`としてmasterへpush済み。
 - `henrik-model.ts`へAPI型、`match-archive-payload.ts`へ純粋な検証/投影、
   `audit-coverage.ts`へカバレッジ型/計算を分離。旧exportも互換維持。
 - 標本の検証は`report-scope.ts`、モデル計算は`lobby-analysis.ts`へ整理。
@@ -98,21 +157,23 @@ Next.js 16 のコード変更前には `kiwamero-tracking/node_modules/next/dist
   独自に同等体験を実装する。アクセス制限を回避したり元サイトの非公開データを使わない。
 - 初回は PC のプロフィール検索と高度な統計・比較を優先する。
   Console と LFG/OBS/クロスヘア/ラインナップは後続候補。
-- 誰でも閲覧できるプレイヤー検索。日英切り替え。
-- Discord OAuth は監視リストに使用。開発者 API は環境変数で指定した
-  Discord ID 許可リストの所有者だけが利用できる。
+- サイト全体はDiscordログイン必須で、`OWNER_DISCORD_IDS` のDiscord IDのみ閲覧。
+  日英切り替え。
+- Discord OAuth はサイトゲートと監視リストに使用。開発者 API は環境変数で指定した
+  Discord ID 許可リストまたは有効な `kt_` APIキーが利用できる。
 - 監視・既存サイトで観測可能な診断項目から参考スコアと根拠を表示する査定・共有カード・
   所有者専用の開発者 API まで初回に含める。
-- 共有カードは初回 URL 共有のみ (PNG の生成/ダウンロードは後回し)。
+- 共有カードは現在Actの統計をCanvas PNG化し、サイト内モーダルでプレビュー、
+  PNG保存、URLコピー、対応環境での画像コピーを提供する（2026-10-31実装）。
 - 公開先: **Cloudflare Workers + D1 固定**、`tracking.kiwamero.dev`。
 - DB 層は生 SQL + Kysely (2026-10-29 に Prisma から移行。workerd 上で D1 動作確認済み)。
-- 取得可能な公開プロフィールを誰でも閲覧できるようにする。
+- 取得可能な公開プロフィールは許可ユーザーのみ閲覧できるようにする。
   非公開・未収録・API 制限は区別し、取得不可と表示する。
 - 初期言語はブラウザ設定。手動変更は cookie で維持する。
 - 監視対象は毎時確認し、ユーザーごとの Discord Webhook に新しい試合を通知。
   全体で100プレイヤー上限。登録直後は直近1試合を通知する。
   URL の保存/登録 UI と送信の重複防止は未実装。
-- 戦績カード共有 URL はアクセス時点の最新統計を表示する。
+- 戦績カード共有 URL も同じ許可制御の対象で、アクセス時点の最新統計を表示する。
 
 ## ローカル設定
 
@@ -166,7 +227,9 @@ tracker.gg の見た目に合わせ直した際の手順。次にUIを触ると�
 - `performance`: BEST MATCHES (kills 順) + Lifetime 行 + アクト別行
   (Episode/Act/Peak Rating は `by_season` MMR と結合)。
 - `agents`/`maps`: 全列ストアド試合の実集計 (KAST・Time Played はデータ無しで列ごと省略)。
-- `weapons`/`encounters`/`customs`/`crosshairs`/`lineups`: データ源が無いため
+- `encounters`: 直近v3ロスター＋`MatchArchive`の詳細を集計し、未取得分は
+  共有背景キューで段階補完。coverageは必ず表示。
+- `weapons`/`customs`/`crosshairs`/`lineups`: データ源が無いため
   タブは残しつつ `EmptyTab` で「未対応」を明示 (偽値を出さない方針)。
 
 ## 残ブロッカー

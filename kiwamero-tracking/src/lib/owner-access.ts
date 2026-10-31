@@ -9,9 +9,41 @@ export interface OwnerAccess {
   rateLimitKey: string;
 }
 
+interface SessionLike {
+  user: { id: string };
+}
+
 async function sha256Hex(input: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export function ownerDiscordIds(): string[] {
+  return (process.env.OWNER_DISCORD_IDS ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Resolve an allowlisted Discord-linked Better Auth session.
+ * API keys are intentionally not accepted here; this is the human-site check.
+ */
+export async function allowedDiscordAccess(
+  session: SessionLike | null,
+): Promise<(OwnerAccess & { discordId: string }) | null> {
+  if (!session) return null;
+  const ids = ownerDiscordIds();
+  if (!ids.length) return null;
+  const linked = await queryOne<{ accountId: string }>(
+    `SELECT "accountId" FROM "Account"
+     WHERE "userId" = ? AND "providerId" = 'discord'
+       AND "accountId" IN (${ids.map(() => "?").join(",")})`,
+    [session.user.id, ...ids],
+  );
+  return linked
+    ? { userId: session.user.id, discordId: linked.accountId, rateLimitKey: `user:${session.user.id}` }
+    : null;
 }
 
 /**
@@ -20,22 +52,9 @@ async function sha256Hex(input: string): Promise<string> {
  */
 export async function resolveOwnerAccess(headers: Headers): Promise<OwnerAccess | null> {
   const session = await auth.api.getSession({ headers }).catch(() => null);
-  if (session) {
-    const ids = (process.env.OWNER_DISCORD_IDS ?? "")
-      .split(",")
-      .map((id) => id.trim())
-      .filter(Boolean);
-    if (ids.length) {
-      const linked = await queryOne<{ id: string }>(
-        `SELECT "id" FROM "Account"
-         WHERE "userId" = ? AND "providerId" = 'discord'
-           AND "accountId" IN (${ids.map(() => "?").join(",")})`,
-        [session.user.id, ...ids],
-      );
-      if (linked) {
-        return { userId: session.user.id, rateLimitKey: `user:${session.user.id}` };
-      }
-    }
+  const discordAccess = await allowedDiscordAccess(session);
+  if (discordAccess) {
+    return { userId: discordAccess.userId, rateLimitKey: discordAccess.rateLimitKey };
   }
 
   const key = headers.get("authorization")?.match(/^Bearer (kt_[0-9a-f]{64})$/)?.[1];

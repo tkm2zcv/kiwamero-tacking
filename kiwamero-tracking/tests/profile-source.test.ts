@@ -61,3 +61,18 @@ test("recent and stored history share the requested player and playlist", async 
     ["ap", "p1", { mode: "unrated" }],
   ]);
 });
+
+test("tabs can skip recent rosters and stored history independently", async () => {
+  const calls: string[] = [];
+  const result = await loadProfileSource({
+    ...sources,
+    getMatches: async () => { calls.push("recent"); return []; },
+    getStoredMatches: async () => { calls.push("stored"); return []; },
+  }, "Player", "TAG", { includeRecentMatches: false, includeStoredMatches: false });
+  assert.equal(result.ok, true);
+  assert.deepEqual(calls, []);
+  if (result.ok) {
+    assert.equal(result.data.hdMatches.length, 0);
+    assert.equal(result.data.storedMatches.length, 0);
+  }
+});

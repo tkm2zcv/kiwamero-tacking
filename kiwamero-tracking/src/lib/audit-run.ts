@@ -12,9 +12,11 @@ export async function runAuditQueue(options: { maxMatches?: number; maxMs?: numb
   const summary = { completed: 0, failed: 0, deferred: 0 };
   // Leases are acquired by getMatch; concurrent cron invocations share that path.
   const candidates = await queryAll<{ matchId: string }>(
-    `SELECT m.matchId FROM MatchArchive m JOIN AuditMatch a ON a.matchId = m.matchId
+    `SELECT m.matchId FROM MatchArchive m LEFT JOIN AuditMatch a ON a.matchId = m.matchId
      WHERE m.payload IS NULL AND m.terminal = 0 AND m.retryAt <= ? AND m.leaseUntil <= ?
-     GROUP BY m.matchId ORDER BY max(a.priority) DESC, min(a.startedAt) ASC LIMIT ?`,
+     GROUP BY m.matchId
+     ORDER BY max(coalesce(a.priority, 0)) DESC,
+       min(coalesce(a.startedAt, 9223372036854775807)) ASC, m.rowid ASC LIMIT ?`,
     [Date.now(), Date.now(), cap],
   );
   for (let i = 0; i < candidates.length && Date.now() < until; i += Math.max(1, apiKeys().length)) {

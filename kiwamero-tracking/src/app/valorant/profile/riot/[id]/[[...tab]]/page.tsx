@@ -7,7 +7,8 @@ import { formatAct } from "@/lib/profile-stats";
 import { createActFilter, filterProfileMatches, profileFilterHref, selectUncoveredMatchIds } from "@/lib/profile-filters";
 import { getMatch, playerCardArt, tierIcon, tierName } from "@/lib/henrikdev";
 import { normalizeHDMatch } from "@/lib/match-normalize";
-import type { Match } from "@/lib/types";
+import { queueMatchDetails, readArchivedMatches } from "@/lib/match-archive";
+import type { Match, Profile, SeasonRank } from "@/lib/types";
 import {
   activityByDay,
   aggregate,
@@ -16,14 +17,16 @@ import {
   groupByAgent,
   groupByMap,
   groupBySeason,
-  normalizeStoredMatch,
+  normalizeStoredMatches,
   storedRowToMatch,
   type SeasonStat,
+  type StoredRow,
 } from "@/lib/stored-stats";
 import { getDict, getLocale } from "@/lib/i18n/server";
 import { buildAccountReport } from "@/lib/account-report";
 import { loadAuditHistory } from "@/lib/audit-history";
 import { selectDiagnosisDetailIds } from "@/lib/report-scope";
+import { buildShareCardModel } from "@/lib/share-card-data";
 import { ProfileHero, type ProfileTab } from "@/components/profile/hero";
 import { FiltersBar } from "@/components/profile/filters-bar";
 import { OverviewCard } from "@/components/profile/overview-card";
@@ -41,9 +44,13 @@ import { EmptyTab } from "@/components/profile/empty-tab";
 import { DiagnosisPanel } from "@/components/profile/diagnosis-panel";
 import { ShareCard } from "@/components/profile/share-card";
 import { ProfileViewRecorder } from "@/components/profile/profile-view-recorder";
+import { ProfileRouteSkeleton, ReportSkeleton, SectionSkeleton } from "@/components/profile/profile-skeleton";
+import { QueuedRefresh } from "@/components/profile/queued-refresh";
+import { AccessGate } from "@/components/access-gate";
+import { getSiteAccess } from "@/lib/site-access";
 import { headers } from "next/headers";
 
-/** Max per-match detail fetches for one encounters render (immutable, 24h-cached upstream). */
+/** Max historical rows queued for one encounters render (details are immutable). */
 const ENCOUNTER_DETAIL_CAP = 150;
 
 const VALID_TABS = new Set([
@@ -59,6 +66,21 @@ const EMPTY_TABS: Record<string, string> = {
   lineups: "Lineups",
 };
 
+function paginationItems(current: number, total: number): (number | "…")[] {
+  if (total <= 9) return Array.from({ length: total }, (_, i) => i + 1);
+  const nums = new Set([1, total]);
+  for (let n = Math.max(2, current - 2); n <= Math.min(total - 1, current + 2); n++) nums.add(n);
+  const sorted = [...nums].sort((a, b) => a - b);
+  const items: (number | "…")[] = [];
+  let prev = 0;
+  for (const n of sorted) {
+    if (n - prev > 1) items.push("…");
+    items.push(n);
+    prev = n;
+  }
+  return items;
+}
+
 export default async function ProfilePage({
   params,
   searchParams,
@@ -66,6 +88,8 @@ export default async function ProfilePage({
   params: Promise<{ id: string; tab?: string[] }>;
   searchParams: Promise<{ playlist?: string; act?: string; season?: string; played?: string; page?: string }>;
 }) {
+  const access = await getSiteAccess(await headers());
+  if (access.status !== "allowed") return <AccessGate status={access.status} />;
   const { id, tab } = await params;
   const decoded = decodeURIComponent(id);
   const m = decoded.match(/^(.+?)#(.+)$/);
@@ -82,7 +106,7 @@ export default async function ProfilePage({
   const page = Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1);
 
   return (
-    <Suspense fallback={<ProfileSkeleton />}>
+    <Suspense fallback={<ProfileRouteSkeleton />}>
       <ProfileContent name={m[1]} tag={m[2]} activeTab={activeTab} basePath={basePath} playlist={playlist} act={act} played={played} page={page} />
     </Suspense>
   );
@@ -107,10 +131,18 @@ async function ProfileContent({
   played: "with" | "against";
   page: number;
 }) {
-  const t = await getDict();
   const isReport = activeTab === "assessment" || activeTab === "diagnosis";
   const mode = isReport ? "competitive" : playlist === "all" ? undefined : playlist;
-  const result = await loadProfile(name, tag, { mode });
+  const needsRecent = !["agents", "maps", "performance", "weapons", "customs", "crosshairs", "lineups"].includes(activeTab);
+  const needsStored = !Object.hasOwn(EMPTY_TABS, activeTab);
+  const [t, result] = await Promise.all([
+    getDict(),
+    loadProfile(name, tag, {
+      mode,
+      includeRecentMatches: needsRecent,
+      includeStoredMatches: needsStored,
+    }),
+  ]);
   if (!result.ok) {
     const messages = {
       not_found: t.profile.notFound,
@@ -135,13 +167,13 @@ async function ProfileContent({
     );
   }
 
-  const { profile, summary, topAgents, seasons, matches, teammates, capturedAt, source } = result.bundle;
+  const { profile, seasons, matches, teammates, capturedAt, source } = result.bundle;
   const banner = profile.cardId ? playerCardArt(profile.cardId, "wideart") : null;
   const cardArt = profile.cardId ? playerCardArt(profile.cardId, "smallart") : null;
 
   // Stored match history powers the aggregation tabs (matches/performance/agents/maps)
   // and the hero banner art (tracker.gg uses a per-agent "hero" image).
-  const storedAll = result.storedMatches.map(normalizeStoredMatch);
+  const storedAll = normalizeStoredMatches(result.storedMatches);
   const latestHeroSeason = storedAll.reduce(
     (best, r) => (r.startedAt > best.ts && r.seasonId ? { id: r.seasonId, ts: r.startedAt } : best),
     { id: "", ts: 0 },
@@ -219,29 +251,41 @@ async function ProfileContent({
         : uuidToShort.get(actParam);
   const inSelectedAct = createActFilter(act, seasonUuid, uuidToShort, latestStoredSeason);
   const storedScoped = storedAll.filter((r) => inSelectedAct(r.seasonId, r.seasonShort));
-  const visibleMatches = filterProfileMatches(matches, playlist, inSelectedAct, uuidToShort);
+  const usesMatchList = activeTab === "overview" || activeTab === "matches";
+  const usesRecentRoster = usesMatchList || activeTab === "encounters";
+  const visibleMatches = usesRecentRoster
+    ? filterProfileMatches(matches, playlist, inSelectedAct, uuidToShort)
+    : [];
+  const recentIds = new Set(visibleMatches.map((m) => m.metadata.matchid));
   // Full stored history fills the match list; recent v3 matches (with rosters)
   // take precedence so their scoreboard/expand detail stays intact. The matches
   // tab pages server-side (`?page=`) so every match stays reachable while the
   // serialized payload stays bounded to one page of rows.
   const MATCH_PAGE_SIZE = 20;
-  const recentIds = new Set(visibleMatches.map((m) => m.metadata.matchid));
-  // v3 sometimes returns cluster:null where stored history has the real server —
-  // borrow it so the server chip shows on recent rows too.
-  const clusterById = new Map(storedAll.map((r) => [r.id, r.cluster] as const));
-  const allMatches = [
-    ...visibleMatches.map((m) =>
-      !m.metadata.cluster && clusterById.get(m.metadata.matchid)
-        ? { ...m, metadata: { ...m.metadata, cluster: clusterById.get(m.metadata.matchid)! } }
-        : m),
-    ...storedScoped
-      .filter((r) => r.id && !recentIds.has(r.id))
-      .map((r) => storedRowToMatch(r, { puuid: profile.puuid, name: profile.name, tag: profile.tag })),
-  ].sort((a, b) => b.metadata.game_start - a.metadata.game_start);
-  const totalMatchPages = Math.max(1, Math.ceil(allMatches.length / MATCH_PAGE_SIZE));
+  type MatchListItem = { startedAt: number; match?: Match; row?: StoredRow };
+  let matchItems: MatchListItem[] = [];
+  if (usesMatchList) {
+    // v3 sometimes returns cluster:null where stored history has the real
+    // server — borrow it so the server chip shows on recent rows too.
+    const clusterById = new Map(storedAll.map((r) => [r.id, r.cluster] as const));
+    matchItems = [
+      ...visibleMatches.map((match) => ({
+        startedAt: match.metadata.game_start,
+        match: !match.metadata.cluster && clusterById.get(match.metadata.matchid)
+          ? { ...match, metadata: { ...match.metadata, cluster: clusterById.get(match.metadata.matchid)! } }
+          : match,
+      })),
+      ...storedScoped
+        .filter((r) => r.id && !recentIds.has(r.id))
+        .map((row) => ({ startedAt: row.startedAt, row })),
+    ].sort((a, b) => b.startedAt - a.startedAt);
+  }
+  const toDisplayMatch = (item: MatchListItem) => item.match
+    ?? storedRowToMatch(item.row!, { puuid: profile.puuid, name: profile.name, tag: profile.tag });
+  const totalMatchPages = Math.max(1, Math.ceil(matchItems.length / MATCH_PAGE_SIZE));
   const matchPageNum = Math.min(page, totalMatchPages);
-  const matchPage = allMatches.slice((matchPageNum - 1) * MATCH_PAGE_SIZE, matchPageNum * MATCH_PAGE_SIZE);
-  const overviewMatches = allMatches.slice(0, 60);
+  const matchPage = matchItems.slice((matchPageNum - 1) * MATCH_PAGE_SIZE, matchPageNum * MATCH_PAGE_SIZE).map(toDisplayMatch);
+  const overviewMatches = matchItems.slice(0, 60).map(toDisplayMatch);
 
   const latestActLabel = formatAct(profile.actCode ?? lastActCode ?? seasons[0]?.actCode);
   const selectedActItem =
@@ -249,14 +293,19 @@ async function ProfileContent({
       ? acts[0]
       : acts.find((a) => a.param.toLowerCase() === actParam || a.code === resolvedShort);
   const actLabel = selectedActItem?.label ?? latestActLabel;
+  const shareActCode = profile.actCode ?? lastActCode;
+  const shareCard = buildShareCardModel({
+    profile,
+    rows: storedAll,
+    playlist,
+    actCode: shareActCode,
+    actSeasonId: shareActCode ? seasonUuid.get(shareActCode.toLowerCase()) : undefined,
+    actLabel: formatAct(shareActCode),
+    cardArtUrl: cardArt,
+    rankIconUrl: tierIcon(profile.currentTier),
+  });
 
   const shareOrigin = activeTab === "share" ? await origin() : "";
-  const seasonStats = groupBySeason(storedScoped);
-  const lifetime: SeasonStat = {
-    seasonId: "", seasonShort: "",
-    stats: aggregate(storedAll),
-    topAgent: groupByAgent(storedAll)[0] ?? null,
-  };
 
   const sidebar = (() => {
     switch (activeTab) {
@@ -303,91 +352,47 @@ async function ProfileContent({
     }
   })();
 
-  // Encounters: recent v3 rosters plus on-demand detail fetches for stored
-  // matches in the selected act — HenrikDev's stored endpoint carries no
-  // rosters, so each uncovered match needs one /v2/match/{id} call. Details
-  // are immutable and cached 24h, so repeat visits are cheap; fetches run in
-  // parallel batches and individual failures are skipped. `season=all` limits
-  // the first-visit scope to the two most recent acts — older encounters are
-  // rarer and a cold visit shouldn't burn the upstream quota on them.
-  let encounterMatches: Match[] = visibleMatches;
-  let encounterRows = storedScoped;
-  let encounterCovered = 0;
-  if (activeTab === "encounters") {
-    if (act === "all") {
-      const latestByAct = new Map<string, number>();
-      for (const r of storedScoped) {
-        if (r.seasonId) {
-          latestByAct.set(r.seasonId, Math.max(latestByAct.get(r.seasonId) ?? 0, r.startedAt));
-        }
-      }
-      const keep = new Set(
-        [...latestByAct.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([s]) => s),
-      );
-      encounterRows = storedScoped.filter((r) => r.seasonId && keep.has(r.seasonId));
-    }
-    const uncovered = selectUncoveredMatchIds(encounterRows, recentIds, ENCOUNTER_DETAIL_CAP);
-    const fetched: Match[] = [];
-    for (let i = 0; i < uncovered.length; i += 10) {
-      const batch = await Promise.allSettled(
-        uncovered.slice(i, i + 10).map((id) => getMatch(id)));
-      for (const res of batch) {
-        if (res.status === "fulfilled") fetched.push(normalizeHDMatch(res.value));
-      }
-    }
-    encounterMatches = [...visibleMatches, ...fetched];
-    encounterCovered = Math.min(encounterRows.length, visibleMatches.length + fetched.length);
-  }
-
-  // Reports have an explicit account-wide Competitive scope. Reuse the recent
-  // roster response. Only diagnosis tops up a missing minimum sample (max 10
-  // cached detail requests); the audit never fetches historical rosters.
-  let accountReport: ReturnType<typeof buildAccountReport> | null = null;
-  if (isReport) {
-    const archived = activeTab === "assessment"
-      ? await loadAuditHistory(profile.puuid).catch(() => null) : null;
-    const rosterMatches = activeTab === "diagnosis" ? [...matches] : [];
-    if (activeTab === "diagnosis") {
-      const ids = selectDiagnosisDetailIds(storedAll, matches, profile.puuid, capturedAt);
-      const details = await Promise.allSettled(ids.map(async (id) => normalizeHDMatch(await getMatch(id))));
-      for (const detail of details) {
-        if (detail.status === "fulfilled") rosterMatches.push(detail.value);
-      }
-    }
-    accountReport = buildAccountReport({
-      profile, seasons, storedAll: archived ? [...storedAll, ...archived.rows] : storedAll,
-      rosterMatches,
-      auditRosters: archived ? [...archived.rosters, ...matches] : matches,
-      auditCoverage: archived?.coverage,
-      locale: await getLocale(),
-      generatedAt: capturedAt,
-    });
-  }
-
   const main = (() => {
     switch (activeTab) {
       case "matches": {
         const pageHref = (n: number) => `${profileFilterHref(basePath, "matches", playlist, act)}&page=${n}`;
+        const pages = paginationItems(matchPageNum, totalMatchPages);
         return (
           <>
             <MatchesCard profile={profile} matches={matchPage} limit={MATCH_PAGE_SIZE} basePath={basePath} capturedAt={capturedAt} showAllLink={false} bare />
             {totalMatchPages > 1 ? (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 4px", fontSize: 13 }}>
-                {matchPageNum > 1
-                  ? <Link href={pageHref(matchPageNum - 1)} className="kt-btn kt-btn--secondary">← Newer</Link>
-                  : <span />}
-                <span style={{ color: "var(--kt-dim)" }}>
-                  Page {matchPageNum} / {totalMatchPages} · {allMatches.length} matches
-                </span>
-                {matchPageNum < totalMatchPages
-                  ? <Link href={pageHref(matchPageNum + 1)} className="kt-btn kt-btn--secondary">Older →</Link>
-                  : <span />}
-              </div>
+              <nav className="kt-pagination" aria-label="Match pages">
+                {matchPageNum > 1 ? (
+                  <Link href={pageHref(matchPageNum - 1)} className="kt-pagination__btn" aria-label="Newer matches">‹</Link>
+                ) : <span className="kt-pagination__btn kt-pagination__btn--disabled" aria-hidden="true">‹</span>}
+                {pages.map((item, index) => item === "…" ? (
+                  <span key={`ellipsis-${index}`} className="kt-pagination__ellipsis">…</span>
+                ) : (
+                  <Link
+                    key={item}
+                    href={pageHref(item)}
+                    className={`kt-pagination__btn${item === matchPageNum ? " kt-pagination__btn--active" : ""}`}
+                    aria-current={item === matchPageNum ? "page" : undefined}
+                  >
+                    {item}
+                  </Link>
+                ))}
+                {matchPageNum < totalMatchPages ? (
+                  <Link href={pageHref(matchPageNum + 1)} className="kt-pagination__btn" aria-label="Older matches">›</Link>
+                ) : <span className="kt-pagination__btn kt-pagination__btn--disabled" aria-hidden="true">›</span>}
+                <span className="kt-pagination__meta">{matchItems.length} matches</span>
+              </nav>
             ) : null}
           </>
         );
       }
-      case "performance":
+      case "performance": {
+        const seasonStats = groupBySeason(storedScoped);
+        const lifetime: SeasonStat = {
+          seasonId: "", seasonShort: "",
+          stats: aggregate(storedAll),
+          topAgent: groupByAgent(storedAll)[0] ?? null,
+        };
         return (
           <PerformanceTable
             seasons={seasonStats}
@@ -402,46 +407,55 @@ async function ProfileContent({
             currentActCode={profile.actCode}
           />
         );
+      }
       case "agents":
         return <AgentsTable agents={groupByAgent(storedScoped)} />;
       case "maps":
         return <MapsTable maps={groupByMap(storedScoped)} />;
-      case "encounters": {
-        const playedHref = (p: "with" | "against") =>
-          profileFilterHref(basePath, "encounters", playlist, act, p);
+      case "encounters":
         return (
-          <>
-            {act === "all" || encounterCovered < encounterRows.length ? (
-              <p className="text-secondary text-13" style={{ padding: "4px 2px" }}>
-                Encounters computed from {encounterCovered} of {encounterRows.length} matches
-                {act === "all"
-                  ? " in the two latest acts — pick a specific act for older encounters"
-                  : " in this act (newest first — details load progressively as you revisit)"}.
-              </p>
-            ) : null}
-            <EncountersTable
-              encounters={buildEncounters(encounterMatches, name, tag)}
-              mode={played}
-              filterItems={[
-                { label: "Played With", href: playedHref("with"), active: played === "with" },
-                { label: "Played Against", href: playedHref("against"), active: played === "against" },
-              ]}
+          <Suspense fallback={<SectionSkeleton rows={8} />}>
+            <EncountersSection
+              visibleMatches={visibleMatches}
+              storedScoped={storedScoped}
+              recentIds={recentIds}
+              name={name}
+              tag={tag}
+              act={act}
+              played={played}
+              basePath={basePath}
+              playlist={playlist}
             />
-          </>
+          </Suspense>
         );
-      }
       case "assessment":
-        return accountReport
-          ? <AccountAudit profile={profile} report={accountReport} />
-          : null;
+        return (
+          <Suspense fallback={<ReportSkeleton />}>
+            <AssessmentReport
+              profile={profile}
+              seasons={seasons}
+              storedAll={storedAll}
+              matches={matches}
+              capturedAt={capturedAt}
+            />
+          </Suspense>
+        );
       case "diagnosis":
-        return accountReport ? <DiagnosisPanel report={accountReport} /> : null;
+        return (
+          <Suspense fallback={<ReportSkeleton />}>
+            <DiagnosisReport
+              profile={profile}
+              seasons={seasons}
+              storedAll={storedAll}
+              matches={matches}
+              capturedAt={capturedAt}
+            />
+          </Suspense>
+        );
       case "share":
         return (
           <ShareCard
-            profile={profile}
-            summary={summary}
-            topAgents={topAgents}
+            card={shareCard}
             shareUrl={`${shareOrigin}${basePath}/share`}
           />
         );
@@ -484,12 +498,13 @@ async function ProfileContent({
         basePath={basePath}
         banner={heroArt ?? banner}
         cardArt={cardArt}
+        shareCard={shareCard}
         tabLabels={t.tabs as Record<string, string>}
         heroExtra={
           <div className="kt-hero-peak">
             <h3>Peak Rating</h3>
             <div className="kt-rating-entry">
-              <Image src={tierIcon(profile.currentTier || 0)} alt="" width={40} height={40} className="kt-rank-icon" />
+              <Image src={tierIcon(profile.peakTier ?? profile.currentTier ?? 0)} alt="" width={40} height={40} className="kt-rank-icon" />
               <div className="kt-rank-info">
                 <div className="kt-rank-value">
                   {profile.peakRank}
@@ -524,23 +539,123 @@ async function ProfileContent({
   );
 }
 
+async function EncountersSection({
+  visibleMatches,
+  storedScoped,
+  recentIds,
+  name,
+  tag,
+  act,
+  played,
+  basePath,
+  playlist,
+}: {
+  visibleMatches: Match[];
+  storedScoped: StoredRow[];
+  recentIds: Set<string>;
+  name: string;
+  tag: string;
+  act: string;
+  played: "with" | "against";
+  basePath: string;
+  playlist: string;
+}) {
+  let encounterRows = storedScoped;
+  if (act === "all") {
+    const latestByAct = new Map<string, number>();
+    for (const r of storedScoped) {
+      if (r.seasonId) latestByAct.set(r.seasonId, Math.max(latestByAct.get(r.seasonId) ?? 0, r.startedAt));
+    }
+    const keep = new Set(
+      [...latestByAct.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([seasonId]) => seasonId),
+    );
+    encounterRows = storedScoped.filter((r) => r.seasonId && keep.has(r.seasonId));
+  }
+
+  // HenrikDev's stored endpoint carries no rosters. Render recent and archived
+  // details immediately, then let the shared background queue fill the rest.
+  const uncovered = selectUncoveredMatchIds(encounterRows, recentIds, ENCOUNTER_DETAIL_CAP);
+  const archived = await readArchivedMatches(uncovered);
+  const queuedIds = uncovered.filter((id) => !archived.has(id));
+  if (queuedIds.length) await queueMatchDetails(queuedIds);
+  const coveredIds = new Set([...recentIds, ...archived.keys()]);
+  const covered = encounterRows.filter((r) => r.id && coveredIds.has(r.id)).length;
+  const encounterMatches = [...visibleMatches, ...[...archived.values()].map(normalizeHDMatch)];
+  const playedHref = (p: "with" | "against") => profileFilterHref(basePath, "encounters", playlist, act, p);
+
+  return (
+    <>
+      <QueuedRefresh active={queuedIds.length > 0} />
+      {act === "all" || covered < encounterRows.length ? (
+        <p className="text-secondary text-13" style={{ padding: "4px 2px" }}>
+          Encounters computed from {covered} of {encounterRows.length} matches
+          {act === "all"
+            ? " in the two latest acts — pick a specific act for older encounters"
+            : " in this act"}
+          {queuedIds.length ? "; additional match details are queued for background enrichment" : ""}.
+        </p>
+      ) : null}
+      <EncountersTable
+        encounters={buildEncounters(encounterMatches, name, tag)}
+        mode={played}
+        filterItems={[
+          { label: "Played With", href: playedHref("with"), active: played === "with" },
+          { label: "Played Against", href: playedHref("against"), active: played === "against" },
+        ]}
+      />
+    </>
+  );
+}
+
+type ReportInput = {
+  profile: Profile;
+  seasons: SeasonRank[];
+  storedAll: StoredRow[];
+  matches: Match[];
+  capturedAt: string;
+};
+
+async function AssessmentReport({ profile, seasons, storedAll, matches, capturedAt }: ReportInput) {
+  const [archived, locale] = await Promise.all([
+    loadAuditHistory(profile.puuid).catch(() => null),
+    getLocale(),
+  ]);
+  const report = buildAccountReport({
+    profile,
+    seasons,
+    storedAll: archived ? [...storedAll, ...archived.rows] : storedAll,
+    rosterMatches: [],
+    auditRosters: archived ? [...archived.rosters, ...matches] : matches,
+    auditCoverage: archived?.coverage,
+    locale,
+    generatedAt: capturedAt,
+  });
+  return <AccountAudit profile={profile} report={report} />;
+}
+
+async function DiagnosisReport({ profile, seasons, storedAll, matches, capturedAt }: ReportInput) {
+  const ids = selectDiagnosisDetailIds(storedAll, matches, profile.puuid, capturedAt);
+  const [locale, details] = await Promise.all([
+    getLocale(),
+    Promise.allSettled(ids.map(async (id) => normalizeHDMatch(await getMatch(id)))),
+  ]);
+  const rosterMatches = [
+    ...matches,
+    ...details.flatMap((detail) => detail.status === "fulfilled" ? [detail.value] : []),
+  ];
+  const report = buildAccountReport({
+    profile,
+    seasons,
+    storedAll,
+    rosterMatches,
+    auditRosters: matches,
+    locale,
+    generatedAt: capturedAt,
+  });
+  return <DiagnosisPanel report={report} />;
+}
+
 async function origin() {
   const h = await headers();
   return `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host") ?? "localhost:3002"}`;
-}
-
-function ProfileSkeleton() {
-  return (
-    <div className="kt-container">
-      <div className="kt-hero" style={{ marginTop: 24 }} />
-      <div className="kt-columns">
-        <div className="kt-sidebar">
-          <div className="kt-card-body" style={{ height: 220 }} />
-        </div>
-        <div className="kt-maincol">
-          <div className="kt-card-body" style={{ height: 400 }} />
-        </div>
-      </div>
-    </div>
-  );
 }

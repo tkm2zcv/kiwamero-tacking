@@ -1,10 +1,15 @@
 import Image from "next/image";
+import { headers } from "next/headers";
 import { getDict } from "@/lib/i18n/server";
+import { getSiteAccess } from "@/lib/site-access";
+import { AccessGate } from "@/components/access-gate";
 import { HomeSearch } from "@/components/home-search";
 import { RecentSearches } from "@/components/recent-searches";
 import { Eye, LineChart, ShieldCheck } from "lucide-react";
 
 export default async function HomePage() {
+  const access = await getSiteAccess(await headers());
+  if (access.status !== "allowed") return <AccessGate status={access.status} />;
   const t = await getDict();
   return (
     <div className="kt-container py-16">

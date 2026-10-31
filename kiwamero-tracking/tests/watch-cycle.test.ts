@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { runWatchCycle, type WatchDb, type WatchDeps } from "../src/lib/watch-core.ts";
-import type { RawMatchForNotify, WatchEntryRow } from "../src/lib/watch-core.ts";
+import type { RawMatchForNotify, RawPlayerForNotify, WatchEntryRow } from "../src/lib/watch-core.ts";
 
 function entry(overrides: Partial<WatchEntryRow> & { id: string }): WatchEntryRow {
   return {
@@ -44,9 +44,10 @@ function rawMatch(matchid: string, gameStart: number): RawMatchForNotify {
   };
 }
 
-function deps(matches: RawMatchForNotify[], opts: { failWebhook?: boolean } = {}) {
+function deps(matches: RawMatchForNotify[], opts: { failWebhook?: boolean; failAfter?: number } = {}) {
   const sent: unknown[] = [];
   const fetchCalls: string[] = [];
+  let webhookCalls = 0;
   const deps: WatchDeps = {
     resolvePlayer: async () => ({ puuid: "puuid-1", region: "ap" }),
     fetchMatches: async (puuid) => {
@@ -54,7 +55,8 @@ function deps(matches: RawMatchForNotify[], opts: { failWebhook?: boolean } = {}
       return matches;
     },
     sendWebhook: async (_url, payload) => {
-      if (opts.failWebhook) return false;
+      webhookCalls += 1;
+      if (opts.failWebhook || (opts.failAfter != null && webhookCalls > opts.failAfter)) return false;
       sent.push(payload);
       return true;
     },
@@ -98,8 +100,43 @@ test("only matches newer than the last delivered one are sent", async () => {
   const summary = await runWatchCycle(db, d);
 
   assert.equal(summary.matchesSent, 2);
-  const payload = sent[0] as { embeds: unknown[] };
-  assert.equal(payload.embeds.length, 2);
+  assert.equal(sent.length, 2);
+  for (const payload of sent as { embeds: unknown[] }[]) assert.equal(payload.embeds.length, 1);
+});
+
+test("party members are delivered as separate image embeds with season K/D", async () => {
+  const match = rawMatch("m1", 100);
+  match.metadata.season_id = "season-1";
+  const players = match.players as RawPlayerForNotify[];
+  players[0].name = "Meiy";
+  players[0].tag = "B3L";
+  players[0].party_id = "party-1";
+  players[0].currenttier_patched = "Radiant";
+  players[0].assets = { agent: { small: "https://img.test/jett.png" } };
+  players.push({
+    puuid: "mate-1", name: "DuoOne", tag: "111", character: "Omen", team: "Red", party_id: "party-1",
+    currenttier_patched: "Immortal 3",
+    assets: { agent: { small: "https://img.test/omen.png" } },
+    stats: { score: 3200, kills: 12, deaths: 14, assists: 7 },
+  });
+  const rows = [entry({ id: "e1" })];
+  const { db } = fakeDb(rows);
+  const { deps: d, sent } = deps([match]);
+  const seasonCalls: string[] = [];
+  d.fetchSeasonStats = async (puuid, _region, seasonId) => {
+    seasonCalls.push(`${puuid}:${seasonId}`);
+    return { matches: 12, kills: 120, deaths: 80, kd: 1.5, act: "E13A1" };
+  };
+
+  const summary = await runWatchCycle(db, d);
+
+  assert.equal(summary.matchesSent, 1);
+  assert.equal(sent.length, 2);
+  assert.deepEqual(seasonCalls, ["mate-1:season-1"]);
+  const partyEmbed = (sent[1] as { embeds: { title: string; thumbnail?: { url: string }; fields?: { name: string; value: string }[] }[] }).embeds[0];
+  assert.match(partyEmbed.title, /PARTY — DuoOne#111/);
+  assert.equal(partyEmbed.thumbnail?.url, "https://img.test/omen.png");
+  assert.equal(partyEmbed.fields?.[0].value, "1.50 (120/80)");
 });
 
 test("a failed webhook keeps the cursor so the next run retries", async () => {
@@ -113,6 +150,23 @@ test("a failed webhook keeps the cursor so the next run retries", async () => {
   assert.equal(summary.matchesSent, 0);
   assert.equal(updates.length, 0);
   assert.equal(rows[0].lastSeenGameStart, 50);
+});
+
+test("a mid-backlog webhook failure advances only through delivered matches", async () => {
+  const rows = [entry({ id: "e1", lastSeenGameStart: 50 })];
+  const { db, updates } = fakeDb(rows);
+  const { deps: d, sent } = deps(
+    [rawMatch("m1", 100), rawMatch("m2", 200), rawMatch("m3", 300)],
+    { failAfter: 1 },
+  );
+
+  const summary = await runWatchCycle(db, d);
+
+  assert.equal(summary.matchesSent, 1);
+  assert.equal(summary.webhookFailures, 1);
+  assert.equal(sent.length, 1);
+  assert.equal(updates.length, 1);
+  assert.equal(rows[0].lastSeenGameStart, 100);
 });
 
 test("players are queried once even when several users watch them", async () => {

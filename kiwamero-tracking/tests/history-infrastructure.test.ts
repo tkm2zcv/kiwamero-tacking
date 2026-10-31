@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { execute, queryAll, queryOne } from "../src/lib/db.ts";
 import { reserveQuota, coolQuota, retryAfterMs } from "../src/lib/henrik-quota.ts";
-import { archivedMatch, claimMatch, finishMatch, failMatch, readArchivedMatch, rememberMatch } from "../src/lib/match-archive.ts";
+import {
+  archivedMatch, claimMatch, finishMatch, failMatch, queueMatchDetails,
+  readArchivedMatch, readArchivedMatches, rememberMatch,
+} from "../src/lib/match-archive.ts";
 import { enqueueAudit, auditCoverage, loadAuditHistory, releaseCompletedAudits, repairAuditManifest } from "../src/lib/audit-history.ts";
 import { runAuditQueue } from "../src/lib/audit-run.ts";
 import { resetHenrikClient } from "../src/lib/henrik-client.ts";
@@ -99,6 +102,17 @@ test("malformed full-detail responses cannot enter the persistent cache", async 
   people[0].stats.score = undefined as unknown as number;
   await assert.rejects(archivedMatch(matchId(2), async () => missingStats), { status: 502 });
   assert.equal(await readArchivedMatch(matchId(2)), null);
+});
+
+test("queued encounter details use the shared archive without an audit manifest", async () => {
+  assert.equal(await queueMatchDetails([matchId(1), matchId(1), "not-a-match-id"]), 1);
+  assert.equal((await queryAll("SELECT * FROM MatchArchive")).length, 1);
+  assert.equal((await readArchivedMatches([matchId(1)])).size, 0);
+  process.env.HENRIK_API_KEYS = "encounter-runner";
+  globalThis.fetch = async () => Response.json({ status: 200, data: rawMatch(1) });
+  assert.deepEqual(await runAuditQueue({ maxMatches: 1, maxMs: 2000 }), { completed: 1, failed: 0, deferred: 0 });
+  assert.equal((await readArchivedMatches([matchId(1)])).size, 1);
+  assert.equal((await queryAll("SELECT * FROM AuditMatch")).length, 0);
 });
 
 test("players share one match job; resync retains older retrieved history", async () => {

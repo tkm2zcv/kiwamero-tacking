@@ -1,4 +1,4 @@
-import { execute, queryOne } from "./db.ts";
+import { execute, queryAll, queryOne } from "./db.ts";
 import { HenrikDevError } from "./henrik-errors.ts";
 import { MATCH_ID, type HDMatch } from "./henrik-model.ts";
 import { archivePayload } from "./match-archive-payload.ts";
@@ -25,6 +25,34 @@ export async function rememberMatch(raw: HDMatch) {
 export async function readArchivedMatch(id: string): Promise<HDMatch | null> {
   const row = await queryOne<{ payload: string | null }>("SELECT payload FROM MatchArchive WHERE matchId = ?", [id]);
   return row?.payload ? JSON.parse(row.payload) as HDMatch : null;
+}
+
+/** Batched archive reads keep progressive views off the upstream request path. */
+export async function readArchivedMatches(ids: readonly string[]): Promise<Map<string, HDMatch>> {
+  const archived = new Map<string, HDMatch>();
+  const unique = [...new Set(ids)].filter((id) => MATCH_ID.test(id));
+  for (let i = 0; i < unique.length; i += 100) {
+    const rows = await queryAll<{ matchId: string; payload: string }>(
+      `SELECT matchId, payload FROM MatchArchive WHERE payload IS NOT NULL
+       AND matchId IN (SELECT value FROM json_each(?))`,
+      [JSON.stringify(unique.slice(i, i + 100))],
+    );
+    for (const row of rows) archived.set(row.matchId, JSON.parse(row.payload) as HDMatch);
+  }
+  return archived;
+}
+
+/** Queue immutable match details for the shared background fetcher. */
+export async function queueMatchDetails(ids: readonly string[]): Promise<number> {
+  const valid = [...new Set(ids)].filter((id) => MATCH_ID.test(id));
+  for (let i = 0; i < valid.length; i += 100) {
+    await execute(
+      `INSERT OR IGNORE INTO MatchArchive(matchId)
+       SELECT value FROM json_each(?)`,
+      [JSON.stringify(valid.slice(i, i + 100))],
+    );
+  }
+  return valid.length;
 }
 
 export async function claimMatch(id: string, now = Date.now(), fresh = false) {

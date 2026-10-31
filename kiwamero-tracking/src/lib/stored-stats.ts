@@ -39,6 +39,8 @@ export interface StoredRow {
   statsAvailable?: boolean;
 }
 
+const normalizedRows = new WeakMap<HDStoredMatch[], StoredRow[]>();
+
 export function normalizeStoredMatch(m: HDStoredMatch): StoredRow {
   const won = m.teams?.red ?? 0;
   const lost = m.teams?.blue ?? 0;
@@ -81,6 +83,15 @@ export function normalizeStoredMatch(m: HDStoredMatch): StoredRow {
       [m.stats.kills, m.stats.deaths, m.stats.score, m.teams?.red, m.teams?.blue]
         .every((n) => typeof n === "number" && Number.isFinite(n) && n >= 0),
   };
+}
+
+/** Memoized per cached upstream payload; tab renders share the same array instance. */
+export function normalizeStoredMatches(rows: HDStoredMatch[]): StoredRow[] {
+  const hit = normalizedRows.get(rows);
+  if (hit) return hit;
+  const normalized = rows.map(normalizeStoredMatch);
+  normalizedRows.set(rows, normalized);
+  return normalized;
 }
 
 /**

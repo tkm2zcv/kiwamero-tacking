@@ -139,6 +139,7 @@ function buildLiveBundle({ account, mmr, hdMatches, history }: ProfileSourceData
         rr: mmr?.current_data?.ranking_in_tier ?? 0,
         elo: mmr?.current_data?.elo,
         peakRank: mmr?.highest_rank?.patched_tier ?? mmr?.current_data?.currenttierpatched ?? "Unrated",
+        peakTier: mmr?.highest_rank?.tier,
         peakAct: mmr?.highest_rank?.season,
         peakRr,
         actCode,
@@ -172,7 +173,11 @@ export type ProfileResult =
   | { ok: true; bundle: ProfileBundle; storedMatches: HDStoredMatch[] }
   | { ok: false; reason: ProfileFailure };
 
-export async function loadProfile(name: string, tag: string, opts?: { mode?: string }): Promise<ProfileResult> {
+export async function loadProfile(
+  name: string,
+  tag: string,
+  opts?: { mode?: string; includeRecentMatches?: boolean; includeStoredMatches?: boolean },
+): Promise<ProfileResult> {
   const result = await loadProfileSource(
     { getAccount, getMatches, getMmr, getMmrHistory, getStoredMatches }, name, tag, opts,
   );

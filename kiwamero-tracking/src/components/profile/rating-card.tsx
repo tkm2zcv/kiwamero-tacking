@@ -40,7 +40,7 @@ export function RatingCard({ profile }: { profile: Profile }) {
         <div className="kt-rating-peak">
           <h3>Peak Rating</h3>
           <div className="kt-rating-entry" style={{ paddingBottom: 0 }}>
-            <Image src={tierIcon(profile.currentTier || 0)} alt="" width={40} height={40} className="kt-rank-icon" />
+            <Image src={tierIcon(profile.peakTier ?? profile.currentTier ?? 0)} alt="" width={40} height={40} className="kt-rank-icon" />
             <div className="kt-rank-info">
               <div className="kt-rank-value">
                 {profile.peakRank}

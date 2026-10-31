@@ -1,13 +1,22 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
+import { queryOne } from "@/lib/db";
 import { getDict } from "@/lib/i18n/server";
 import { LangSwitcher } from "./lang-switcher";
-import { LogOut, SearchIcon } from "lucide-react";
+import { UserMenu } from "./user-menu";
+import { SearchIcon } from "lucide-react";
 
 export async function SiteNav() {
   const t = await getDict();
-  const session = await auth.api.getSession({ headers: await headers() }).catch(() => null);
+  const requestHeaders = await headers();
+  const session = await auth.api.getSession({ headers: requestHeaders }).catch(() => null);
+  const discordAccount = session
+    ? await queryOne<{ accountId: string }>(
+        `SELECT "accountId" FROM "Account" WHERE "userId" = ? AND "providerId" = 'discord' LIMIT 1`,
+        [session.user.id],
+      ).catch(() => null)
+    : null;
 
   return (
     <>
@@ -23,17 +32,7 @@ export async function SiteNav() {
             <span className="kt-gamebar-v">V</span> VALORANT
           </span>
         </div>
-        <div className="kt-gamebar-right">
-          {session ? (
-            <Link href="/api/auth/sign-out" className="kt-gamebar-signin" aria-label={t.nav.signOut}>
-              <LogOut size={18} />
-            </Link>
-          ) : (
-            <Link href="/login" className="kt-gamebar-signin">
-              Sign In
-            </Link>
-          )}
-        </div>
+        <div className="kt-gamebar-right" />
       </nav>
 
       <header className="kt-nav">
@@ -55,6 +54,13 @@ export async function SiteNav() {
 
         <div className="kt-nav-right">
           <LangSwitcher />
+          <UserMenu
+            signedIn={!!session}
+            name={session?.user.name}
+            email={session?.user.email}
+            image={session?.user.image}
+            discordId={discordAccount?.accountId}
+          />
         </div>
       </header>
     </>

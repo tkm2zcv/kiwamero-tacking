@@ -714,7 +714,7 @@ function MatchScoreboard({
                           <div className="image">
                             <Image src={p.assets?.agent?.small ?? agentIconUrl(p.character)} alt={p.character} width={40} height={40} loading="lazy" />
                             {p.level ? (
-                              <div className="level-box">
+                              <div className="level-box" aria-label={`Level ${p.level}`}>
                                 <span>{p.level}</span>
                               </div>
                             ) : null}

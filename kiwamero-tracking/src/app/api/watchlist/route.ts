@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { ownerUserId } from "@/lib/owner-access";
 import { execute, queryAll } from "@/lib/db";
 import type { WatchlistEntryRow } from "@/lib/db-schema";
 import { MAX_WATCHED_PLAYERS } from "@/lib/watch-core";
 import { upsertWatchlistEntry, watchedPlayerCount } from "@/lib/watch-db";
 
 async function userId(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: req.headers });
-  return session?.user?.id ?? null;
+  return ownerUserId(req.headers);
 }
 
 export async function GET(req: NextRequest) {
   const uid = await userId(req);
-  if (!uid) return NextResponse.json({ entries: [] });
+  if (!uid) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const entries = await queryAll<
     Pick<
       WatchlistEntryRow,
@@ -28,20 +27,24 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const uid = await userId(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const { riotName, riotTag, puuid, region } = (await req.json().catch(() => null) ?? {}) as {
-    riotName?: string;
-    riotTag?: string;
-    puuid?: string;
-    region?: string;
+  if (!uid) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const body = (await req.json().catch(() => null) ?? {}) as {
+    riotName?: unknown;
+    riotTag?: unknown;
+    puuid?: unknown;
+    region?: unknown;
   };
-  if (typeof riotName !== "string" || !riotName.trim() || riotName.length > 100 ||
-      typeof riotTag !== "string" || !riotTag.trim() || riotTag.length > 20 ||
-      (puuid != null && typeof puuid !== "string") || (region != null && typeof region !== "string")) {
+  const riotName = typeof body.riotName === "string" ? body.riotName.trim() : "";
+  const riotTag = typeof body.riotTag === "string" ? body.riotTag.trim() : "";
+  const puuid = typeof body.puuid === "string" ? body.puuid.trim() : undefined;
+  const region = typeof body.region === "string" ? body.region.trim().toUpperCase() : undefined;
+  if (!riotName || riotName.length > 100 || !riotTag || riotTag.length > 20 ||
+      (puuid != null && !/^[a-zA-Z0-9-]{20,64}$/.test(puuid)) ||
+      (region != null && !/^[A-Z0-9]{2,16}$/.test(region))) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
   const entry = await upsertWatchlistEntry({
-    userId: uid, riotName: riotName.trim(), riotTag: riotTag.trim(), puuid, region,
+    userId: uid, riotName, riotTag, puuid, region,
   });
   if (!entry) {
     return NextResponse.json(
@@ -55,8 +58,10 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const uid = await userId(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const { riotName, riotTag } = (await req.json().catch(() => ({}))) as { riotName?: string; riotTag?: string };
+  if (!uid) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const body = (await req.json().catch(() => ({}))) as { riotName?: unknown; riotTag?: unknown };
+  const riotName = typeof body.riotName === "string" ? body.riotName.trim() : "";
+  const riotTag = typeof body.riotTag === "string" ? body.riotTag.trim() : "";
   if (!riotName || !riotTag) return NextResponse.json({ error: "bad request" }, { status: 400 });
   await execute(`DELETE FROM "WatchlistEntry" WHERE "userId" = ? AND "riotName" = ? AND "riotTag" = ?`, [
     uid,

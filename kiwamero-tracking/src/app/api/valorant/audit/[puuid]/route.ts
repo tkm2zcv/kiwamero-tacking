@@ -4,6 +4,7 @@ import { getAccount, getStoredMatches } from "@/lib/henrikdev";
 import { HenrikDevError } from "@/lib/henrik-errors";
 import { apiKeys } from "@/lib/henrik-client";
 import { normalizeStoredMatch } from "@/lib/stored-stats";
+import { resolveOwnerAccess } from "@/lib/owner-access";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { MATCH_ID } from "@/lib/henrik-model";
 
@@ -34,7 +35,9 @@ async function smallBody(req: Request) {
   catch { throw new HenrikDevError(400, "Invalid request"); }
 }
 
-export async function GET(_req: NextRequest, ctx: Context) {
+export async function GET(req: NextRequest, ctx: Context) {
+  const access = await resolveOwnerAccess(req.headers);
+  if (!access) return json({ error: "forbidden" }, 403);
   const { puuid } = await ctx.params;
   if (!MATCH_ID.test(puuid)) return json({ error: "invalid_player" }, 400);
   try { return json(await auditCoverage(puuid)); }
@@ -42,9 +45,10 @@ export async function GET(_req: NextRequest, ctx: Context) {
 }
 
 export async function POST(req: NextRequest, ctx: Context) {
+  const access = await resolveOwnerAccess(req.headers);
+  if (!access) return json({ error: "forbidden" }, 403);
   if (req.headers.get("origin") !== req.nextUrl.origin) return json({ error: "invalid_origin" }, 403);
-  const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for") ?? "local";
-  const rate = checkRateLimit(`audit-start:${ip}`, 3);
+  const rate = checkRateLimit(`audit-start:${access.rateLimitKey}`, 3);
   if (!rate.ok) return rateLimitResponse(rate);
   const { puuid } = await ctx.params;
   if (!MATCH_ID.test(puuid)) return json({ error: "invalid_player" }, 400);

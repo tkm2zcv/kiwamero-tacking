@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import { recordSearch } from "@/lib/search-history";
+import { consumeSearchIntent, recordSearch } from "@/lib/search-history";
 
-/** Records the viewed profile into localStorage search history. Renders nothing. */
+/** Records the view only when it fulfills a real search from a search UI. Renders nothing. */
 export function ProfileViewRecorder(props: {
   name: string;
   tag: string;
@@ -14,7 +14,9 @@ export function ProfileViewRecorder(props: {
 }) {
   const { name, tag, puuid, card, rankIcon, rankName } = props;
   useEffect(() => {
-    recordSearch({ name, tag, puuid, card, rankIcon, rankName });
+    if (consumeSearchIntent(name, tag)) {
+      recordSearch({ name, tag, puuid, card, rankIcon, rankName });
+    }
   }, [name, tag, puuid, card, rankIcon, rankName]);
   return null;
 }

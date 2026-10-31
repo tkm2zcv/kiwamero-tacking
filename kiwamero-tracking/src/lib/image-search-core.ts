@@ -8,6 +8,18 @@ export interface ImageSearchCandidates {
   names: string[];
 }
 
+const KANA = "\\p{scx=Hiragana}\\p{scx=Katakana}\\uFF66-\\uFF9D";
+const DASH_LIKE = "[-\\u2010\\u2011\\u2012\\u2013\\u2014\\u2212\\uFF70]";
+/**
+ * OCR reads the long-vowel mark as assorted dashes. Next to kana prefer ー;
+ * Latin hyphens/dashes and kanji 一 in non-kana context stay untouched.
+ */
+const LONG_VOWEL_MARK = new RegExp(`(?<=[${KANA}])${DASH_LIKE}+|${DASH_LIKE}+(?=[${KANA}])`, "gu");
+
+export function normalizeOcrName(name: string): string {
+  return name.replace(LONG_VOWEL_MARK, "ー");
+}
+
 /** Do not normalize the player's name: width, symbols and spaces can be identity. */
 export function parseImageRiotId(value: string): RiotIdCandidate | null {
   const parts = value.trim().split(/[#＃﹟]/u);
@@ -32,16 +44,19 @@ export function extractImageCandidates(texts: readonly string[]): ImageSearchCan
       const parts = line.split(/[#＃﹟]/u);
       // OCR often inserts spaces in tags. Name spaces remain visible for review.
       const pair = parts.length === 2
-        ? parseImageRiotId(`${parts[0]}#${parts[1].replace(/\s+/gu, "")}`)
+        ? parseImageRiotId(`${normalizeOcrName(parts[0])}#${parts[1].replace(/\s+/gu, "")}`)
         : null;
       if (pair) {
         const key = `${pair.name}#${pair.tag}`.toLowerCase();
         if (!seen.has(key) && pairs.length < 12) pairs.push(pair);
         seen.add(key);
-      } else if (parts.length === 1 && [...line].length <= 30 && /[\p{L}\p{N}]/u.test(line)) {
-        const key = `name:${line.toLowerCase()}`;
-        if (!seen.has(key) && names.length < 8) names.push(line);
-        seen.add(key);
+      } else {
+        const name = normalizeOcrName(line);
+        if (parts.length === 1 && [...name].length <= 30 && /[\p{L}\p{N}]/u.test(name)) {
+          const key = `name:${name.toLowerCase()}`;
+          if (!seen.has(key) && names.length < 8) names.push(name);
+          seen.add(key);
+        }
       }
     }
   }

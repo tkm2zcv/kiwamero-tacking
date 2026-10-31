@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { ImageSearchButton, type ImageSearchDict } from "./image-search";
-import { recordSearch } from "@/lib/search-history";
+import { markSearchIntent } from "@/lib/search-history";
 import { trackerProfileUrl } from "@/lib/tracker-gg";
 
 export function HomeSearch({ placeholder, cta, imageSearch }: { placeholder: string; cta: string; imageSearch: ImageSearchDict }) {
@@ -28,12 +28,12 @@ export function HomeSearch({ placeholder, cta, imageSearch }: { placeholder: str
     const tab = window.open("about:blank", "_blank");
     if (tab) tab.opener = null;
     setBusy(true);
+    markSearchIntent(m[1], m[2]);
     router.push(local);
     if (!tab) return;
     try {
       const res = await fetch(`/api/valorant/account/${encodeURIComponent(m[1])}/${encodeURIComponent(m[2])}`);
       if (res.ok) {
-        recordSearch({ name: m[1], tag: m[2] });
         tab.location.href = trackerProfileUrl(m[1], m[2]);
       } else {
         tab.close();

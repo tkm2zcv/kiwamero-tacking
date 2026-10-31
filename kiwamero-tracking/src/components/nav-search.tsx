@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { markSearchIntent } from "@/lib/search-history";
 
 export function NavSearch({ placeholder }: { placeholder: string }) {
   const router = useRouter();
@@ -12,6 +13,7 @@ export function NavSearch({ placeholder }: { placeholder: string }) {
     e.preventDefault();
     const m = q.trim().match(/^(.+?)#(.+)$/);
     if (!m) return;
+    markSearchIntent(m[1], m[2]);
     router.push(`/valorant/profile/riot/${encodeURIComponent(m[1])}%23${encodeURIComponent(m[2])}/overview`);
   }
 

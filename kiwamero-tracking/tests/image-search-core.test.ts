@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   clampImageCrop, extractImageCandidates, FULL_IMAGE_CROP, imageSearchProfilePath,
-  parseImageRiotId, suggestImageCrop,
+  normalizeOcrName, parseImageRiotId, suggestImageCrop,
 } from "../src/lib/image-search-core.ts";
 
 test("image search preserves complete unicode and numeric Riot IDs without ASCII word boundaries", () => {
@@ -47,6 +47,24 @@ test("image candidates merge both OCR passes and bound unrelated text", () => {
   const many = extractImageCandidates([Array.from({ length: 40 }, (_, i) => `Player${i}#JP1\nName${i}`).join("\n")]);
   assert.equal(many.pairs.length, 12);
   assert.equal(many.names.length, 8);
+});
+
+test("OCR dash-like marks near kana normalize to the long-vowel mark, nothing else", () => {
+  // Kana context: every dash variant OCR emits becomes ー.
+  for (const [raw, want] of [
+    ["げ—む", "げーむ"], ["ゲｰム", "ゲーム"], ["ス-ケ", "スーケ"], ["おな–ちゅ", "おなーちゅ"],
+    ["タロ‐ウ", "タローウ"], ["ポチ−キ", "ポチーキ"], ["げ--む", "げーむ"], ["ーげ", "ーげ"],
+  ] as const) {
+    assert.equal(normalizeOcrName(raw), want, raw);
+  }
+  // Non-kana context stays verbatim: Latin hyphens/em dashes, tags, spaces, kanji 一.
+  for (const keep of ["foo-bar", "a—b", "Team  Player", "一ノ瀬", "名-前", "123-456"]) {
+    assert.equal(normalizeOcrName(keep), keep, keep);
+  }
+  // Extraction normalizes names but never tags; manual parsing stays untouched.
+  assert.deepEqual(extractImageCandidates(["げ—む#JP1"]).pairs, [{ name: "げーむ", tag: "JP1" }]);
+  assert.deepEqual(extractImageCandidates(["げ—む"]).names, ["げーむ"]);
+  assert.deepEqual(parseImageRiotId("げ—む#JP1"), { name: "げ—む", tag: "JP1" });
 });
 
 test("image search encodes the complete verified ID into the existing profile route", () => {

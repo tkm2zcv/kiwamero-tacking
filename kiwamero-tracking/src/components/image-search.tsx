@@ -8,6 +8,8 @@ import type { Dict } from "@/lib/i18n/dict";
 import { ImageSearchCropEditor } from "./image-search-crop";
 import { ImageSearchResults } from "./image-search-results";
 import { useImageSearch } from "./use-image-search";
+import { imageSearchProfilePath } from "@/lib/image-search-core";
+import { markSearchIntent } from "@/lib/search-history";
 
 export type ImageSearchDict = Dict["search"];
 const EMPTY_RESULT = { pairs: [], names: [] };
@@ -50,6 +52,20 @@ export function ImageSearchButton({ t }: { t: ImageSearchDict }) {
     search.reset();
     setOpen(false);
   }
+
+  // Exactly one complete Riot ID found: search immediately, no review needed.
+  // Ambiguous or partial results keep the manual review UI below.
+  const autoHit = search.result && search.result.pairs.length === 1 && !search.result.names.length
+    ? search.result.pairs[0]
+    : null;
+  useEffect(() => {
+    if (!open || !autoHit) return;
+    markSearchIntent(autoHit.name, autoHit.tag);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- navigation must close the dialog
+    close();
+    router.push(imageSearchProfilePath(autoHit));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoHit, open]);
 
   return (
     <>

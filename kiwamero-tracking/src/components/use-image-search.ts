@@ -45,8 +45,10 @@ export function useImageSearch() {
     try {
       const loaded = await loadSearchImage(file);
       if (request !== revision.current) return;
-      setCrop(suggestSearchImageCrop(loaded));
+      const suggested = suggestSearchImageCrop(loaded);
+      setCrop(suggested);
       setImage(loaded);
+      void read(loaded, suggested);
     } catch {
       if (request === revision.current) setError("image");
     } finally {
@@ -62,8 +64,10 @@ export function useImageSearch() {
     setError(null);
   }
 
-  async function read() {
-    if (!image) return;
+  async function read(overrideImage?: HTMLImageElement, overrideCrop?: ImageSearchCrop) {
+    const source = overrideImage ?? image;
+    const bounds = overrideCrop ?? crop;
+    if (!source) return;
     cancel();
     const request = revision.current;
     setBusy(true);
@@ -78,7 +82,7 @@ export function useImageSearch() {
       setError("ocr");
     }, 180_000);
     try {
-      const input = await prepareSearchImage(image, crop);
+      const input = await prepareSearchImage(source, bounds);
       if (request !== revision.current) return;
       const found = await session.current.run(async (signal) => {
         signal.throwIfAborted();

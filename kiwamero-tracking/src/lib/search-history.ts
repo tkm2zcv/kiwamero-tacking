@@ -1,7 +1,8 @@
 /**
  * Anonymous profile-search history in localStorage — no account needed.
- * Entries are recorded when a profile page actually renders, so failed
- * searches and never-visited players are never stored.
+ * Only players the user actually searched for are stored: a search marks an
+ * intent in sessionStorage, and the profile render consumes it — so failed
+ * searches, direct URL visits, and link clicks never land in history.
  */
 export interface SearchHistoryEntry {
   name: string;
@@ -41,6 +42,37 @@ function samePlayer(a: SearchHistoryEntry, b: SearchHistoryEntry): boolean {
   if (a.puuid && b.puuid) return a.puuid === b.puuid;
   return a.name.toLowerCase() === b.name.toLowerCase() &&
     a.tag.toLowerCase() === b.tag.toLowerCase();
+}
+
+const INTENT_KEY = "kt_search_intent";
+
+/** Mark that the user just searched for name#tag from a search UI. */
+export function markSearchIntent(name: string, tag: string): void {
+  if (typeof window === "undefined" || !name || !tag) return;
+  try {
+    window.sessionStorage.setItem(INTENT_KEY, JSON.stringify({ name, tag }));
+  } catch {
+    /* storage unavailable — history is best-effort */
+  }
+}
+
+/** True (and clears the marker) when this render fulfills a pending search. */
+export function consumeSearchIntent(name: string, tag: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = window.sessionStorage.getItem(INTENT_KEY);
+    if (!raw) return false;
+    const intent = JSON.parse(raw) as { name?: unknown; tag?: unknown };
+    const match =
+      typeof intent.name === "string" &&
+      typeof intent.tag === "string" &&
+      intent.name.toLowerCase() === name.toLowerCase() &&
+      intent.tag.toLowerCase() === tag.toLowerCase();
+    if (match) window.sessionStorage.removeItem(INTENT_KEY);
+    return match;
+  } catch {
+    return false;
+  }
 }
 
 export function recordSearch(entry: Omit<SearchHistoryEntry, "at">): void {

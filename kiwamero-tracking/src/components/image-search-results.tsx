@@ -2,6 +2,7 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { imageSearchProfilePath, parseImageRiotId, type ImageSearchCandidates } from "@/lib/image-search-core";
+import { markSearchIntent } from "@/lib/search-history";
 import type { Dict } from "@/lib/i18n/dict";
 
 export function ImageSearchResults({ result, t, navigate }: {
@@ -25,6 +26,7 @@ export function ImageSearchResults({ result, t, navigate }: {
     event.stopPropagation();
     const id = parseImageRiotId(edit);
     if (!id) { setInvalid(true); return; }
+    markSearchIntent(id.name, id.tag);
     navigate(imageSearchProfilePath(id));
   }
 

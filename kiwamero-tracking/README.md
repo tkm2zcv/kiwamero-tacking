@@ -136,24 +136,30 @@ curl -X POST http://localhost:3002/api/cron/watch \
 選択 → 読み取り → 拡大画像と比較して名前/タグを修正 →「このIDで検索」。
 範囲はドラッグまたはスライダーで調整できます。候補クリックでは検索しません。
 
-画像はブラウザ内で処理します（8 MB・2000万画素まで）。初回のみOCRモデルを
-CDNからダウンロードします。小さい文字、記号、日本語の空白等の認識は
-保証しないため、検索前に確認してください。
+画像はブラウザ内で処理します（8 MB・2000万画素まで）。
+OCRは `pure-onnx-ocr 0.3.1` + 日本語対応 `PP-OCRv6 small` を採用しています。
+初回は実行データとモデル約50 MBを同じサイトから読み込み、ブラウザに
+キャッシュします。画像の外部送信・外部OCR API・画像のサーバー処理はありません。
+名前に元からある空白は保持し、一律に削除・挿入・連続空白の圧縮はしません。
+小さい文字等の誤認識は残り得るため、検索前に画像と確認してください。
 
-画像検索の14単体回帰は通常の `npm test` に含まれます。
-任意のChromeコンポーネントチェックは、別途Puppeteerとローカルの
-`jpn.traineddata` / `eng.traineddata`を用意して実行します:
+画像検索の単体回帰と配布モデルのハッシュ・25 MiB/ファイル未満の検査は
+通常の `npm test` に含まれます。任意のChromeコンポーネントチェックは、
+別途Puppeteerを用意して実行します。モデル類は `public/ocr/` の同梱物を使います:
 
 ```bash
 IMAGE_SEARCH_FIXTURE="/path/to/name-tooltip.png" \
-IMAGE_SEARCH_MODELS="/path/to/models" \
+IMAGE_SEARCH_EXPECTED="crazy Boberツ野獣先輩#1994" \
 PUPPETEER_MODULE="/path/to/puppeteer" \
 node tools/check-image-search.cjs
 ```
 
 チェックはローカル専用HTTPサーバーで実コンポーネントとOCRを動かし、
 モデルはローカル配信、Nextの遷移は記録用に差し替えます。実アカウントAPIや
-Discordへは送信しません。CDN初回配信や認証のE2Eチェックとは別です。
+Discordへは送信しません。空白を含むIDの完全一致、キャッシュ、読込失敗/再試行、
+キャンセルも確認します。配信環境・認証のE2Eチェックとは別です。
+モデル/実行データの版・配布元・SHA-256とライセンスは
+`public/ocr/paddle-v0.3.1-ppocrv6-small-r1/` の `assets.json`・`NOTICE.txt` を参照。
 
 ```bash
 npm run check        # lint + typecheck + test + build

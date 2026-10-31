@@ -21,6 +21,14 @@ test("image OCR tolerates tag whitespace and fullwidth separators without changi
   assert.equal(extractImageCandidates(["Player#日本語"]).pairs[0].tag, "日本語");
 });
 
+test("legitimate name spaces are not removed or collapsed when candidates and URLs are formed", () => {
+  for (const name of ["crazy Boberツ野獣先輩", "Team  Player", "おな ちゅ", "おな　ちゅ"]) {
+    assert.deepEqual(extractImageCandidates([`${name}#JP1`]).pairs, [{ name, tag: "JP1" }]);
+    assert.equal(imageSearchProfilePath({ name, tag: "JP1" }),
+      `/valorant/profile/riot/${encodeURIComponent(`${name}#JP1`)}/overview`);
+  }
+});
+
 test("image OCR never truncates invalid tags or silently strips part of a name", () => {
   for (const id of ["Alice#TOOLONG", "Alice#JP!", "Alice#JP1#NA1", `${"A".repeat(31)}#JP1`]) {
     assert.equal(parseImageRiotId(id), null);

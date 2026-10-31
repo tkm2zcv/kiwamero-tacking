@@ -23,8 +23,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "satori": "^0.60.3",
-    "server-only": "^0.0.1",
-    "tesseract.js": "^7.0.0"
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261027.1",

@@ -1,0 +1,27 @@
+Kiwamero browser OCR
+
+Runtime: pure-onnx-ocr v0.3.1, single-threaded WebAssembly
+Author: Shion Watanabe / siska-tech and contributors
+Source: https://github.com/siska-tech/pure-onnx-ocr
+Build distribution: https://siska-tech.github.io/pure-onnx-ocr/v0.3.1/
+License declared by upstream: Apache-2.0
+
+Models and recognition dictionary: PaddlePaddle PP-OCRv6 small
+Authors: PaddlePaddle / PaddleOCR contributors
+Sources:
+https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx
+https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx
+License: Apache-2.0
+
+The generated runtime JavaScript, WASM, models and inference configurations are
+distributed without modification. Exact source URLs, sizes and SHA-256 hashes
+are recorded in assets.json. The inference configuration includes the original
+recognition character dictionary. worker.js is Kiwamero's application adapter,
+not the upstream demo worker.
+
+The runtime contains Rust dependencies, including tract, image, imageproc,
+geo/i_overlay and wasm-bindgen. Their source and dependency versions are
+available through the upstream Cargo.lock and source repository.
+No upstream endorsement of Kiwamero is implied.
+
+The Apache License 2.0 text accompanies this distribution.

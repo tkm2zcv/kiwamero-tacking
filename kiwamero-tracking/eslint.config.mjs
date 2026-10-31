@@ -21,6 +21,8 @@ const eslintConfig = defineConfig([
     ".tmp/**",
     ".build-tmp/**",
     "src/generated/**",
+    // Pinned, unmodified wasm-bindgen output (our adapter remains linted).
+    "public/ocr/**/pure_onnx_ocr_wasm.js",
     // Standalone node scripts (CommonJS/ESM tooling, not app code):
     "tools/**",
   ]),

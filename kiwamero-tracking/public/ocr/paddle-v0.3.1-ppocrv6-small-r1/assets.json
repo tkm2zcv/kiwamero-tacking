@@ -1,0 +1,37 @@
+{
+  "runtime": "pure-onnx-ocr 0.3.1 (single-threaded)",
+  "model": "PP-OCRv6 small (Japanese supported)",
+  "license": "Apache-2.0",
+  "files": {
+    "pure_onnx_ocr_wasm.js": {
+      "bytes": 20938,
+      "sha256": "0317d9942e1ca9d03fb9fce8ba666d1c8ef3d8dfc6c081bed8fe6ae2098e19ea",
+      "source": "https://siska-tech.github.io/pure-onnx-ocr/v0.3.1/pkg/pure_onnx_ocr_wasm.js"
+    },
+    "pure_onnx_ocr_wasm_bg.wasm": {
+      "bytes": 18842165,
+      "sha256": "f31d791bc94db0b099bbbb5e23e4fbc5efbb24e0a14f74984fb2d708441fcc10",
+      "source": "https://siska-tech.github.io/pure-onnx-ocr/v0.3.1/pkg/pure_onnx_ocr_wasm_bg.wasm"
+    },
+    "small_det.onnx": {
+      "bytes": 9880512,
+      "sha256": "d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e",
+      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/resolve/main/inference.onnx"
+    },
+    "small_det.yml": {
+      "bytes": 885,
+      "sha256": "193f435274bf9f0b5f71a929bbfbcf148282df7e633b34e7c373e8f44741b516",
+      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/resolve/main/inference.yml"
+    },
+    "small_rec.onnx": {
+      "bytes": 21159378,
+      "sha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
+      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/main/inference.onnx"
+    },
+    "small_rec.yml": {
+      "bytes": 150579,
+      "sha256": "ab078671bb49f06228eadccd34f1bb501e157f7a047095ffb943ba81512c77d1",
+      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/main/inference.yml"
+    }
+  }
+}

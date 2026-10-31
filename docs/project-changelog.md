@@ -1,5 +1,20 @@
 # Project Changelog
 
+## 2026-10-31 — PaddleOCR adoption with exact name spacing (not deployed)
+
+- Replaced Tesseract with self-hosted pure-onnx-ocr 0.3.1 / PP-OCRv6 small.
+  A color crop, upscaled up to 4x, is recognized in a dedicated WASM worker.
+- Legitimate name spaces remain untouched, including repeated and full-width
+  spaces. Better recognition, not blanket whitespace removal, addresses the issue.
+- Pinned runtime/models (~50 MB) include provenance, hashes and Apache-2.0
+  notices. Each asset fits Workers' 25 MiB/file limit. Downloads are same-origin;
+  images never leave the browser. Model/runtime bytes are verified and cached.
+- Cancellation terminates the raw worker during model loading as well as
+  recognition. Separate loading progress, failure/retry and manual editing remain.
+- Added worker protocol, spacing, cancellation and asset-integrity regressions.
+  The Chrome check uses the shipped assets and can assert exact IDs including
+  legitimate spaces; it also exercises model failure/retry and cache reuse.
+
 ## 2026-10-31 — Reviewed screenshot search (not deployed)
 
 - Added browser-only Japanese/English OCR with a visible crop selection, dark

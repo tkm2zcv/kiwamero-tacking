@@ -5,20 +5,29 @@
 ## Screenshot Search (2026-10-31, Not Deployed)
 
 - Home search opens a portalled native dialog, outside the manual search form.
-  Browser-only Tesseract is lazy-loaded after explicit crop confirmation.
+  Browser-only pure-onnx-ocr 0.3.1 + PP-OCRv6 small replaces Tesseract.
+  The single-threaded WASM works without COOP/COEP or an inference server.
 - `image-search-core.ts` preserves full name identity and Unicode tags, suggests
   dark horizontal tooltips, and validates bounded crop percentages.
   `image-search-browser.ts` decodes bounded images, releases object URLs on every
-  path and prepares only the selected region for two OCR passes.
+  path and upscales the selected color region by up to 4x for a single OCR pass.
 - `image-search-session.ts` gives each run its own cancellation signal and worker
-  lifetime; late results/errors cannot mutate a newer run. Pending initialization
-  is disposed when ready. The hook adds a 90-second deadline and guarded state.
+  lifetime; late results/errors cannot mutate a newer run. The raw worker is owned
+  before model loading, so cancellation also immediately stops initialization.
+  The hook adds a 180-second deadline and guarded state.
 - The zoomed source remains visible while users edit extracted IDs. Candidate
   clicks never navigate; a separate submit does. OCR does not validate account
   existence, remove legitimate name spaces or guarantee recognition accuracy.
-- Images stay local; versioned worker/core/model downloads use CDN resources.
-  Production first-load CDN delivery remains separate from the local-model
-  Chrome component verification in `tools/check-image-search.cjs`.
+- Images stay local. Versioned, self-hosted runtime/models total about 50 MB.
+  The adapter verifies SHA-256, optionally caches immutable files in CacheStorage,
+  and falls back to direct loading if caching is unavailable. Each asset is below
+  the Workers static asset 25 MiB limit. No external requests or image uploads.
+- Recognized name spaces are preserved, including repeated and full-width spaces;
+  there is no blanket whitespace deletion, insertion or correction heuristic.
+  Recognition still does not guarantee exact spelling on every input.
+- `image-search-paddle.ts` implements the request-ID protocol and termination.
+  Generated wasm-bindgen output stays unmodified; provenance/license/hash files
+  accompany the runtime. Browser checks exercise actual shipped assets.
 
 ## Report Boundaries (2026-10-30 Refactor, Not Deployed)
 

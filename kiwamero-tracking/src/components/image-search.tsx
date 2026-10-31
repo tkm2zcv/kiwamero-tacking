@@ -96,7 +96,7 @@ export function ImageSearchButton({ t }: { t: ImageSearchDict }) {
               disabled={search.busy} onClick={() => void search.read()}>{t.imageRead}</button>}
             {search.busy && <p role="status" className="kt-image-status">
               <Loader2 className="size-5 animate-spin" />
-              {t.imageReading.replace("{pct}", String(search.progress))}
+              {(search.stage === "loading" ? t.imageLoading : t.imageReading).replace("{pct}", String(search.progress))}
             </p>}
             {search.error && <p role="alert" className="kt-image-error">
               {search.error === "image" ? t.imageInvalidFile : t.imageFailure}

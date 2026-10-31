@@ -1,19 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Worker } from "tesseract.js";
 import { FULL_IMAGE_CROP, extractImageCandidates, type ImageSearchCandidates, type ImageSearchCrop } from "@/lib/image-search-core";
 import { loadSearchImage, prepareSearchImage, suggestSearchImageCrop } from "@/lib/image-search-browser";
 import { ImageSearchSession } from "@/lib/image-search-session";
+import { createPaddleOcrClient, type PaddleOcrClient, type PaddleProgress } from "@/lib/image-search-paddle";
 
 export function useImageSearch() {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [crop, setCrop] = useState<ImageSearchCrop>(FULL_IMAGE_CROP);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [stage, setStage] = useState<PaddleProgress["stage"]>("reading");
   const [result, setResult] = useState<ImageSearchCandidates | null>(null);
   const [error, setError] = useState<"image" | "ocr" | null>(null);
-  const session = useRef(new ImageSearchSession<Worker>());
+  const session = useRef(new ImageSearchSession<PaddleOcrClient>());
   const revision = useRef(0);
 
   function cancel() {
@@ -34,6 +35,7 @@ export function useImageSearch() {
     setError(null);
     setBusy(false);
     setProgress(0);
+    setStage("reading");
   }
 
   async function select(file: Blob) {
@@ -68,47 +70,27 @@ export function useImageSearch() {
     setProgress(0);
     setError(null);
     setResult(null);
-    let pass = 0;
+    setStage("loading");
     const timeout = window.setTimeout(() => {
       if (revision.current !== request) return;
       cancel();
       setBusy(false);
       setError("ocr");
-    }, 90_000);
+    }, 180_000);
     try {
-      const variants = prepareSearchImage(image, crop);
+      const input = await prepareSearchImage(image, crop);
+      if (request !== revision.current) return;
       const found = await session.current.run(async (signal) => {
-        const { createWorker } = await import("tesseract.js");
         signal.throwIfAborted();
-        let fail: (reason: unknown) => void = () => {};
-        const failed = new Promise<Worker>((_resolve, reject) => { fail = reject; });
-        const ready = createWorker(["jpn", "eng"], 1, {
-          workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/worker.min.js",
-          corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0",
-          logger: ({ status, progress }) => {
-            if (!signal.aborted && revision.current === request && status === "recognizing text") {
-              setProgress(Math.round((pass + progress) / variants.length * 100));
-            }
-          },
-          errorHandler: fail,
+        return createPaddleOcrClient((update) => {
+          if (signal.aborted || revision.current !== request) return;
+          setStage(update.stage);
+          setProgress(Math.max(0, Math.min(100, Math.round(update.loaded / update.total * 100))));
         });
-        // A worker that becomes ready after a failed/cancelled initialization still needs disposal.
-        void ready.then((worker) => {
-          if (signal.aborted) void worker.terminate().catch(() => {});
-        }, () => {});
-        return Promise.race([ready, failed]);
       }, async (worker, signal) => {
-        const { PSM } = await import("tesseract.js");
-        const aspect = image.naturalWidth * (crop.right - crop.left) /
-          (image.naturalHeight * (crop.bottom - crop.top));
-        await worker.setParameters({ tessedit_pageseg_mode: aspect >= 3 ? PSM.SINGLE_LINE : PSM.SPARSE_TEXT });
-        const texts: string[] = [];
-        for (const variant of variants) {
-          signal.throwIfAborted();
-          texts.push((await worker.recognize(variant)).data.text);
-          pass++;
-        }
-        return extractImageCandidates(texts);
+        await worker.load();
+        signal.throwIfAborted();
+        return extractImageCandidates(await worker.recognize(input));
       });
       if (found && request === revision.current) setResult(found);
     } catch {
@@ -119,5 +101,5 @@ export function useImageSearch() {
     }
   }
 
-  return { image, crop, busy, progress, result, error, select, changeCrop, read, reset };
+  return { image, crop, busy, progress, stage, result, error, select, changeCrop, read, reset };
 }

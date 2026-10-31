@@ -9,13 +9,10 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
 (async () => {
   const root = process.cwd();
   const fixture = process.env.IMAGE_SEARCH_FIXTURE;
-  const models = process.env.IMAGE_SEARCH_MODELS || root;
   if (!fixture || !fs.existsSync(fixture)) throw new Error("Set IMAGE_SEARCH_FIXTURE to a local name-tooltip screenshot.");
-  for (const lang of ["jpn", "eng"]) {
-    if (!fs.existsSync(path.join(models, `${lang}.traineddata`))) {
-      throw new Error("Set IMAGE_SEARCH_MODELS to a local directory containing jpn.traineddata and eng.traineddata.");
-    }
-  }
+  const expected = process.env.IMAGE_SEARCH_EXPECTED;
+  const assetRequests = [];
+  let failOcr = false;
   let bundle = "";
   const styles = fs.readFileSync("src/app/globals.css", "utf8").replace('@import "tailwindcss";', "") +
     fs.readFileSync("src/app/tracker-ui.css", "utf8") +
@@ -24,13 +21,20 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     ".h-14{height:56px}.w-14{width:56px}.flex-1{flex:1}.min-w-0{min-width:0}.gap-2{gap:8px}.mt-4{margin-top:16px}";
   const server = http.createServer((req, res) => {
     const pathname = new URL(req.url, "http://localhost").pathname;
+    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:");
     let file;
     if (pathname === "/bundle.js") { res.setHeader("Content-Type", "text/javascript"); return res.end(bundle); }
     if (pathname === "/style.css") { res.setHeader("Content-Type", "text/css"); return res.end(styles); }
-    if (pathname === "/worker.min.js") file = path.join(root, "node_modules/tesseract.js/dist/worker.min.js");
-    if (/^\/core\/[\w.-]+$/.test(pathname)) file = path.join(root, "node_modules/tesseract.js-core", path.basename(pathname));
-    if (/^\/lang\/(eng|jpn)\.traineddata$/.test(pathname)) file = path.join(models, path.basename(pathname));
+    if (pathname.startsWith("/ocr/")) {
+      if (failOcr && pathname.endsWith("/assets.json")) { res.writeHead(503); return res.end(); }
+      const publicRoot = path.join(root, "public");
+      const candidate = path.resolve(publicRoot, "." + pathname);
+      if (candidate.startsWith(publicRoot + path.sep) && fs.existsSync(candidate)) file = candidate;
+      if (!file) { res.writeHead(404); return res.end(); }
+      assetRequests.push(pathname);
+    }
     if (file) {
+      res.setHeader("Content-Length", fs.statSync(file).size);
       res.setHeader("Content-Type", pathname.endsWith(".js") ? "text/javascript" : pathname.endsWith(".wasm") ? "application/wasm" : "application/octet-stream");
       return fs.createReadStream(file).pipe(res);
     }
@@ -55,13 +59,6 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
         setup(build) {
           build.onResolve({ filter: /^next\/navigation$/ }, () => ({ path: "router", namespace: "fixture" }));
           build.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({ contents: "export const useRouter=()=>({push:(path)=>window.routes.push(path)});" }));
-          build.onLoad({ filter: /use-image-search\.ts$/ }, args => ({
-            contents: fs.readFileSync(args.path, "utf8")
-              .replace("https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/worker.min.js", origin + "/worker.min.js")
-              .replace("https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0", origin + "/core")
-              .replace("logger: ({ status, progress })", `langPath: "${origin}/lang", gzip: false, logger: ({ status, progress })`),
-            loader: "ts",
-          }));
         },
       }],
     });
@@ -89,6 +86,8 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     await page.waitForSelector("#image-search-id", { timeout: 90000 });
     console.log("real OCR candidates:", await page.$$eval(".kt-image-candidates button", els => els.map(el => el.textContent)));
     console.log("real OCR initial edit:", await page.$eval("#image-search-id", el => el.value));
+    if (expected) assert.equal(await page.$eval("#image-search-id", el => el.value), expected, "OCR must preserve the exact ID including legitimate spaces");
+    assert.ok(await page.evaluate(() => caches.keys().then(keys => keys.some(key => key.startsWith("kiwamero-paddle-")))));
     assert.deepEqual(await page.evaluate(() => window.routes), []);
     const candidates = await page.$$(".kt-image-candidates button");
     if (candidates.length) await candidates[0].click();
@@ -118,6 +117,9 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     const input = await page.$('input[type="file"]');
     await input.uploadFile(fixture);
     await page.waitForSelector(".kt-image-preview");
+    await page.click(".kt-image-panel > button.trn-button");
+    await page.waitForSelector("#image-search-id", { timeout: 90000 });
+    if (expected) assert.equal(await page.$eval("#image-search-id", el => el.value), expected);
     await page.setViewport({ width: 375, height: 600 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     const panel = await page.$eval("dialog", el => ({ width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height, viewport: innerHeight }));
@@ -128,8 +130,21 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     await page.click('[aria-haspopup="dialog"]');
     await new Promise(resolve => setTimeout(resolve, 1500));
     assert.equal(await page.$("#image-search-id"), null, "cancelled results must not reappear after reopen");
+    await (await page.$('input[type="file"]')).uploadFile(fixture);
+    await page.waitForSelector(".kt-image-preview");
+    failOcr = true;
+    await page.click(".kt-image-panel > button.trn-button");
+    await page.waitForSelector('[role="alert"]', { timeout: 90000 });
+    assert.ok(await page.$("#image-search-id"), "manual search remains available after model failure");
+    failOcr = false;
+    await page.click(".kt-image-panel > button.trn-button");
+    await page.waitForSelector("#image-search-id", { timeout: 90000 });
+    if (expected) assert.equal(await page.$eval("#image-search-id", el => el.value), expected);
     assert.equal(errors.length, 0, errors.join("\n"));
-    console.log("PASS: real OCR, keyboard upload, candidate confirmation, unicode route, single Enter submission, IME, focus, Escape, mobile, cancellation");
+    for (const suffix of ["/small_det.onnx", "/small_rec.onnx", "/pure_onnx_ocr_wasm_bg.wasm"]) {
+      assert.equal(assetRequests.filter(url => url.endsWith(suffix)).length, 1, "runtime/models should be reused from browser cache");
+    }
+    console.log("PASS: PaddleOCR, exact name spaces, cache, download failure/retry, keyboard upload, candidate confirmation, unicode route, Enter, IME, focus, Escape, mobile, cancellation");
   } finally {
     await browser?.close();
     await new Promise(resolve => server.close(resolve));

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
+import { requestHenrik } from "../src/lib/henrik-request.ts";
 import { execute } from "../src/lib/db.ts";
 import {
   apiKeys,
@@ -193,4 +194,56 @@ test("transport and invalid-body errors cannot expose credential-bearing message
   await assert.rejects(henrikCall("/invalid-json"), { status: 502, message: "Invalid HenrikDev response" });
   globalThis.fetch = async () => Response.json(null);
   await assert.rejects(henrikCall("/invalid-envelope"), { status: 502, message: "Invalid HenrikDev response" });
+});
+
+test("a stalled JSON body cannot outlive the logical request budget", async () => {
+  const signals: AbortSignal[] = [];
+  globalThis.fetch = async (_input, init) => {
+    signals.push(init!.signal!);
+    return { ok: true, status: 200, json: () => new Promise(() => {}) } as Response;
+  };
+  const start = Date.now();
+  await assert.rejects(requestHenrik("/slow", ["", ""], { timeoutMs: 80 }, () => {}),
+    { status: 503 });
+  assert.ok(Date.now() - start < 300);
+  assert.equal(signals.length, 1);
+});
+
+test("key rotations share the original transport deadline", async (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: 1_800_000_000_000 });
+  const first = Promise.withResolvers<void>();
+  const second = Promise.withResolvers<void>();
+  const signals: AbortSignal[] = [];
+  globalThis.fetch = async (_input, init) => {
+    signals.push(init!.signal!);
+    if (signals.length === 1) {
+      first.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      return new Response(null, { status: 401 });
+    }
+    second.resolve();
+    return { ok: true, status: 200, json: () => new Promise(() => {}) } as Response;
+  };
+  const start = Date.now();
+  const timedOut = assert.rejects(requestHenrik("/slow", ["slow-a", "slow-b"], { timeoutMs: 100 }, () => {}),
+    { status: 503, message: "HenrikDev transport unavailable" });
+  await first.promise;
+  t.mock.timers.tick(40);
+  await second.promise;
+  t.mock.timers.tick(60);
+  await timedOut;
+  assert.equal(Date.now() - start, 100, "the second key must not get a new timeout window");
+  assert.equal(signals.length, 2);
+});
+
+test("a degraded edge cache cannot block usable upstream data", async () => {
+  const calls = stubFetch(() => ({ status: 200, data: { ok: true } }));
+  (globalThis as { caches?: unknown }).caches = { default: {
+    match: () => new Promise(() => {}),
+    put: () => new Promise(() => {}),
+  } };
+  const started = Date.now();
+  assert.deepEqual(await henrikCall("/cache-stalled"), { ok: true });
+  assert.ok(Date.now() - started < 1000);
+  assert.equal(calls.length, 1);
 });

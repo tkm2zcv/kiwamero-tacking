@@ -11,6 +11,7 @@
  */
 
 import { requestHenrik } from "./henrik-request.ts";
+import { beforeDeadline, deadlineAfter } from "./deadline.ts";
 import type { HenrikPriority } from "./henrik-quota";
 export { HenrikDevError } from "./henrik-errors.ts";
 
@@ -81,10 +82,12 @@ async function readEdgeCache(path: string): Promise<EdgeBody | undefined> {
   const c = edgeCache();
   if (!c) return undefined;
   try {
-    const res = await c.match(edgeKey(path));
-    if (!res) return undefined;
-    const body = (await res.json()) as EdgeBody;
-    return body.exp > Date.now() ? body : undefined;
+    return await beforeDeadline((async () => {
+      const res = await c.match(edgeKey(path));
+      if (!res) return undefined;
+      const body = (await res.json()) as EdgeBody;
+      return body.exp > Date.now() ? body : undefined;
+    })(), deadlineAfter(150));
   } catch {
     return undefined;
   }
@@ -95,12 +98,12 @@ async function writeEdgeCache(path: string, data: unknown, ttl: number): Promise
   if (!c) return;
   try {
     const body: EdgeBody = { exp: Date.now() + ttl, data };
-    await c.put(
+    await beforeDeadline(c.put(
       edgeKey(path),
       new Response(JSON.stringify(body), {
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "cache-control": `max-age=${Math.ceil(ttl / 1000)}` },
       }),
-    );
+    ), deadlineAfter(150));
   } catch {
     // Edge cache is best-effort; the in-process Map still serves repeats.
   }

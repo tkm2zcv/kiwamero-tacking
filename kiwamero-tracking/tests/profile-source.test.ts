@@ -16,6 +16,7 @@ const sources: ProfileSources = {
   getStoredMatches: async () => [],
 };
 const resources = ["getMmr", "getMatches", "getMmrHistory", "getStoredMatches"] as const;
+const resourceNames = { getMmr: "rating", getMatches: "recent", getMmrHistory: "history", getStoredMatches: "stored" };
 
 for (const key of resources) {
   for (const [status, reason] of [[403, "private"], [429, "rate_limited"], [503, "upstream"]] as const) {
@@ -23,7 +24,8 @@ for (const key of resources) {
       const result = await loadProfileSource({
         ...sources, [key]: async () => { throw new HenrikDevError(status, "upstream failure"); },
       }, "Player", "TAG");
-      assert.deepEqual(result, { ok: false, reason });
+      assert.equal(result.ok, true);
+      if (result.ok) assert.deepEqual(result.issues, [{ resource: resourceNames[key], reason }]);
     });
   }
   test(`${key} 404 permits a real account with no history`, async () => {
@@ -45,7 +47,8 @@ test("transport failures are unavailable", async () => {
   const result = await loadProfileSource({
     ...sources, getMatches: async () => { throw new TypeError("fetch failed"); },
   }, "Player", "TAG");
-  assert.deepEqual(result, { ok: false, reason: "upstream" });
+  assert.equal(result.ok, true);
+  if (result.ok) assert.deepEqual(result.issues, [{ resource: "recent", reason: "upstream" }]);
 });
 
 test("recent and stored history share the requested player and playlist", async () => {
@@ -82,6 +85,54 @@ for (const resource of ["getMatches", "getMmrHistory", "getStoredMatches"] as co
     const result = await loadProfileSource({
       ...sources, [resource]: async () => null as never,
     }, "Player", "TAG");
-    assert.deepEqual(result, { ok: false, reason: "upstream" });
+    assert.equal(result.ok, true);
+    if (result.ok) assert.deepEqual(result.issues, [{ resource: resourceNames[resource], reason: "upstream" }]);
   });
 }
+
+test("a stalled identity returns a timeout instead of an endless loading state", async () => {
+  const started = Date.now();
+  const result = await loadProfileSource({
+    ...sources, getAccount: () => new Promise(() => {}),
+  }, "Player", "TAG", { deadline: started + 30 });
+  assert.deepEqual(result, { ok: false, reason: "timeout" });
+  assert.ok(Date.now() - started < 500);
+});
+
+test("the absolute deadline includes identity and all four parallel reads", async () => {
+  const started = Date.now();
+  const slow = () => new Promise<never>(() => {});
+  const result = await loadProfileSource({
+    ...sources,
+    getAccount: async () => { await new Promise((resolve) => setTimeout(resolve, 40)); return account; },
+    getMmr: slow, getMatches: slow, getMmrHistory: slow, getStoredMatches: slow,
+  }, "Player", "TAG", { deadline: started + 80 });
+  assert.ok(Date.now() - started < 300, "must not start a separate timeout for each stage/resource");
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.data.account.puuid, "p1");
+    assert.deepEqual(new Set(result.issues.map((issue) => issue.resource)), new Set(["rating", "recent", "history", "stored"]));
+    assert.ok(result.issues.every((issue) => issue.reason === "timeout"));
+  }
+});
+
+test("slow optional reads retain real fast data and finish once in the background", async () => {
+  let finish!: (value: []) => void;
+  let calls = 0;
+  let completion!: Promise<Awaited<ReturnType<typeof loadProfileSource>>>;
+  const result = await loadProfileSource({
+    ...sources,
+    getMmr: async () => ({ current_data: { currenttier: 20 } } as never),
+    getMatches: () => { calls++; return new Promise((resolve) => { finish = resolve; }); },
+  }, "Player", "TAG", { deadline: Date.now() + 30, background: (task) => { completion = task; } });
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.data.mmr?.current_data?.currenttier, 20);
+    assert.deepEqual(result.issues, [{ resource: "recent", reason: "timeout" }]);
+  }
+  finish([]);
+  const completed = await completion;
+  assert.equal(completed.ok, true);
+  if (completed.ok) assert.deepEqual(completed.issues, []);
+  assert.equal(calls, 1, "no retry fanout after the foreground deadline");
+});

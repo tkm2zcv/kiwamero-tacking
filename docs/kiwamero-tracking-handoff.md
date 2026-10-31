@@ -1,5 +1,31 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 261101 - Profile Loading Budget (Not Deployed)
+
+- User target: useful profile within 10 seconds rather than intermittent long waits.
+- `profile-source.ts` shares one absolute 8s deadline from the route; identity
+  timeout is distinct from not-found. Optional reads return labelled issues.
+  The page hides affected stats/reports/share actions instead of inventing zeros.
+- `profile-cache.ts`: complete-only SWR snapshots in bounded memory and the
+  Cloudflare colo cache, fresh 60s / retained 24h / max 1.8MB each.
+  Cache key includes Riot ID, mode and included sources, not act/page.
+  `getSiteAccess` and fetch-metadata checks remain before cache access.
+- `data.ts` schedules refresh/snapshot writes with Next `after`. `getMatches`
+  defers D1 persistence on the profile path. Shared reads are not aborted at the
+  foreground deadline; late completion warms subsequent views.
+- API rotations/body parsing share a 15s logical request timeout, and edge-cache
+  lookups/writes wait at most 150ms. Nav session reads wait at most 1.5s;
+  profile access uses the overall 8s budget, with an explicit timeout/retry state.
+- `tools/check-profile-budget.cjs` runs actual page/data/HTTP/quota code with
+  controlled upstream latency and a local browser. No live credentials/network.
+  Set `PUPPETEER_MODULE` to the development Puppeteer installation if necessary.
+- No D1 migration. Production latency under real auth/provider load remains a
+  post-deployment check; latest data cannot be guaranteed during provider outages.
+- Verification: 244 tests, lint/typecheck and OpenNext Worker build pass; generated
+  env snapshots scrubbed. Latest offline browser check: slow optional API 8,118ms,
+  saved snapshot 80ms; all-source stall, identity timeout, slow valid session,
+  private-refresh eviction and access-before-cache assertions pass.
+
 ## 2026-10-31 試合履歴のnull耐性・プロフィールの障害境界
 
 - HenrikDevがHTTP200でも `metadata:null`・`map:null`・`players:null` 等の

@@ -1,5 +1,31 @@
 # Project Changelog
 
+## 261101 - Bounded Profile Loading (Not Deployed)
+
+- One absolute 8s foreground deadline includes the profile access gate and all
+  upstream/section reads, leaving delivery/render headroom for the 10s UX target.
+  Profile access uses the same deadline; nav session reads have a 1.5s cap.
+  Permission checks still precede cache reads, and an auth timeout reveals no data.
+- Slow/failed optional sources become explicit per-source issues. Valid identity
+  and measured data remain visible; missing aggregates/reports and incomplete
+  share cards are withheld rather than becoming zero statistics.
+- Only successful complete profiles enter the bounded memory/colo cache:
+  60s fresh, 24h retained, identity/mode/source-aware keys, real capture timestamp.
+  Stale snapshots render first and refresh with Next `after`. Private/not-found
+  refreshes invalidate the snapshot; oversized growth evicts older snapshots.
+- Recent-match D1 writes run after the response; unused round-event blobs no
+  longer travel in profile payloads. Background completion can populate the cache.
+  Timeouts/stale snapshots trigger at most three automatic refreshes; inline
+  retry controls also work on mobile.
+- Henrik transport has one 15s budget across quota reservations, key rotation
+  and body parsing; best-effort edge-cache operations have a 150ms wait cap.
+- Verification: offline browser latency check, cache/timeout/permission regression
+  tests, existing malformed-row/error UI checks. This is a bounded waiting policy,
+  not a guarantee of fresh upstream data during provider or network outages.
+- Final local evidence: 244/244 tests, lint, typecheck, Next/OpenNext Worker build
+  and deployment-bundle scrub pass. Controlled stalled upstream: browser profile
+  visible in 8,118ms; stale snapshot render in 80ms. No production deployment yet.
+
 ## 261101 — Audit hardening follow-ups
 
 - `MatchArchive` garbage collection: `gcMatchArchive` runs once per cron tick

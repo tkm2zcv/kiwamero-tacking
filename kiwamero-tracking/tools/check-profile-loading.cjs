@@ -60,7 +60,10 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     assert.equal(result.bundle.unavailableRecentMatches ?? 0, rows.filter(row => row !== valid).length);
   }
   globalThis.__profileMatches = { invalid: "list container" };
-  assert.deepEqual(await loadProfile("Fixture Player", "TAG"), { ok: false, reason: "upstream" });
+  const partial = await loadProfile("Fixture Player", "TAG");
+  assert.equal(partial.ok, true);
+  assert.deepEqual(partial.issues, [{ resource: "recent", reason: "upstream" }]);
+  assert.equal(partial.bundle.matches.length, 0);
   console.log("PASS: real loadProfile pipeline; mixed/null/all-unavailable/empty histories; honest counts; no upstream calls");
 
   const ui = await esbuild.build({

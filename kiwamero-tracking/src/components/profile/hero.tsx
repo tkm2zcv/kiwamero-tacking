@@ -31,6 +31,7 @@ export function ProfileHero({
   banner,
   cardArt,
   shareCard,
+  shareAvailable = true,
   heroExtra,
   tabLabels = {},
 }: {
@@ -40,6 +41,7 @@ export function ProfileHero({
   banner: string | null;
   cardArt: string | null;
   shareCard: ShareCardModel;
+  shareAvailable?: boolean;
   heroExtra?: ReactNode;
   tabLabels?: Record<string, string>;
 }) {
@@ -95,7 +97,7 @@ export function ProfileHero({
                 signInLabel="Sign in to watch this player"
                 variant="icon"
               />
-              <ShareProfileButton card={shareCard} />
+              {shareAvailable ? <ShareProfileButton card={shareCard} /> : null}
               <a
                 href={trackerProfileUrl}
                 target="_blank"

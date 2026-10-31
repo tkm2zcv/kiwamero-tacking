@@ -1,24 +1,43 @@
 import { HenrikDevError } from "./henrik-errors.ts";
 import { coolQuota, reserveQuota, retryAfterMs, type HenrikPriority } from "./henrik-quota.ts";
+import { beforeDeadline, DeadlineExceeded } from "./deadline.ts";
 
 export async function requestHenrik<T>(
   path: string,
   keys: string[],
-  options: { priority?: HenrikPriority; headers?: Record<string, string> },
+  options: { priority?: HenrikPriority; headers?: Record<string, string>; timeoutMs?: number },
   onCooldown: (key: string, until: number) => void,
 ): Promise<T> {
   if (!keys.length) throw new HenrikDevError(503, "HenrikDev is not configured");
+  const deadline = Date.now() + (options.timeoutMs ?? 15_000);
+  try {
+    return await beforeDeadline(requestWithinBudget<T>(path, keys, options, onCooldown, deadline), deadline);
+  } catch (error) {
+    if (error instanceof DeadlineExceeded) throw new HenrikDevError(503, "HenrikDev transport unavailable");
+    throw error;
+  }
+}
+
+async function requestWithinBudget<T>(
+  path: string,
+  keys: string[],
+  options: { priority?: HenrikPriority; headers?: Record<string, string> },
+  onCooldown: (key: string, until: number) => void,
+  deadline: number,
+): Promise<T> {
   let retryAt = Infinity;
   // A key is attempted at most once; a cooling/exhausted key never gets forced.
   for (const key of keys) {
+    if (Date.now() >= deadline) throw new DeadlineExceeded();
     if (key) {
       const slot = await reserveQuota(key, options.priority ?? "interactive");
       if (!slot.ok) { retryAt = Math.min(retryAt, slot.retryAt); continue; }
     }
     let response: Response;
     try {
+      if (Date.now() >= deadline) throw new DeadlineExceeded();
       response = await fetch(`https://api.henrikdev.xyz${path}`, {
-        cache: "no-store", signal: AbortSignal.timeout(15_000),
+        cache: "no-store", signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
         headers: { Accept: "application/json", ...options.headers, ...(key ? { Authorization: key } : {}) },
       });
     } catch {

@@ -35,7 +35,7 @@ export async function getMmr(region: string, puuid: string, opts?: { fresh?: boo
   );
 }
 
-export async function getMatches(region: string, puuid: string, opts?: { mode?: string; size?: number; fresh?: boolean; priority?: "interactive" | "background" }) {
+export async function getMatches(region: string, puuid: string, opts?: { mode?: string; size?: number; fresh?: boolean; priority?: "interactive" | "background"; defer?: (task: () => Promise<void>) => void }) {
   const params = new URLSearchParams();
   if (opts?.mode) params.set("mode", opts.mode);
   if (opts?.size) params.set("size", String(opts.size));
@@ -44,7 +44,9 @@ export async function getMatches(region: string, puuid: string, opts?: { mode?: 
     `/valorant/v3/by-puuid/matches/${region}/${puuid}${q ? `?${q}` : ""}`,
     { ttl: TTL_MATCHES, fresh: opts?.fresh, priority: opts?.priority }
   );
-  await Promise.allSettled(matches.map(rememberMatch));
+  const archive = async () => { await Promise.allSettled(matches.map(rememberMatch)); };
+  if (opts?.defer) opts.defer(archive);
+  else await archive();
   return matches;
 }
 

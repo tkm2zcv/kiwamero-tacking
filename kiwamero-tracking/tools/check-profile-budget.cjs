@@ -1,0 +1,177 @@
+// Offline integration check: real page/data/HTTP/quota code, controlled upstream
+// latency, and a real browser. No production credentials or upstream calls.
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const http = require("node:http");
+const Module = require("node:module");
+const { pathToFileURL } = require("node:url");
+const esbuild = require("esbuild");
+const React = require("react");
+const { renderToStaticMarkup } = require("react-dom/server");
+const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
+
+(async () => {
+  const root = process.cwd();
+  const { rawMatch, selfId } = await import(pathToFileURL(path.join(root, "tests/history-fixtures.ts")));
+  const stubs = {
+    "server-only": "",
+    "@/lib/site-access": `export const getSiteAccess = async () => {
+      if(globalThis.__accessDelay) await new Promise(r => setTimeout(r, globalThis.__accessDelay));
+      return {status: globalThis.__allowed ? 'allowed' : 'anonymous'}; };`,
+    "@/lib/auth-client": "export const useSession = () => ({data:null,isPending:false}); export const signIn = {}; export const signOut = async () => {};",
+    "next/server": "export const after = (task) => globalThis.__after.push(task);",
+    "next/headers": `export const headers = async () => new Headers({'sec-fetch-site':'same-origin','accept-language':'ja'});
+      export const cookies = async () => ({get:()=>undefined});`,
+    "next/navigation": `export const useRouter = () => ({refresh(){},push(){}});
+      export const notFound = () => {throw new Error('not found');};`,
+    "next/link": `import React from 'react'; export default function Link({prefetch,...props}){return React.createElement('a',props);}`,
+    "next/image": `import React from 'react'; export default function Image({fill,priority,unoptimized,...props}){return React.createElement('img',props);}`,
+  };
+  const build = await esbuild.build({
+    stdin: { contents: `
+      export {default as Page} from "./src/app/valorant/profile/riot/[id]/[[...tab]]/page";
+      export {I18nProvider} from "./src/lib/i18n/client"; export {dicts} from "./src/lib/i18n/dict";
+      export {execute,queryAll} from "./src/lib/db"; export {resetHenrikClient} from "./src/lib/henrik-client";
+      export * from "./src/lib/profile-cache";`, resolveDir: root },
+    bundle: true, write: false, platform: "node", format: "cjs", jsx: "automatic", loader: { ".css": "empty" },
+    external: ["react", "react-dom", "better-sqlite3", "@opennextjs/cloudflare"],
+    plugins: [{ name: "request-fixtures", setup(build) {
+      build.onResolve({ filter: /.*/ }, ({ path: name }) =>
+        Object.hasOwn(stubs, name) ? { path: name, namespace: "fixture" } : undefined);
+      build.onLoad({ filter: /.*/, namespace: "fixture" }, ({ path: name }) =>
+        ({ contents: stubs[name], resolveDir: root }));
+    } }],
+  });
+  const fixture = new Module(path.join(root, ".tmp/profile-budget-fixture.cjs"), module);
+  fixture.paths = module.paths;
+  fixture._compile(build.outputFiles[0].text, fixture.id);
+  const app = fixture.exports;
+  process.env.DATABASE_URL = "file::memory:";
+  process.env.HENRIK_API_KEYS = "offline-budget-key";
+  delete process.env.HENRIK_API_KEY;
+  for (const sql of fs.readFileSync("db/schema.sql", "utf8").split(";").filter((s) => s.trim())) await app.execute(sql);
+  const account = { name: "Budget Player", tag: "TAG", puuid: selfId, region: "ap", account_level: 100, card: {}, last_update: "" };
+  const match = rawMatch(1);
+  let scenario = "fast", calls = 0;
+  const pending = [];
+  const realFetch = globalThis.fetch;
+  globalThis.__allowed = true;
+  globalThis.__after = [];
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    assert.ok(url.startsWith("https://api.henrikdev.xyz/"), "unexpected external fetch");
+    calls++;
+    if (scenario === "private") return new Response(null, { status: 403 });
+    if ((scenario === "identity" && url.includes("/account/")) ||
+        (scenario === "all" && !url.includes("/account/")) ||
+        (scenario === "optional" && url.includes("/mmr-history/"))) {
+      await new Promise((resolve) => pending.push(resolve));
+    }
+    let data = [];
+    if (url.includes("/account/")) data = account;
+    else if (url.includes("/mmr/")) data = { current_data: { currenttier: 12, currenttierpatched: "Gold 1", ranking_in_tier: 50 } };
+    else if (url.includes("/matches/")) data = [match];
+    else if (url.includes("/stored-matches/")) data = [{
+      meta: { id: match.metadata.matchid, map: { name: "Ascent" }, mode: "Competitive",
+        started_at: new Date(match.metadata.game_start * 1000).toISOString(), season: { id: "season", short: "e11a6" } },
+      stats: { team: "Red", character: { name: "Jett" }, kills: 12, deaths: 12, assists: 3, score: 4800 },
+      teams: { red: 13, blue: 11 },
+    }];
+    return Response.json({ status: 200, data });
+  };
+  async function resolveServer(node) {
+    if (Array.isArray(node)) return Promise.all(node.map(async (child, index) => {
+      const resolved = await resolveServer(child);
+      return React.isValidElement(resolved) && resolved.key === null
+        ? React.cloneElement(resolved, { key: index }) : resolved;
+    }));
+    if (!React.isValidElement(node)) return node;
+    if (typeof node.type === "function" && node.type.constructor.name === "AsyncFunction") {
+      return resolveServer(await node.type(node.props));
+    }
+    if (Object.hasOwn(node.props, "children")) {
+      return React.cloneElement(node, {}, await resolveServer(node.props.children));
+    }
+    return node;
+  }
+  async function page() {
+    const tree = await resolveServer(await app.Page({
+      params: Promise.resolve({ id: "Budget%20Player%23TAG" }), searchParams: Promise.resolve({}),
+    }));
+    return renderToStaticMarkup(React.createElement(app.I18nProvider, { locale: "ja", dict: app.dicts.ja }, tree));
+  }
+  async function flush() {
+    pending.splice(0).forEach((finish) => finish());
+    while (globalThis.__after.length) {
+      await Promise.all(globalThis.__after.splice(0).map((task) => task()));
+    }
+  }
+  async function reset(next) {
+    await flush();
+    app.resetHenrikClient(); app.resetProfileCache();
+    await app.execute("DELETE FROM HenrikQuota");
+    scenario = next; calls = 0;
+  }
+  let browser, server;
+  try {
+    await reset("optional");
+    server = http.createServer(async (_req, res) => {
+      try { res.setHeader("Content-Type", "text/html; charset=utf-8"); res.end(await page()); }
+      catch (error) { res.statusCode = 500; res.end(String(error)); }
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    browser = await puppeteer.launch({ headless: true, args: ["--disable-background-networking"] });
+    const tab = await browser.newPage();
+    await tab.setRequestInterception(true);
+    tab.on("request", (req) => req.url().startsWith("http://127.0.0.1") ? req.continue() : req.abort());
+    const started = Date.now();
+    await tab.goto(`http://127.0.0.1:${server.address().port}`, { waitUntil: "domcontentloaded" });
+    const elapsed = Date.now() - started;
+    assert.ok(elapsed < 10_000, `profile took ${elapsed}ms`);
+    assert.match(await tab.$eval("body", (el) => el.textContent), /Budget Player/);
+    assert.match(await tab.$eval("body", (el) => el.textContent), /未取得：ランク履歴/);
+    assert.match(await tab.$eval("body", (el) => el.textContent), /Gold 1/);
+    assert.equal(calls, 5, "one account plus four reads; no per-match fanout");
+    console.log(`PASS: browser shows real profile + measured stats with one stalled API in ${elapsed}ms`);
+    await flush();
+    const key = app.profileCacheKey(account.name, account.tag, { mode: "competitive" });
+    const saved = await app.readProfileSnapshot(key, Date.now() + 1000);
+    assert.ok(saved, "late completion saves the full snapshot");
+    saved.bundle.capturedAt = new Date(Date.now() - 600_000).toISOString();
+    await app.writeProfileSnapshot(key, saved);
+    scenario = "all"; app.resetHenrikClient(); calls = 0;
+    const cacheStart = Date.now();
+    const cached = await page();
+    const cachedMs = Date.now() - cacheStart;
+    assert.ok(cachedMs < 500);
+    assert.match(cached, /保存したプロフィール/);
+    assert.equal(calls, 0, "SWR returns before starting deferred work");
+    globalThis.__accessDelay = 2_000;
+    assert.match(await page(), /Budget Player/, "a slow valid session must not be misclassified as logged out");
+    globalThis.__accessDelay = 0;
+    globalThis.__allowed = false;
+    assert.ok(!(await page()).includes("Budget Player"), "access is checked before serving snapshots");
+    globalThis.__allowed = true;
+    scenario = "private";
+    await flush();
+    assert.equal(await app.readProfileSnapshot(key, Date.now() + 1000), null,
+      "a private response must evict the snapshot, not become a stale fallback");
+    console.log(`PASS: stale snapshot returns in ${cachedMs}ms, is labelled, and remains access-gated`);
+    await reset("all");
+    const empty = await page();
+    assert.match(empty, /表示を保留/);
+    assert.ok(!empty.includes("K/D Ratio"), "unavailable data must not render as zero stats");
+    console.log("PASS: stalled histories show identity and unavailable state, never zero statistics");
+    await reset("identity");
+    const identity = await page();
+    assert.match(identity, /取得元の応答に時間/);
+    assert.match(identity, /aria-label="再試行"/);
+    console.log("PASS: unknown identity times out with retry rather than an endless skeleton");
+  } finally {
+    await browser?.close();
+    await new Promise((resolve) => server ? server.close(resolve) : resolve());
+    await flush();
+    globalThis.fetch = realFetch;
+  }
+})().catch((error) => { console.error(error); process.exitCode = 1; });

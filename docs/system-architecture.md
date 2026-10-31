@@ -2,6 +2,27 @@
 
 対象は `kiwamero-tracking/`。これは「実装済み」と「本番推奨」を混同しないためのメモ。
 
+## Profile Latency Budget (261101, Not Deployed)
+
+- A request-scoped absolute deadline starts at profile route entry (8 seconds),
+  including the access check, identity lookup, parallel source reads and optional
+  report/detail reads. Nav session reads have a separate 1.5s cap; profile
+  authorization has the full shared budget and fails closed with retry on timeout.
+- Rendering consumes successful sources plus typed `ProfileIssue` entries.
+  Missing data is not measured zero; affected aggregates/reports/share are withheld.
+- Complete successful bundles and stored rows are snapshotted in a bounded Map
+  and Cloudflare Cache API (per colo). Fresh for 60s, retained for 24h, max 1.8MB.
+  Keys isolate Riot ID, playlist and source selection. Authorization runs first.
+  Snapshot timestamps remain unchanged on reads; stale views are labelled.
+- `after` keeps late reads, cache refresh and D1 persistence alive after display.
+  Underlying reads retain dedupe; the foreground deadline does not cancel another
+  request's shared task. Invalid/private identities evict snapshots.
+- HTTP key rotations, quota waits and JSON parsing share one 15s transport budget.
+  Cache lookups/writes are best-effort with a 150ms wait cap.
+- This bounds application waiting, not physical delivery during network outages
+  or the availability of fresh upstream evidence. A cache miss with a slow
+  identity ends in a retry state; known identities can show honest partial data.
+
 ## Screenshot Search (2026-10-31, Not Deployed)
 
 - Home search opens a portalled native dialog, outside the manual search form.

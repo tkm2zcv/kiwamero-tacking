@@ -50,6 +50,10 @@ import { AccessGate } from "@/components/access-gate";
 import { getSiteAccess } from "@/lib/site-access";
 import { sameSiteInitiator } from "@/lib/fetch-metadata";
 import { headers } from "next/headers";
+import { after } from "next/server";
+import { beforeDeadline, deadlineAfter, hasTimeRemaining } from "@/lib/deadline";
+import { PROFILE_LOAD_BUDGET_MS } from "@/lib/profile-source";
+import { RefreshProfileButton } from "@/components/profile/refresh-profile-button";
 
 /** Max historical rows queued for one encounters render (details are immutable). */
 const ENCOUNTER_DETAIL_CAP = 150;
@@ -89,8 +93,18 @@ export default async function ProfilePage({
   params: Promise<{ id: string; tab?: string[] }>;
   searchParams: Promise<{ playlist?: string; act?: string; season?: string; played?: string; page?: string }>;
 }) {
+  const deadline = deadlineAfter(PROFILE_LOAD_BUDGET_MS);
   const hdrs = await headers();
-  const access = await getSiteAccess(hdrs);
+  const access = await beforeDeadline(getSiteAccess(hdrs), deadline).catch(() => null);
+  if (!access) {
+    const t = await getDict();
+    return (
+      <div className="kt-container kt-card-body" role="status">
+        <p>{t.profile.unavailableTimeout}</p>
+        <RefreshProfileButton inline />
+      </div>
+    );
+  }
   if (access.status !== "allowed") return <AccessGate status={access.status} />;
   // Cross-site navigations carry the ambient Lax session cookie; the profile
   // render performs implicit writes and paid upstream calls, so refuse them.
@@ -112,7 +126,7 @@ export default async function ProfilePage({
 
   return (
     <Suspense fallback={<ProfileRouteSkeleton />}>
-      <ProfileContent name={m[1]} tag={m[2]} activeTab={activeTab} basePath={basePath} playlist={playlist} act={act} played={played} page={page} />
+      <ProfileContent name={m[1]} tag={m[2]} activeTab={activeTab} basePath={basePath} playlist={playlist} act={act} played={played} page={page} deadline={deadline} />
     </Suspense>
   );
 }
@@ -126,6 +140,7 @@ async function ProfileContent({
   act,
   played,
   page,
+  deadline,
 }: {
   name: string;
   tag: string;
@@ -135,6 +150,7 @@ async function ProfileContent({
   act: string;
   played: "with" | "against";
   page: number;
+  deadline: number;
 }) {
   const isReport = activeTab === "assessment" || activeTab === "diagnosis";
   const mode = isReport ? "competitive" : playlist === "all" ? undefined : playlist;
@@ -146,6 +162,8 @@ async function ProfileContent({
       mode,
       includeRecentMatches: needsRecent,
       includeStoredMatches: needsStored,
+      deadline,
+      defer: after,
     }),
   ]);
   if (!result.ok) {
@@ -154,6 +172,7 @@ async function ProfileContent({
       private: t.profile.unavailablePrivate,
       rate_limited: t.profile.unavailableRateLimited,
       upstream: t.profile.unavailableUpstream,
+      timeout: t.profile.unavailableTimeout,
     } as const;
     return (
       <div className="kt-container">
@@ -164,6 +183,7 @@ async function ProfileContent({
           </h1>
           <p style={{ marginTop: 8, color: "var(--kt-red)", fontWeight: 700 }}>{t.profile.unavailableTitle}</p>
           <p style={{ marginTop: 6, color: "var(--kt-text-2)", fontSize: 14 }}>{messages[result.reason]}</p>
+          <RefreshProfileButton inline />
           <Link href="/" className="kt-btn kt-btn--secondary" style={{ marginTop: 20 }}>
             {t.nav.home}
           </Link>
@@ -173,6 +193,11 @@ async function ProfileContent({
   }
 
   const { profile, seasons, matches, teammates, capturedAt, source, unavailableRecentMatches = 0 } = result.bundle;
+  const issues = result.issues ?? [];
+  const missing = new Set(issues.map((issue) => issue.resource));
+  const noMatchData = missing.has("stored") && missing.has("recent");
+  const missingTabData = noMatchData || (isReport && missing.size > 0) ||
+    (missing.has("stored") && ["performance", "agents", "maps", "assessment", "diagnosis", "share"].includes(activeTab));
   const banner = profile.cardId ? playerCardArt(profile.cardId, "wideart") : null;
   const cardArt = profile.cardId ? playerCardArt(profile.cardId, "smallart") : null;
 
@@ -312,21 +337,21 @@ async function ProfileContent({
 
   const shareOrigin = activeTab === "share" ? await origin() : "";
 
-  const sidebar = (() => {
+  const sidebar = missingTabData ? null : (() => {
     switch (activeTab) {
       case "overview":
       case "share":
         return (
           <>
-            <TeammatesCard teammates={teammates} basePath={basePath} />
-            <ActivityCard counts={activityByDay(storedAll, 60, Date.parse(capturedAt))} capturedAt={capturedAt} />
+            {!missing.has("recent") ? <TeammatesCard teammates={teammates} basePath={basePath} /> : null}
+            {!missing.has("stored") ? <ActivityCard counts={activityByDay(storedAll, 60, Date.parse(capturedAt))} capturedAt={capturedAt} /> : null}
           </>
         );
       case "matches":
         return (
           <>
-            <TeammatesCard teammates={teammates} basePath={basePath} />
-            <ActivityCard counts={activityByDay(storedAll, 60, Date.parse(capturedAt))} capturedAt={capturedAt} />
+            {!missing.has("recent") ? <TeammatesCard teammates={teammates} basePath={basePath} /> : null}
+            {!missing.has("stored") ? <ActivityCard counts={activityByDay(storedAll, 60, Date.parse(capturedAt))} capturedAt={capturedAt} /> : null}
           </>
         );
       case "performance":
@@ -357,7 +382,9 @@ async function ProfileContent({
     }
   })();
 
-  const main = (() => {
+  const main = missingTabData ? (
+    <section className="kt-card kt-card-body" role="status">{t.profile.partialUnavailable}</section>
+  ) : (() => {
     switch (activeTab) {
       case "matches": {
         const pageHref = (n: number) => `${profileFilterHref(basePath, "matches", playlist, act)}&page=${n}`;
@@ -430,6 +457,7 @@ async function ProfileContent({
               played={played}
               basePath={basePath}
               playlist={playlist}
+              deadline={deadline}
             />
           </Suspense>
         );
@@ -442,6 +470,7 @@ async function ProfileContent({
               storedAll={storedAll}
               matches={matches}
               capturedAt={capturedAt}
+              deadline={deadline}
             />
           </Suspense>
         );
@@ -454,6 +483,7 @@ async function ProfileContent({
               storedAll={storedAll}
               matches={matches}
               capturedAt={capturedAt}
+              deadline={deadline}
             />
           </Suspense>
         );
@@ -467,7 +497,7 @@ async function ProfileContent({
       case "overview":
         return (
           <>
-            <OverviewCard profile={profile} matches={overviewMatches} stats={aggregate(storedScoped)} actLabel={actLabel} playlist={playlist} basePath={basePath} />
+            <OverviewCard profile={profile} matches={overviewMatches} stats={missing.has("stored") ? undefined : aggregate(storedScoped)} actLabel={actLabel} playlist={playlist} basePath={basePath} />
             <MatchesCard profile={profile} matches={overviewMatches} basePath={basePath} capturedAt={capturedAt} bare />
             <p style={{ fontSize: 12, lineHeight: "18px", color: "var(--kt-dim)", margin: 0 }}>
               Kiwamero Tracking isn&apos;t endorsed by Riot Games and doesn&apos;t reflect the views or opinions of
@@ -504,8 +534,9 @@ async function ProfileContent({
         banner={heroArt ?? banner}
         cardArt={cardArt}
         shareCard={shareCard}
+        shareAvailable={issues.length === 0}
         tabLabels={t.tabs as Record<string, string>}
-        heroExtra={
+        heroExtra={missing.has("rating") ? null :
           <div className="kt-hero-peak">
             <h3>Peak Rating</h3>
             <div className="kt-rating-entry">
@@ -521,6 +552,21 @@ async function ProfileContent({
           </div>
         }
       />
+      {result.cached ? (
+        <>
+          <p role="status" className="kt-card-body">
+            {t.profile.cachedData.replace("{time}", new Date(capturedAt).toLocaleString())}
+          </p>
+        </>
+      ) : null}
+      {issues.length ? (
+        <p role="status" className="kt-card-body">
+          {t.profile.partialData.replace("{resources}", issues.map((issue) => t.profile.resources[issue.resource]).join(", "))}
+          {" "}<RefreshProfileButton inline />
+        </p>
+      ) : null}
+      <QueuedRefresh active={Boolean(result.cached) || issues.some((issue) => issue.reason === "timeout")}
+        intervalMs={5_000} maxTicks={3} />
 
       {!isReport ? <FiltersBar
         basePath={basePath}
@@ -559,6 +605,7 @@ async function EncountersSection({
   played,
   basePath,
   playlist,
+  deadline,
 }: {
   visibleMatches: Match[];
   storedScoped: StoredRow[];
@@ -569,6 +616,7 @@ async function EncountersSection({
   played: "with" | "against";
   basePath: string;
   playlist: string;
+  deadline: number;
 }) {
   let encounterRows = storedScoped;
   if (act === "all") {
@@ -585,9 +633,9 @@ async function EncountersSection({
   // HenrikDev's stored endpoint carries no rosters. Render recent and archived
   // details immediately, then let the shared background queue fill the rest.
   const uncovered = selectUncoveredMatchIds(encounterRows, recentIds, ENCOUNTER_DETAIL_CAP);
-  const archived = await readArchivedMatches(uncovered);
+  const archived = await beforeDeadline(readArchivedMatches(uncovered), deadline).catch(() => new Map());
   const queuedIds = uncovered.filter((id) => !archived.has(id));
-  if (queuedIds.length) await queueMatchDetails(queuedIds);
+  if (queuedIds.length) after(async () => { await queueMatchDetails(queuedIds); });
   const coveredIds = new Set([...recentIds, ...archived.keys()]);
   const covered = encounterRows.filter((r) => r.id && coveredIds.has(r.id)).length;
   // Archived payloads written before the stricter guard can be unreadable;
@@ -625,11 +673,12 @@ type ReportInput = {
   storedAll: StoredRow[];
   matches: Match[];
   capturedAt: string;
+  deadline: number;
 };
 
-async function AssessmentReport({ profile, seasons, storedAll, matches, capturedAt }: ReportInput) {
+async function AssessmentReport({ profile, seasons, storedAll, matches, capturedAt, deadline }: ReportInput) {
   const [archived, locale] = await Promise.all([
-    loadAuditHistory(profile.puuid).catch(() => null),
+    beforeDeadline(loadAuditHistory(profile.puuid), deadline).catch(() => null),
     getLocale(),
   ]);
   const report = buildAccountReport({
@@ -645,11 +694,15 @@ async function AssessmentReport({ profile, seasons, storedAll, matches, captured
   return <AccountAudit profile={profile} report={report} />;
 }
 
-async function DiagnosisReport({ profile, seasons, storedAll, matches, capturedAt }: ReportInput) {
+async function DiagnosisReport({ profile, seasons, storedAll, matches, capturedAt, deadline }: ReportInput) {
   const ids = selectDiagnosisDetailIds(storedAll, matches, profile.puuid, capturedAt);
+  const work = hasTimeRemaining(deadline)
+    ? Promise.allSettled(ids.map(async (id) => normalizeHDMatch(await getMatch(id))))
+    : Promise.resolve([]);
+  after(async () => { await work; });
   const [locale, details] = await Promise.all([
     getLocale(),
-    Promise.allSettled(ids.map(async (id) => normalizeHDMatch(await getMatch(id)))),
+    beforeDeadline(work, deadline).catch(() => []),
   ]);
   const rosterMatches = [
     ...matches,

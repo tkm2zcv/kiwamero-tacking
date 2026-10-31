@@ -5,7 +5,8 @@ import type {
 import { getAccount, getMatches, getMmr, getMmrHistory, getStoredMatches, tierIcon } from "./henrikdev";
 import type { HDStoredMatch } from "./henrik-model";
 import { normalizeHDMatches } from "./match-normalize";
-import { loadProfileSource, type ProfileFailure, type ProfileSourceData } from "./profile-source";
+import { loadProfileSource, PROFILE_LOAD_BUDGET_MS, type ProfileFailure, type ProfileIssue, type ProfileLoadOptions, type ProfileSourceData, type ProfileSourceResult } from "./profile-source";
+import { deleteProfileSnapshot, profileCacheKey, PROFILE_FRESH_MS, readProfileSnapshot, refreshProfileSnapshot, writeProfileSnapshot } from "./profile-cache";
 import { summarize } from "./profile-stats";
 import seedProfile from "@/data/profile.json";
 import seedMatches from "@/data/matches.json";
@@ -90,7 +91,10 @@ function buildTeammates(matches: Match[], puuid: string): Teammate[] {
 
 function buildLiveBundle({ account, mmr, hdMatches, history }: ProfileSourceData): ProfileBundle {
     const region = account.region;
-    const { matches, unavailable } = normalizeHDMatches(hdMatches);
+    const normalized = normalizeHDMatches(hdMatches);
+    // No profile UI consumes event blobs; avoid serializing them to the browser.
+    const matches = normalized.matches.map((match) => ({ ...match, rounds: undefined }));
+    const unavailable = normalized.unavailable;
     const bySeason = mmr?.by_season ?? {};
     const seasonCodes = Object.keys(bySeason);
     // Peak rank rating reached within each act, from MMR history.
@@ -171,19 +175,54 @@ function normalizeSeedMatches(raw: unknown): Match[] {
 }
 
 export type ProfileResult =
-  | { ok: true; bundle: ProfileBundle; storedMatches: HDStoredMatch[] }
+  | { ok: true; bundle: ProfileBundle; storedMatches: HDStoredMatch[]; issues?: ProfileIssue[]; cached?: boolean }
   | { ok: false; reason: ProfileFailure };
 
 export async function loadProfile(
   name: string,
   tag: string,
-  opts?: { mode?: string; includeRecentMatches?: boolean; includeStoredMatches?: boolean },
+  opts?: ProfileLoadOptions & { defer?: (task: () => Promise<void>) => void },
 ): Promise<ProfileResult> {
+  const deadline = opts?.deadline ?? Date.now() + PROFILE_LOAD_BUDGET_MS;
+  const key = profileCacheKey(name, tag, opts);
+  const save = async (completed: ProfileSourceResult) => {
+    if (completed.ok && !completed.issues.length) {
+      const bundle = buildLiveBundle(completed.data);
+      await writeProfileSnapshot(key, { bundle, storedMatches: completed.data.storedMatches });
+    } else if (completed.ok ? completed.issues.some((issue) => issue.reason === "private") :
+      completed.reason === "not_found" || completed.reason === "private") {
+      await deleteProfileSnapshot(key);
+    }
+  };
+  // Only use SWR when the host can guarantee the refresh survives the response.
+  const snapshot = opts?.defer ? await readProfileSnapshot(key, deadline) : null;
+  if (snapshot) {
+    const cached = Date.now() - Date.parse(snapshot.bundle.capturedAt) >= PROFILE_FRESH_MS;
+    if (cached) refreshProfileSnapshot(key, opts!.defer!, async () => {
+      let completion: Promise<ProfileSourceResult> | undefined;
+      await loadProfileSource(
+        { getAccount, getMatches, getMmr, getMmrHistory, getStoredMatches },
+        name, tag, { ...opts, deadline: Date.now() + PROFILE_LOAD_BUDGET_MS,
+          background: (task) => { completion = task; } },
+      );
+      if (completion) await save(await completion);
+    });
+    return { ok: true, ...snapshot, cached };
+  }
   const result = await loadProfileSource(
-    { getAccount, getMatches, getMmr, getMmrHistory, getStoredMatches }, name, tag, opts,
+    { getAccount, getMatches: (region, puuid, query) => getMatches(region, puuid, { ...query, defer: opts?.defer }),
+      getMmr, getMmrHistory, getStoredMatches }, name, tag,
+    { ...opts, deadline, background: opts?.defer ? (completion) => opts.defer!(async () => {
+      await save(await completion);
+    }) : undefined },
   );
   if (result.ok) {
-    return { ok: true, bundle: buildLiveBundle(result.data), storedMatches: result.data.storedMatches };
+    const bundle = buildLiveBundle(result.data);
+    if (result.issues.some((issue) => issue.resource === "rating")) {
+      bundle.profile.currentRank = "Unknown";
+      bundle.profile.peakRank = "Unknown";
+    }
+    return { ok: true, bundle, storedMatches: result.data.storedMatches, issues: result.issues };
   }
   // A labelled seed is allowed on upstream outages, never on private/quota/not-found responses.
   const seed = seedProfile as unknown as Omit<ProfileBundle, "matches" | "source">;

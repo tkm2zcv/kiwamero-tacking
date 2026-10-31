@@ -6,16 +6,18 @@ import { getDict } from "@/lib/i18n/server";
 import { LangSwitcher } from "./lang-switcher";
 import { UserMenu } from "./user-menu";
 import { SearchIcon } from "lucide-react";
+import { beforeDeadline, deadlineAfter } from "@/lib/deadline";
 
 export async function SiteNav() {
   const t = await getDict();
   const requestHeaders = await headers();
-  const session = await auth.api.getSession({ headers: requestHeaders }).catch(() => null);
+  const deadline = deadlineAfter(1_500);
+  const session = await beforeDeadline(auth.api.getSession({ headers: requestHeaders }), deadline).catch(() => null);
   const discordAccount = session
-    ? await queryOne<{ accountId: string }>(
+    ? await beforeDeadline(queryOne<{ accountId: string }>(
         `SELECT "accountId" FROM "Account" WHERE "userId" = ? AND "providerId" = 'discord' LIMIT 1`,
         [session.user.id],
-      ).catch(() => null)
+      ), deadline).catch(() => null)
     : null;
 
   return (

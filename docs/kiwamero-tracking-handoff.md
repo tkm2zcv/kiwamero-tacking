@@ -12,6 +12,13 @@
   プロフィールrouteにローカライズ済み `error.tsx`（再試行/ホーム遷移）を追加。
 - `hdMatchPlayers` はnull安全化、`normalizeHDMatch` 単体は不完全データで
   型付き `HenrikDevError(502)` を投げる。FFAの `teams:null` は許容する。
+- レビュー後追修正: アップグレード前にD1へ保存済みの古いアーカイブ行は
+  `assists`/`name`/`tag`/`map.name` を持たない可能性があり、Encountersタブと
+  `loadAuditHistory` が1件で全体を落としていた。両読み出し経路を
+  `normalizeHDMatches` による行単位スキップに変更。
+- チーム戦(Red/Blue)でteamsがnull/空/中身なしでも0-0引き分けに化ける穴を塞ぎ、
+  usesTeams時は各サイドの実スコア存在を要求。FFAの`teams:[]`/`{}`は許容。
+- error.tsxにi18nフォールバック文字列、検証ツールのalias堅牢化を追加。
 - 回帰: match-normalize/profile-source テスト追加、`tools/check-profile-loading.cjs`
   が実パイプライン＋ブラウザerror UIを検証。npm run check 通過（192 tests）。
 - 本番 `tracking.kiwamero.dev` で間欠的に `/` `/watchlist` GETが30s+ハングし

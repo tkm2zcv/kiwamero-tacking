@@ -40,9 +40,20 @@ function readableMatch(value: unknown): value is HDMatch {
       ["score", "kills", "deaths", "assists"].every((key) =>
         typeof stats[key] === "number" && Number.isFinite(stats[key]) && stats[key] >= 0);
   })) return false;
-  if (value.teams != null && !record(value.teams)) return false;
-  const competitive = String(meta.mode_id || meta.mode || "").toLowerCase() === "competitive";
-  if (competitive && (!record(value.teams) || !record(value.teams.red) || !record(value.teams.blue))) return false;
+  // `teams` may be absent (null or an empty array) only when the roster does not
+  // split into red/blue sides. Team modes require real per-side score data —
+  // hollow records would silently fabricate a 0-0 draw.
+  const usesTeams = players.some((p) =>
+    ["red", "blue"].includes(String((p as Record<string, unknown>).team ??
+      (p as Record<string, unknown>).team_id ?? "").toLowerCase()));
+  const teamsAbsent = value.teams == null || Array.isArray(value.teams);
+  if (usesTeams) {
+    if (teamsAbsent || !record(value.teams)) return false;
+    const side = (t: unknown) => record(t) &&
+      (typeof t.has_won === "boolean" || typeof t.won === "boolean" ||
+       typeof t.rounds_won === "number" || record(t.rounds));
+    if (!side(value.teams.red) || !side(value.teams.blue)) return false;
+  } else if (!teamsAbsent && !record(value.teams)) return false;
   return true;
 }
 

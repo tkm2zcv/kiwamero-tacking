@@ -6,7 +6,7 @@ import { loadProfile } from "@/lib/data";
 import { formatAct } from "@/lib/profile-stats";
 import { createActFilter, filterProfileMatches, profileFilterHref, selectUncoveredMatchIds } from "@/lib/profile-filters";
 import { getMatch, playerCardArt, tierIcon, tierName } from "@/lib/henrikdev";
-import { normalizeHDMatch } from "@/lib/match-normalize";
+import { normalizeHDMatch, normalizeHDMatches } from "@/lib/match-normalize";
 import { queueMatchDetails, readArchivedMatches } from "@/lib/match-archive";
 import type { Match, Profile, SeasonRank } from "@/lib/types";
 import {
@@ -585,7 +585,9 @@ async function EncountersSection({
   if (queuedIds.length) await queueMatchDetails(queuedIds);
   const coveredIds = new Set([...recentIds, ...archived.keys()]);
   const covered = encounterRows.filter((r) => r.id && coveredIds.has(r.id)).length;
-  const encounterMatches = [...visibleMatches, ...[...archived.values()].map(normalizeHDMatch)];
+  // Archived payloads written before the stricter guard can be unreadable;
+  // skip them per-match instead of failing the whole encounters section.
+  const encounterMatches = [...visibleMatches, ...normalizeHDMatches([...archived.values()]).matches];
   const playedHref = (p: "with" | "against") => profileFilterHref(basePath, "encounters", playlist, act, p);
 
   return (

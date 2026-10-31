@@ -26,9 +26,11 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
       name: "offline-profile-sources",
       setup(build) {
         build.onResolve({ filter: /^server-only$/ }, () => ({ path: "empty", namespace: "fixture" }));
-        build.onResolve({ filter: /^\.\/henrikdev$/ }, () => ({ path: "provider", namespace: "fixture" }));
-        build.onResolve({ filter: /^\.\/henrik-client\.ts$/ }, args =>
-          args.importer.endsWith("profile-source.ts") ? { path: path.join(root, "src/lib/henrik-errors.ts") } : undefined);
+        build.onResolve({ filter: /^\.\/henrikdev(\.ts)?$/ }, () => ({ path: "provider", namespace: "fixture" }));
+        // The fixture bundle never needs the real HTTP layer; remapping it to the
+        // error class keeps every HenrikDevError instanceof check on one class.
+        build.onResolve({ filter: /^\.\/henrik-client\.ts$/ },
+          () => ({ path: path.join(root, "src/lib/henrik-errors.ts") }));
         build.onLoad({ filter: /.*/, namespace: "fixture" }, ({ path }) => ({ contents: path === "empty" ? "" : `
           export const getAccount = async () => globalThis.__profileAccount;
           export const getMmr = async () => ({});
@@ -39,6 +41,8 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
       },
     }],
   });
+  assert.ok(!build.outputFiles[0].text.includes("api.henrikdev.xyz"),
+    "fixture bundle must not contain the real upstream client");
   const fixtureModule = new Module(path.join(root, ".tmp/profile-loading-fixture.cjs"), module);
   fixtureModule.paths = module.paths;
   fixtureModule._compile(build.outputFiles[0].text, fixtureModule.id);

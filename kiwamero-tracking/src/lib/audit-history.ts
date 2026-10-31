@@ -1,7 +1,7 @@
 import { execute, queryAll, queryOne } from "./db.ts";
-import { MATCH_ID, type HDMatch } from "./henrik-model.ts";
+import { MATCH_ID } from "./henrik-model.ts";
 import { auditTimeline, validAuditRows } from "./audit-timeline.ts";
-import { normalizeHDMatch } from "./match-normalize.ts";
+import { normalizeHDMatches } from "./match-normalize.ts";
 import { HenrikDevError } from "./henrik-errors.ts";
 import type { StoredRow } from "./stored-stats";
 import {
@@ -116,6 +116,8 @@ export async function loadAuditHistory(puuid: string) {
     "SELECT payload FROM MatchArchive WHERE payload IS NOT NULL AND matchId IN (SELECT value FROM json_each(?))",
     [JSON.stringify(ids)],
   ) : [];
-  const rosters = raw.map((r) => normalizeHDMatch(JSON.parse(r.payload) as HDMatch));
+  const rosters = normalizeHDMatches(raw.map((r) => {
+    try { return JSON.parse(r.payload); } catch { return null; }
+  })).matches;
   return { rows, rosters, coverage: await auditCoverage(puuid) };
 }

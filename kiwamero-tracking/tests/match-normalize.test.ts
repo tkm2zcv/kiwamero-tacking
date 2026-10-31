@@ -164,12 +164,51 @@ test("single incomplete matches fail with a typed provider error, not a null der
 
 test("FFA matches may have null teams, but unavailable competitive scores and player stats are not fabricated", () => {
   const valid = hd(), person = hdMatchPlayers(valid)[0];
-  const ffa = hd({ metadata: { ...valid.metadata, mode: "Deathmatch", mode_id: "deathmatch" }, teams: null });
-  assert.equal(normalizeHDMatches([ffa]).matches.length, 1);
+  const ffaMeta = { ...valid.metadata, mode: "Deathmatch", mode_id: "deathmatch" };
+  for (const teams of [null, [], {}]) {
+    const ffa = hd({
+      metadata: ffaMeta, teams,
+      players: [{ ...person, team: undefined, team_id: undefined }],
+    });
+    assert.equal(normalizeHDMatches([ffa]).matches.length, 1, `teams=${JSON.stringify(teams)}`);
+  }
   for (const missing of [null, undefined, "12", Number.NaN, -1]) {
     const raw = hd({ players: [{ ...person, stats: { ...person.stats, kills: missing } }] });
     assert.deepEqual(normalizeHDMatches([raw]), { matches: [], unavailable: 1 });
   }
   assert.deepEqual(hdMatchPlayers(null), []);
   assert.deepEqual(hdMatchPlayers(hd({ players: { all_players: {} } })), []);
+});
+
+test("hollow team records cannot fabricate a draw in any team-based mode", () => {
+  for (const [mode, mode_id] of [["Competitive", "competitive"], ["Unrated", "unrated"]]) {
+    for (const teams of [{}, { red: {}, blue: {} }, null]) {
+      const raw = hd({
+        metadata: { ...hd().metadata, mode, mode_id },
+        teams: teams === null ? null : teams,
+      });
+      // `teams: null` in a team mode is also rejected — wins would be invented.
+      assert.deepEqual(normalizeHDMatches([raw]), { matches: [], unavailable: 1 },
+        `${mode} teams=${JSON.stringify(teams)}`);
+    }
+  }
+});
+
+test("one malformed player marks the whole match unavailable rather than a partial roster", () => {
+  const valid = hd(), person = hdMatchPlayers(valid)[0];
+  const roster = Array.from({ length: 10 }, () => ({ ...person }));
+  const broken = { ...person, name: null };
+  const raw = hd({ players: [...roster, broken] });
+  assert.deepEqual(normalizeHDMatches([raw]), { matches: [], unavailable: 1 });
+});
+
+test("archived payloads are skipped per-match when older writes fail the stricter guard", () => {
+  const good = hd();
+  const staleWrite = hd({ players: [{ ...hdMatchPlayers(good)[0], tag: null }] });
+  const payloads = [good, staleWrite].map((m) => {
+    try { return JSON.parse(JSON.stringify(m)); } catch { return null; }
+  });
+  const result = normalizeHDMatches(payloads);
+  assert.equal(result.matches.length, 1);
+  assert.equal(result.unavailable, 1);
 });

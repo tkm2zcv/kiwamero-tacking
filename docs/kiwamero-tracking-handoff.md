@@ -1,5 +1,19 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 261101 - Entry Hang Compatibility Fix (Rollout Pending)
+
+- Intermittent anonymous page hangs reproduce in HTTP and Chrome. Session API
+  and assets remain fast; tail shows canceled low-CPU HTML requests.
+- Real built `getModuleLoadingSignal()` was still global: OpenNext's AST rule
+  matches `CacheSignal()` but Next 16.4.3 now passes `null`.
+- `tools/build-worker.cjs` adjusts that existing rule in memory, preserves args,
+  then runs the normal CLI. It verifies the actual Next source and final generated
+  Worker both contain request-local signal scoping. Never bypass this build step.
+- `npm run build:worker` / `npm run deploy` include the fix. No package edits,
+  credential rotation, auth relaxation, schema migration or manual notifications.
+- 247 tests + lint/typecheck + Worker build pass. Live rollout and repeated browser
+  checks are approved and still pending at this entry's creation.
+
 ## 261101 - Profile Loading Budget (Deployed)
 
 - User target: useful profile within 10 seconds rather than intermittent long waits.

@@ -1,5 +1,23 @@
 # Project Changelog
 
+## 261101 - Intermittent Entry Request Hangs (Rollout Pending)
+
+- Anonymous HTML requests sometimes received no headers for 8-12s, while the
+  session API/static assets were fast. Worker tail recorded canceled requests
+  with about 10ms CPU and 42-103s wall time, plus waitUntil cancellation warnings.
+- Next 16.4.3 uses `new CacheSignal(null)`. OpenNext 1.20.13's module-loading AST
+  compatibility patch only matches `CacheSignal()`, silently leaving a global
+  timer-backed signal shared across requests in the deployed bundle.
+- `tools/build-worker.cjs` extends the existing upstream rule to preserve
+  constructor arguments and applies it in memory before the adapter builds.
+  Installed packages stay untouched. Both the source patch and generated Worker
+  are checked for request-local scoping; incompatible builds fail closed.
+- The `build:worker` workflow uses this wrapper. No timeout, authentication,
+  data/schema or dependency version changes.
+- 247/247 tests, lint/typecheck and OpenNext build pass. Tests execute the actual
+  patched Next module, verify per-request identity/null arguments, retain legacy
+  no-argument support, and reject a missing compatibility patch.
+
 ## 261101 - Bounded Profile Loading (Deployed)
 
 - One absolute 8s foreground deadline includes the profile access gate and all

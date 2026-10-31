@@ -2,6 +2,17 @@
 
 対象は `kiwamero-tracking/`。これは「実装済み」と「本番推奨」を混同しないためのメモ。
 
+## Request-Local Module Loading (261101)
+
+- Workers timer ownership is request-scoped. Next's module-loading `CacheSignal`
+  must not be shared between requests; OpenNext supplies a patch for this.
+- Next 16.4's `CacheSignal(null)` missed the adapter 1.20.13 zero-argument AST rule.
+  `tools/build-worker.cjs` extends that rule in memory before building, preserves
+  constructor args, and verifies source/bundle scoping. This is a build-compatibility
+  fix, not a global timer override or application timeout workaround.
+- Keep `npm run build:worker` as the deployment path. If adapter/Next changes break
+  the checked rule, review compatibility rather than deleting the build guard.
+
 ## Profile Latency Budget (261101, Deployed)
 
 - A request-scoped absolute deadline starts at profile route entry (8 seconds),

@@ -207,6 +207,9 @@ npm run build:worker # OpenNext (Workers) バンドル
 - OpenNext のビルドは Windows でシンボリックリンク作成に失敗するため、
   `npm run build:worker` は `tools/fs-symlink-fallback.cjs` を preload して
   コピーにフォールバックします (WSL/CI では不要)。
+- `build:worker` はさらに `tools/build-worker.cjs` で、Next 16.4の
+  `CacheSignal(null)` にOpenNextのリクエスト分離パッチを適用し、生成Workerも検査します。
+  CLI直呼びではこの互換修正を通らないため、必ずnpmスクリプトを使ってください。
 - Windows で `wrangler dev` / `wrangler d1` が `miniflare-email-store` の
   `CreateDirectory: Access denied` で落ちる場合は `%TEMP%` 書込みブロックが原因。
   `TMP`/`TEMP` をプロジェクト内ディレクトリに向けて実行してください。

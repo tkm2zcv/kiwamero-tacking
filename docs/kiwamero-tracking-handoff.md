@@ -31,6 +31,10 @@
   `miniflare-email-store` 作成がOS側で拒否される（アクセス拒否 #5）。
 - 回避: `OPEN_NEXT_DEPLOY=true npx wrangler deploy`。委譲とMiniflare起動を
   スキップしwrangler本体のdeployのみ実行。既存シークレットは保持される。
+- 標準手順は `npm run deploy`（tools/deploy.cjs: build→scrub→上記フラグ付き
+  deploy）。scrub が OpenNext が埋め込む `.env` 値を next-env.mjs から除去
+  するので必ず通すこと。TMP系が AppData\Temp に書けない環境では
+  `TMP=.tmp/tmpdir TEMP=.tmp/tmpdir npm run deploy`。
 - 今回のデプロイで 7f857d1/93c6d5d/161c74f/ab5e804/78a405a が一括本番化
   （スクリーンショット検索、PaddleOCR資産、監視画像通知、null耐性）。
 - 本番確認: `/` `/login` `/watchlist` が200・高速、OCR assets.json 200。

@@ -13,7 +13,7 @@
     "build:worker": "node -r ./tools/fs-symlink-fallback.cjs node_modules/@opennextjs/cloudflare/dist/cli/index.js build",
     "preview:worker": "node -r ./tools/fs-symlink-fallback.cjs node_modules/@opennextjs/cloudflare/dist/cli/index.js preview",
     "scrub:bundle": "node tools/scrub-deploy-bundle.cjs",
-    "deploy": "npm run build:worker && npm run scrub:bundle && wrangler deploy"
+    "deploy": "node tools/deploy.cjs"
   },
   "dependencies": {
     "@resvg/resvg-wasm": "^2.6.2",

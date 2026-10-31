@@ -1,5 +1,23 @@
 # Project Changelog
 
+## 2026-10-31 — Resilient match history rendering
+
+- HenrikDev can return 200 responses whose match list contains null or
+  structurally incomplete entries (observed: `metadata` null, `map` null).
+  `normalizeHDMatch` dereferenced `m.metadata.map` and crashed the whole
+  profile page for every visitor of affected players.
+- `normalizeHDMatches` now validates each row's structural readability and
+  skips only the broken ones; `loadProfile` reports
+  `unavailableRecentMatches` so the page can state "{count} recent matches
+  could not be read" instead of counting them as zero-stat matches.
+- Non-array history containers are labelled `upstream` failures instead of
+  render exceptions. A localized `error.tsx` boundary on the profile route
+  offers retry/home without requiring a server restart.
+- New regressions cover null metadata, null players/teams, missing stats,
+  FFA null teams and pipeline-level behaviour; `tools/check-profile-loading.cjs`
+  exercises the real `loadProfile` pipeline plus the browser error UI.
+
+
 ## 2026-10-31 — PaddleOCR adoption with exact name spacing (not deployed)
 
 - Replaced Tesseract with self-hosted pure-onnx-ocr 0.3.1 / PP-OCRv6 small.

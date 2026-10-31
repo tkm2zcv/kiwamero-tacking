@@ -1,5 +1,24 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 2026-10-31 試合履歴のnull耐性・プロフィールの障害境界
+
+- HenrikDevがHTTP200でも `metadata:null`・`map:null`・`players:null` 等の
+  不完全行を返すことがあり、`normalizeHDMatch` がnull参照でプロフィール全体を
+  クラッシュさせていた（ユーザーの「読み込まない」報告の直接原因）。
+- `normalizeHDMatches` が各試合の構造的読み取り可能性を検証し、壊れた行だけを
+  除外。除外数は `unavailableRecentMatches` としてバンドルに入り、ページ上に
+  「読み取れない試合がN件」と明示（0件扱いにしない）。有効試合は通常表示。
+- 履歴の入れ物自体が配列でない場合は `upstream` 障害として既存の取得不可画面へ。
+  プロフィールrouteにローカライズ済み `error.tsx`（再試行/ホーム遷移）を追加。
+- `hdMatchPlayers` はnull安全化、`normalizeHDMatch` 単体は不完全データで
+  型付き `HenrikDevError(502)` を投げる。FFAの `teams:null` は許容する。
+- 回帰: match-normalize/profile-source テスト追加、`tools/check-profile-loading.cjs`
+  が実パイプライン＋ブラウザerror UIを検証。npm run check 通過（192 tests）。
+- 本番 `tracking.kiwamero.dev` で間欠的に `/` `/watchlist` GETが30s+ハングし
+  `waitUntil cancelled` を観測（`src/lib/db.ts` に記録済みのコールド起動パターン）。
+  本修正に直接関係しない継続監視案件。
+
+
 ## 2026-10-31 PaddleOCR採用・正当な空白を保持（未コミット・未デプロイ）
 
 - Tesseractを除去し、pure-onnx-ocr 0.3.1のsingle-thread WASMと日本語対応

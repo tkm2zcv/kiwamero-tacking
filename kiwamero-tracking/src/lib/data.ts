@@ -4,7 +4,7 @@ import type {
 } from "./types";
 import { getAccount, getMatches, getMmr, getMmrHistory, getStoredMatches, tierIcon } from "./henrikdev";
 import type { HDStoredMatch } from "./henrik-model";
-import { normalizeHDMatch } from "./match-normalize";
+import { normalizeHDMatches } from "./match-normalize";
 import { loadProfileSource, type ProfileFailure, type ProfileSourceData } from "./profile-source";
 import { summarize } from "./profile-stats";
 import seedProfile from "@/data/profile.json";
@@ -90,7 +90,7 @@ function buildTeammates(matches: Match[], puuid: string): Teammate[] {
 
 function buildLiveBundle({ account, mmr, hdMatches, history }: ProfileSourceData): ProfileBundle {
     const region = account.region;
-    const matches = hdMatches.map(normalizeHDMatch);
+    const { matches, unavailable } = normalizeHDMatches(hdMatches);
     const bySeason = mmr?.by_season ?? {};
     const seasonCodes = Object.keys(bySeason);
     // Peak rank rating reached within each act, from MMR history.
@@ -156,6 +156,7 @@ function buildLiveBundle({ account, mmr, hdMatches, history }: ProfileSourceData
       capturedAt: new Date().toISOString(),
       matches,
       source: "henrikdev",
+      ...(unavailable ? { unavailableRecentMatches: unavailable } : {}),
     };
     return bundle;
 }

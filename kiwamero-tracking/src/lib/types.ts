@@ -164,4 +164,6 @@ export interface ProfileBundle {
   capturedAt: string;
   matches: Match[];
   source: "henrikdev" | "seed";
+  /** Unavailable provider rows excluded from recent-match statistics, not counted as zeroes. */
+  unavailableRecentMatches?: number;
 }

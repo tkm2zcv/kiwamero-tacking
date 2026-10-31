@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeHDMatch } from "../src/lib/match-normalize.ts";
+import { hdMatchPlayers, normalizeHDMatch, normalizeHDMatches } from "../src/lib/match-normalize.ts";
+import { HenrikDevError } from "../src/lib/henrik-errors.ts";
 import type { HDMatch } from "../src/lib/henrik-model.ts";
 import { tierName } from "../src/lib/henrik-shared.ts";
 
@@ -136,4 +137,39 @@ test("normalizeHDMatch tolerates missing optional fields", () => {
   assert.equal(m.teams.blue.rounds_won, 0);
   assert.equal(m.players[0].damage_made, undefined);
   assert.equal(m.players[0].ability_casts, undefined);
+});
+
+test("null-metadata history placeholders cannot crash valid matches or become zero-stat matches", () => {
+  const valid = hd();
+  const invalid = [null, hd({ metadata: null }), hd({ metadata: { ...valid.metadata, map: null } }),
+    hd({ players: null }), hd({ players: { all_players: null } }), hd({ players: [null] }),
+    hd({ players: [{ ...hdMatchPlayers(valid)[0], stats: null }] }), hd({ teams: null })];
+  const before = structuredClone(valid);
+  const result = normalizeHDMatches([...invalid, valid]);
+  assert.equal(result.matches.length, 1);
+  assert.equal(result.matches[0].metadata.matchid, valid.metadata.matchid);
+  assert.equal(result.matches[0].players[0].stats.kills, 20);
+  assert.equal(result.unavailable, invalid.length);
+  assert.deepEqual(valid, before);
+  assert.deepEqual(normalizeHDMatches(invalid), { matches: [], unavailable: invalid.length });
+});
+
+test("single incomplete matches fail with a typed provider error, not a null dereference", () => {
+  for (const raw of [null, hd({ metadata: null }), hd({ metadata: { matchid: "m1", map: null } })]) {
+    assert.throws(() => normalizeHDMatch(raw as HDMatch), e => e instanceof HenrikDevError && e.status === 502);
+  }
+  assert.throws(() => normalizeHDMatches({}), e => e instanceof HenrikDevError && e.status === 502);
+  assert.deepEqual(normalizeHDMatches([]), { matches: [], unavailable: 0 });
+});
+
+test("FFA matches may have null teams, but unavailable competitive scores and player stats are not fabricated", () => {
+  const valid = hd(), person = hdMatchPlayers(valid)[0];
+  const ffa = hd({ metadata: { ...valid.metadata, mode: "Deathmatch", mode_id: "deathmatch" }, teams: null });
+  assert.equal(normalizeHDMatches([ffa]).matches.length, 1);
+  for (const missing of [null, undefined, "12", Number.NaN, -1]) {
+    const raw = hd({ players: [{ ...person, stats: { ...person.stats, kills: missing } }] });
+    assert.deepEqual(normalizeHDMatches([raw]), { matches: [], unavailable: 1 });
+  }
+  assert.deepEqual(hdMatchPlayers(null), []);
+  assert.deepEqual(hdMatchPlayers(hd({ players: { all_players: {} } })), []);
 });

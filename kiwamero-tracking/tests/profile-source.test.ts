@@ -76,3 +76,12 @@ test("tabs can skip recent rosters and stored history independently", async () =
     assert.equal(result.data.storedMatches.length, 0);
   }
 });
+
+for (const resource of ["getMatches", "getMmrHistory", "getStoredMatches"] as const) {
+  test(`${resource} with an invalid list container is a labelled upstream failure, not a render exception`, async () => {
+    const result = await loadProfileSource({
+      ...sources, [resource]: async () => null as never,
+    }, "Player", "TAG");
+    assert.deepEqual(result, { ok: false, reason: "upstream" });
+  });
+}

@@ -44,6 +44,9 @@ export async function loadProfileSource(
       emptyOnNotFound(sources.getMmrHistory(region, puuid), []),
       stored ? emptyOnNotFound(sources.getStoredMatches(region, puuid, { mode: opts?.mode }), []) : Promise.resolve([]),
     ]);
+    if (![hdMatches, history, storedMatches].every(Array.isArray)) {
+      throw new HenrikDevError(502, "Invalid profile history");
+    }
     return { ok: true, data: { account, mmr, hdMatches, history, storedMatches } };
   } catch (error) {
     const status = error instanceof HenrikDevError ? error.status : undefined;

@@ -167,7 +167,7 @@ async function ProfileContent({
     );
   }
 
-  const { profile, seasons, matches, teammates, capturedAt, source } = result.bundle;
+  const { profile, seasons, matches, teammates, capturedAt, source, unavailableRecentMatches = 0 } = result.bundle;
   const banner = profile.cardId ? playerCardArt(profile.cardId, "wideart") : null;
   const cardArt = profile.cardId ? playerCardArt(profile.cardId, "smallart") : null;
 
@@ -529,6 +529,11 @@ async function ProfileContent({
       {source === "seed" ? (
         <p role="status" style={{ padding: 12, fontSize: 12, color: "#e6d28c" }}>
           Live data is unavailable; showing a cached sample for Meiy#B3L.
+        </p>
+      ) : null}
+      {unavailableRecentMatches > 0 ? (
+        <p role="status" style={{ padding: 12, fontSize: 13, color: "var(--kt-text-2)" }}>
+          {t.profile.incompleteMatches.replace("{count}", String(unavailableRecentMatches))}
         </p>
       ) : null}
       <div className={`kt-columns${sidebar ? "" : " kt-columns--full"}`}>

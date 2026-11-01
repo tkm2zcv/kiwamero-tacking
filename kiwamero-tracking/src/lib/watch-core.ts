@@ -237,26 +237,24 @@ export function buildMatchEmbed(
     `ACS ${match.acs}`,
   ]);
   const watchedText = `**[${player.name}#${player.tag}](${profileUrl})**\n${watchedStats}`;
-  const partyText = match.partyMembers.length
-    ? match.partyMembers
-        .map((m) => {
-          const link = `**[${m.name}#${m.tag}](${watchProfileUrl(m.name, m.tag)})**`;
-          const stats = statCodes([
-            m.agent,
-            m.rank,
-            `K/D/A ${m.kills}/${m.deaths}/${m.assists}`,
-            `K/D ${matchKd(m.kills, m.deaths)}`,
-          ]);
-          const meta = statCodes([
-            m.season
-              ? `szn K/D ${(m.season.deaths ? m.season.kills / m.season.deaths : m.season.kills).toFixed(2)}`
-              : undefined,
-            m.encountersAll != null ? `met act ${m.encountersAct ?? 0} / all ${m.encountersAll}` : undefined,
-          ]);
-          return [`▸ ${link}`, `　${stats}`, meta ? `　${meta}` : null].filter(Boolean).join("\n");
-        })
-        .join("\n\n")
-    : "**Solo Queue**\n同じパーティのメンバーはいません。";
+  const partyText = match.partyMembers
+    .map((m) => {
+      const link = `**[${m.name}#${m.tag}](${watchProfileUrl(m.name, m.tag)})**`;
+      const stats = statCodes([
+        m.agent,
+        m.rank,
+        `K/D/A ${m.kills}/${m.deaths}/${m.assists}`,
+        `K/D ${matchKd(m.kills, m.deaths)}`,
+      ]);
+      const meta = statCodes([
+        m.season
+          ? `szn K/D ${(m.season.deaths ? m.season.kills / m.season.deaths : m.season.kills).toFixed(2)}`
+          : undefined,
+        m.encountersAll != null ? `met act ${m.encountersAct ?? 0} / all ${m.encountersAll}` : undefined,
+      ]);
+      return [`▸ ${link}`, `　${stats}`, meta ? `　${meta}` : null].filter(Boolean).join("\n");
+    })
+    .join("\n\n");
   return {
     title: `${resultIcon} ${result} — ${player.name}#${player.tag}`,
     url: `https://tracker.gg/valorant/match/${match.matchid}`,
@@ -267,11 +265,10 @@ export function buildMatchEmbed(
     thumbnail: match.agentIcon ? { url: match.agentIcon } : undefined,
     footer: { text: "Kiwamero Tracking • Party Watch" },
     fields: [
-      { name: "🏁 RESULT", value: `${resultIcon} **${result}**`, inline: true },
-      { name: "🎯 SCORE", value: `**${match.score}**`, inline: true },
-      { name: "🗺 MAP / MODE", value: `**${match.map}**\n${match.mode}`, inline: true },
       { name: "⭐ WATCHED PLAYER", value: watchedText, inline: false },
-      { name: `👥 パーティ — ${match.partyLabel}`, value: partyText, inline: false },
+      ...(match.partyMembers.length
+        ? [{ name: `👥 パーティ — ${match.partyLabel}`, value: partyText, inline: false }]
+        : []),
     ],
   };
 }

@@ -262,7 +262,7 @@ test("buildMatchEmbed colours wins and losses differently", () => {
   assert.match(win.title, /🟢 VICTORY — Meiy#B3L/);
   assert.match(win.description ?? "", /```ansi/);
   assert.match(win.description ?? "", /\u001b\[1;32mVICTORY/);
-  assert.equal(win.fields?.find((field) => field.name === "🎯 SCORE")?.value, "**13 : 11**");
+  assert.deepEqual(win.fields?.map((field) => field.name), ["⭐ WATCHED PLAYER"]);
 
   const loss = buildMatchEmbed({ name: "Meiy", tag: "B3L" }, {
     matchid: "m2", map: "Lotus", mode: "Competitive", score: "11 : 13", won: false,

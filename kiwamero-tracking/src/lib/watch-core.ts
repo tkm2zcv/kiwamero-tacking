@@ -229,14 +229,20 @@ export function buildMatchEmbed(
     ansi("1;35", match.partyLabel),
     ansi("1;33", match.score),
   ].join("  •  ");
-  const watchedStats = statCodes([
-    match.agent,
-    match.rank,
-    `K/D/A ${match.kills}/${match.deaths}/${match.assists}`,
-    `K/D ${matchKd(match.kills, match.deaths)}`,
-    `ACS ${match.acs}`,
-  ]);
-  const watchedText = `**[${player.name}#${player.tag}](${profileUrl})**\n${watchedStats}`;
+  const watchedIdentity = [
+    match.agent ? `🎭 **Agent** \`${match.agent}\`` : null,
+    match.rank ? `🏅 **Rank** \`${match.rank}\`` : null,
+  ].filter(Boolean).join("　");
+  const watchedStats = [
+    `🎯 **K/D/A** \`${match.kills}/${match.deaths}/${match.assists}\``,
+    `📈 **K/D** \`${matchKd(match.kills, match.deaths)}\``,
+    `⚡ **ACS** \`${match.acs}\``,
+  ].join("　");
+  const watchedText = [
+    `**[${player.name}#${player.tag}](${profileUrl})**`,
+    watchedIdentity,
+    watchedStats,
+  ].filter(Boolean).join("\n");
   const partyText = match.partyMembers
     .map((m) => {
       const link = `**[${m.name}#${m.tag}](${watchProfileUrl(m.name, m.tag)})**`;

@@ -223,8 +223,10 @@ test("summarizeMatchForNotify detects same-party members and their images", () =
   assert.equal(embed.author?.url, "https://example.test/meiy");
   const watched = embed.fields?.find((f) => f.name === "⭐ WATCHED PLAYER");
   assert.match(watched?.value ?? "", /\[Meiy#B3L\]\(https:\/\/example\.test\/meiy\)/);
-  assert.match(watched?.value ?? "", /K\/D\/A 20\/10\/5/);
-  assert.match(watched?.value ?? "", /ACS 208/);
+  assert.match(watched?.value ?? "", /\*\*Agent\*\* `Jett`/);
+  assert.match(watched?.value ?? "", /\*\*Rank\*\* `Radiant`/);
+  assert.match(watched?.value ?? "", /\*\*K\/D\/A\*\* `20\/10\/5`/);
+  assert.match(watched?.value ?? "", /\*\*ACS\*\* `208`/);
   const party = embed.fields?.find((f) => f.name.includes("パーティ"));
   assert.equal(party?.name, "👥 パーティ — Trio");
   assert.match(party?.value ?? "", /\*\*\[DuoOne#111\]\(https:\/\/tracking\.kiwamero\.dev\/valorant\/profile\/riot\/DuoOne%23111\/overview\)\*\*/);

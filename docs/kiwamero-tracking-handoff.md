@@ -1,6 +1,6 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
-## 261102 - PNG Watch Card Correction (Rollout Approved; Pending)
+## 261102 - PNG Watch Card Correction (Deployed; One Image Delivered)
 
 - User expects the previously built image-card notification. Prior five messages
   proved successful HTTP delivery only, not generated images.
@@ -21,11 +21,21 @@
   880x660/880x776 pass. 264 tests/lint/typecheck/Next/Worker/compat/scrub pass;
   wrapper dry-run passes, gzip3302.22KiB. Independent review: no blockers.
 - WatchSummary now distinguishes successful imagesSent from embedFallbacks.
-- User newly approved commit/push/deploy plus ONE normal cycle with required
-  provider reads and NEW-match delivery. Not yet used. Do not reset cursors or
-  resend prior five. If no new matches, report production image delivery unobserved.
-- Existing production remains ca1bdd98 until this correction is deployed.
-  Plan: plans/261102-watch-image-cards.md.
+- Source `a6e97f4` pushed; deployed Worker
+  `91352c68-a2bb-4adf-a5bd-257d4b3f1e91`, startup14ms, gzip3302.39KiB.
+- Newly approved normal cycle is now USED. No additional manual cycle, provider
+  probe or Google read approved. No cursor reset or replay of the prior five.
+- POST at 2026-11-01T17:37:11.844Z completed HTTP200 in53,808ms:
+  checked5, processed3, matchesSent1, imagesSent1, embedFallbacks0, failures0.
+  Two other players' match fetch returned HTTP502. Do not call the cycle entirely
+  successful or all five healthy. Failed entries remain eligible for next ordinary
+  hourly retry; do not silently run another manual cycle.
+- Read-only D1 confirms exactly one newly persisted alert, latest17:38:06.411 UTC;
+  existing five rows retain notification/match IDs. No raw SQL production writes.
+- Real Worker image payload accepted by Discord and successful cursor persisted.
+  Recipient-side visual inspection is not observed.
+- Root/login/watchlist200; anonymous stats/cross-site watchlist API403; CSP/frame
+  protections unchanged. Plan: plans/261102-watch-image-cards.md.
 
 ## 261102 - Watch Notification Failure (Deployed; Five Deliveries Verified)
 

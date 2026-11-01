@@ -16,6 +16,9 @@
   optional cached-production-font mode adds zero external calls.
 - Successful-delivery metrics separate imagesSent and embedFallbacks. Cursor
   semantics, hourly cadence and webhook origin restrictions are unchanged.
+- Worker91352c68 delivered one real image with no embed fallback in the approved
+  production cycle. Two provider502 fetch failures were isolated and not marked
+  delivered; normal hourly retry remains necessary.
 
 ## Watch Fetch Redirect Policy (261102)
 

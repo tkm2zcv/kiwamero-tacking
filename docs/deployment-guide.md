@@ -4,11 +4,15 @@
 DB 層は 2026-10-29 に Prisma から生 SQL + Kysely へ移行済み (workerd 動作確認済み)。
 
 **状態: 本番反映済み (261102更新)。** Worker
-`ca1bdd98-149e-4d96-a70e-0f3da7c2739a`、D1 `a8f05616-…` (APAC)、
+`91352c68-a2bb-4adf-a5bd-257d4b3f1e91`、D1 `a8f05616-…` (APAC)、
 `tracking.kiwamero.dev`、必要なシークレットとDiscord callbackは設定済み。
 Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 承認された監視1回で5件のDiscord送信成功と通知済み記録を確認しています。
+画像生成の追加修正後、新着1件の画像送信と保存も確認済みです。ただし同巡回で
+2人分の取得元HTTP502が残り、全対象の取得正常化まで確認したわけではありません。
 `npm run deploy` は外部送信しない実workerd回帰 → build → scrub → deploy の順です。
+画像回帰は実PNG生成・添付と静的WASM同梱を検証します。Satoriの固定版を
+変更する際もこの検証が必要です。
 `redirect:"error"` はWorkers未対応のため、Webhook送信には使用しません。
 詳細な検証範囲・制約は [引き継ぎ](kiwamero-tracking-handoff.md) を参照してください。
 

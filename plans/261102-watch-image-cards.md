@@ -21,7 +21,7 @@
 - [x] Reproduce full PNG rendering in real workerd without external requests.
 - [x] Fix confirmed runtime initialization at its source, preserving Node use.
 - [x] Verify actual PNG dimensions/content and image multipart payload.
-- [ ] Run full checks and review; request separate rollout/real-message approval.
+- [x] Run full checks and review; request separate rollout/real-message approval.
 
 ## Root And Local Changes
 - Expanded tools/check-watch-worker.cjs to call real renderWatchCard with a real
@@ -40,26 +40,15 @@
   release without eager HarfBuzz; exports standalone init accepting compiled
   WebAssembly.Module and satori/yoga.wasm. package.json/lock updated by
   npm install --save-exact satori@0.32.0 --ignore-scripts --no-audit --no-fund.
-- With this pin and compiled modules, native actual 880x660 PNG generation passed
-  (shell d3c617, typecheck was finishing). Then enhanced /file to attach the REAL
-  generated PNG via buildAttachmentPayload, and inspect multipart PNG signature,
-  size >1000, image attachment URL and filename. This final enhancement is running.
+- Native gate generates real 880x660 PNGs and attaches them via
+  buildAttachmentPayload, checking signature, size, attachment URL and filename.
 - Gate uses actual src/worker.js initialization with only OpenNext fetch/DB entry
   boundaries stubbed, and explicit real CompiledWasm modules in Miniflare.
-- Current full `npm run check` -> build:worker -> scrub process: shell de1355.
-  Logs .tmp/watch-image-check.log and .tmp/watch-image-worker-build.log.
-  It also saves local .tmp/watch-worker-card.png when native probe succeeds.
-- Pending: read full results, validate Wrangler dry-run really bundles custom
-  worker's WASM imports (OpenNext build alone doesn't bundle that wrapper), test
-  Node renderer/party layout if needed, update docs, request reviewer/deploy/new
-  image notification approval. No commit/push for this new fix yet.
-- Current production remains ca1bdd98-149e-4d96-a70e-0f3da7c2739a from c7cb0cd,
-  docs commit e61f4e0. Its five deliveries were HTTP success only, image unverified.
 - Do not touch unrelated IDE active src/components/tracker/analytics-tab.tsx;
   target app is kiwamero-tracking/, not the older root app.
 
 ## Latest Evidence And Approval
-- Final ac2039 full check passes 264 tests/lint/type/native/Next and Worker
+- Full check passes 264 tests/lint/type/native/Next and Worker
   build/compat/scrub. Wrangler dry-run passes 3302.22KiB gzip.
 - Node direct actual PNGs: solo880x660, party880x776. Native PNG and multipart
   pass with real production fonts replayed offline (abb2f1).
@@ -69,12 +58,24 @@
 - New guard: 8MiB/font, max2, CSS16KiB, header+body bounds, manual redirects;
   guard unit test added. Font error retains cause/count for diagnosis.
 - Successful delivery counters imagesSent/embedFallbacks added, with unit asserts.
-- Latest fresh lint/type/264 tests/real-font-native after error-cause tweak is
-  shell594656. Previous whole build already passed; deploy rebuilds/scrubs anew.
+- Fresh594656 passes lint/type/264 tests/real-font-native after the cause tweak;
+  deploy also rebuilt/compat-verified/scrubbed successfully.
 - User SELECTED "反映と監視1回確認": approve commit/push/deploy after checks/review,
   then ONE normal monitoring cycle including necessary provider reads and NEW
-  messages only. No resets, no replay of earlier five. New cycle NOT USED yet.
+  messages only. No resets, no replay of earlier five. Approval is now USED.
 - Review follow-up withdraws subset-fanout concern based on measured fixed-UA
   CSS; no blockers. Cause-preserving throw and font-count detail implemented.
-- Source/docs still uncommitted; production remains ca1bdd98. Update this state
-  after commit/deploy and ONE cycle; never retry an uncertain POST without approval.
+
+## Final Production Result
+- Commit a6e97f4 pushed; deployed91352c68-a2bb-4adf-a5bd-257d4b3f1e91.
+- Approved ONE normal cycle is USED (ledger .tmp/watch-image-real-cycle-start.json).
+  POST17:37:11.844 UTC, HTTP200,53,808ms, checked5, processed3, sent1,
+  imagesSent1, embedFallbacks0, webhookFailures0.
+- Residual: TWO match fetches returned providerHTTP502. No cursors advanced for
+  those failures, no extra probes/retry/manual cycles. Next regular cycle retries.
+- D1 read confirms exactly one timestamp updated since cycle start,
+  latest2026-11-01T17:38:06.411Z. Prior five not replayed/reset.
+- Root/login/watchlist200; anonymous stats and cross-site watchlist API403;
+  CSP/frame protections retained. No raw SQL production write/migration.
+- Actual Worker PNG payload HTTP acceptance and persistence verified; recipient
+  visual inspection not observed. All five healthy is NOT verified.

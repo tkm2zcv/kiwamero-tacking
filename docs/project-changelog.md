@@ -1,6 +1,6 @@
 # Project Changelog
 
-## 261102 - Restore PNG Watch Cards (Verified Locally; Rollout Approved)
+## 261102 - Restore PNG Watch Cards (Deployed; Image Delivery Verified)
 
 - Prior delivery verification proved Discord HTTP acceptance, not image delivery.
   Actual workerd reproduction failed runtime resvg WASM compilation; Satori
@@ -18,8 +18,17 @@
 - 264 tests, lint/typecheck, Next/Worker build, compat and scrub pass. Actual
   fonts pass native rendering; Node solo/party PNGs are 880x660 / 880x776.
   Wrangler dry-run packages static modules (3302.22KiB gzip); review has no blockers.
-- User approves commit/push/deploy and ONE new normal cycle; no cursor reset or
-  replay of earlier five. Rollout/production image result not performed yet.
+- `a6e97f4` pushed and deployed as `91352c68-a2bb-4adf-a5bd-257d4b3f1e91`;
+  startup14ms, gzip3302.39KiB. One approved normal cycle completed HTTP200 in
+  53,808ms: checked5, processed3, sent1, imagesSent1, embedFallbacks0, failures0.
+- Two players could not be checked because provider match fetch returned HTTP502;
+  do not describe this as all five healthy. Their notification cursors were not
+  advanced. The next ordinary hourly cycle can retry; no extra manual run.
+- D1 confirms one newly persisted notification at 17:38:06 UTC. Earlier five
+  deliveries were not replayed or reset. Root/login/watchlist remain200;
+  anonymous stats and cross-site watchlist API remain403 with CSP/frame protection.
+- Recipient-side visual inspection is not observed; real Worker PNG generation,
+  image payload HTTP acceptance and successful cursor persistence are verified.
 
 ## 261102 - Watch Redirect Runtime Failure (Deployed; Delivery Verified)
 

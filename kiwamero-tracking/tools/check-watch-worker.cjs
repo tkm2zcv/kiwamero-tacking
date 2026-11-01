@@ -1,31 +1,40 @@
 // Native workerd fetch semantics; all outbound traffic stays in local fixtures.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const esbuild = require("esbuild");
 const { Miniflare, convertV4MiniflareOptions, Log, LogLevel } = require("miniflare");
 
+const ROOT = path.resolve(__dirname, "..");
+const TMP = path.join(ROOT, ".tmp");
+fs.mkdirSync(TMP, { recursive: true });
+
 (async () => {
   const bundle = await esbuild.build({
-    stdin: { resolveDir: process.cwd(), loader: "ts", contents: `
+    stdin: { resolveDir: ROOT, loader: "ts", contents: `
       import "./src/worker.js";
       import {createWatchDeps} from "./src/lib/watch-run";
       import {iconData,loadFonts,renderWatchCard} from "./src/lib/watch-card";
       import {summarizeMatchForNotify,buildAttachmentPayload} from "./src/lib/watch-core";
-      async function renderProbe(){
+      async function renderProbe(members=0){
           const match=summarizeMatchForNotify({
             metadata:{matchid:"probe-match",map:"Sunset",mode:"Competitive",rounds_played:22,game_start:1793500000},
             teams:{red:{has_won:true,rounds_won:13},blue:{has_won:false,rounds_won:9}},
-            players:[{puuid:"probe",name:"Probe",tag:"TEST",character:"Jett",team:"Red",
-              stats:{score:4400,kills:20,deaths:10,assists:4}}]
+            players:[{puuid:"probe",name:"Probe",tag:"TEST",character:"Jett",team:"Red",party_id:"party-1",
+              stats:{score:4400,kills:20,deaths:10,assists:4}},
+              ...Array.from({length:members},(_,i)=>({puuid:"member-"+i,name:"Mate"+i,tag:"T"+i,character:"Omen",team:"Red",party_id:"party-1",
+                stats:{score:3000,kills:15,deaths:10+i,assists:3}}))]
           },"probe");
           return renderWatchCard(match,{name:"Probe",tag:"TEST"});
       }
       export default {async fetch(request){
-        const path=new URL(request.url).pathname;
+        const requestUrl=new URL(request.url);
+        const path=requestUrl.pathname;
         if(path==="/icon")return Response.json({data:await iconData("https://media.valorant-api.com/test.png")});
         if(path==="/fonts")return Response.json({count:(await loadFonts()).length});
         if(path==="/render"){
-          const png=await renderProbe();
+          const png=await renderProbe(Number(requestUrl.searchParams.get("members") ?? 0));
           return png?new Response(png,{headers:{"content-type":"image/png"}}):new Response("card rendering failed", {status:500});
         }
         const deps=createWatchDeps();
@@ -53,15 +62,20 @@ const { Miniflare, convertV4MiniflareOptions, Log, LogLevel } = require("minifla
   const calls = [];
   const font = fs.readFileSync(require.resolve("next/dist/compiled/@vercel/og/Geist-Regular.ttf"));
   const productionFonts = process.env.WATCH_TEST_PRODUCTION_FONTS === "1"
-    ? JSON.parse(fs.readFileSync(".tmp/watch-font-production-manifest.json", "utf8")) : null;
+    ? JSON.parse(fs.readFileSync(path.join(TMP, "watch-font-production-manifest.json"), "utf8")) : null;
   const wasm = fs.readFileSync(require.resolve("@resvg/resvg-wasm/index_bg.wasm"));
+  const runtimeCwd = fs.mkdtempSync(path.join(os.tmpdir(), "kiwamero-watch-"));
+  process.chdir(runtimeCwd);
   const mf = new Miniflare(convertV4MiniflareOptions({
     modules: [
       { type: "ESModule", path: "probe.mjs", contents: bundle.outputFiles[0].text },
       { type: "CompiledWasm", path: "resvg.wasm", contents: wasm },
       { type: "CompiledWasm", path: "layout.wasm", contents: fs.readFileSync(require.resolve("satori/yoga.wasm")) },
     ],
-    compatibilityDate: "2026-10-27", compatibilityFlags: ["nodejs_compat"],
+    compatibilityDate: "2026-10-27", compatibilityFlags: ["nodejs_compat"], cacheAPI: false,
+    unsafeEphemeralDurableObjects: true,
+    resourceTmpPath: path.join(TMP, "miniflare-tmp"),
+    resourcePersistencePath: path.join(TMP, "miniflare-state"),
     outboundService: async request => {
       const url = new URL(request.url);
       calls.push({ host: url.hostname, method: request.method, type: request.headers.get("content-type") });
@@ -86,13 +100,13 @@ const { Miniflare, convertV4MiniflareOptions, Log, LogLevel } = require("minifla
         return new Response(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } });
       }
       if (url.hostname === "fonts.googleapis.com") {
-        return new Response(productionFonts ? fs.readFileSync(".tmp/watch-font-production.css")
+        return new Response(productionFonts ? fs.readFileSync(path.join(TMP, "watch-font-production.css"))
           : "@font-face {font-weight:400;src:url(https://fonts.gstatic.com/test.woff2)}");
       }
       if (url.hostname === "fonts.gstatic.com") {
         const entry = productionFonts?.find(f => f.url === request.url);
         if (productionFonts && !entry) throw new Error("Unapproved font fixture URL");
-        return new Response(entry ? fs.readFileSync(entry.file) : font);
+        return new Response(entry ? fs.readFileSync(path.resolve(ROOT, entry.file)) : font);
       }
       throw new Error("Unexpected outbound target; no real external network is allowed");
     },
@@ -111,15 +125,25 @@ const { Miniflare, convertV4MiniflareOptions, Log, LogLevel } = require("minifla
     assert.ok(calls.filter(c => c.host === "discord.com")[1].type.startsWith("multipart/form-data"));
     assert.deepEqual(await read("/icon"), { data: "data:image/png;base64,iVBORw==" });
     assert.deepEqual(await read("/fonts"), { count: productionFonts ? 2 : 1 });
-    const image = await mf.dispatchFetch("http://watch-probe.test/render");
-    assert.equal(image.status, 200, image.status === 200 ? undefined : await image.text());
-    const png = Buffer.from(await image.arrayBuffer());
-    assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
-    assert.equal(png.readUInt32BE(16), 880);
-    assert.equal(png.readUInt32BE(20), 660);
-    fs.mkdirSync(".tmp", { recursive: true });
-    fs.writeFileSync(".tmp/watch-worker-card.png", png);
+    const readPng = async (query, expectedHeight) => {
+      const response = await mf.dispatchFetch("http://watch-probe.test/render" + query);
+      assert.equal(response.status, 200, response.status === 200 ? undefined : await response.text());
+      const bytes = Buffer.from(await response.arrayBuffer());
+      assert.deepEqual([...bytes.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+      assert.equal(bytes.readUInt32BE(16), 880);
+      assert.equal(bytes.readUInt32BE(20), expectedHeight);
+      return bytes;
+    };
+    const png = await readPng("", 812);
+    const trio = await readPng("?members=2", 956);
+    const fullParty = await readPng("?members=4", 1204);
+    fs.writeFileSync(path.join(TMP, "watch-worker-card.png"), png);
+    fs.writeFileSync(path.join(TMP, "watch-worker-card-trio.png"), trio);
+    fs.writeFileSync(path.join(TMP, "watch-worker-card-full.png"), fullParty);
     assert.ok(!calls.some(c => c.host === "untrusted.example"));
     console.log("PASS: native workerd PNG rendering, JSON/multipart, assets and redirect rejection; no external messages/network");
-  } finally { await mf.dispose(); }
+  } finally {
+    await mf.dispose();
+    try { fs.rmSync(runtimeCwd, { recursive: true, force: true }); } catch {}
+  }
 })().catch(error => { console.error(error); process.exitCode = 1; });

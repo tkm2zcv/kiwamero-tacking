@@ -14,17 +14,21 @@ const tierIcon = (tier: number, size: "small" | "large" = "small") =>
   `https://media.valorant-api.com/competitivetiers/${TIER_TABLE_UUID}/${tier}/${size}icon.png`;
 
 const CARD_W = 880;
-const CARD_H = 660;
+const BASE_H = 720;
+const MEMBER_H = 112;
+const MEMBER_GAP = 12;
 
-const BRAND = "#0155fd";
-const BRAND_LIGHT = "#3a86ff";
-const BG = "#0b0f1d";
-const PANEL = "#10162b";
-const EDGE = "#1e2a4a";
-const TEXT = "#e8ecf5";
-const MUTED = "#8b96b3";
-const WIN = "#16e5b4";
-const LOSS = "#e4485d";
+const BRAND = "#2f8cff";
+const BRAND_LIGHT = "#5ab0ff";
+const CYAN = "#42b8ff";
+const BG = "#061020";
+const PANEL = "#0d1830";
+const PANEL_2 = "#10203d";
+const EDGE = "#203451";
+const TEXT = "#f4f8ff";
+const MUTED = "#8ea0c4";
+const WIN = "#17e5b3";
+const LOSS = "#ef4f68";
 
 type El = { type: string; props: Record<string, unknown> };
 const el = (type: string, props: Record<string, unknown>, ...children: unknown[]): El => ({
@@ -164,7 +168,69 @@ function kdValue(kills: number, deaths: number): string {
   return (deaths ? kills / deaths : kills).toFixed(2);
 }
 
-function statCell(label: string, value: string, color: string): El {
+function iconBox(symbol: string, size: number, color: string, background = `${color}1f`): El {
+  return el(
+    "div",
+    {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: size,
+        height: size,
+        borderRadius: Math.max(8, size / 3),
+        background,
+        border: `1px solid ${color}55`,
+        color,
+        fontSize: Math.round(size * 0.48),
+        fontWeight: 700,
+        flexShrink: 0,
+      },
+    },
+    symbol,
+  );
+}
+
+function brandLogo(size: number): El {
+  return el(
+    "div",
+    {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: size,
+        height: size,
+        borderRadius: Math.round(size * 0.24),
+        background: BRAND,
+        color: "#ffffff",
+        fontSize: Math.round(size * 0.56),
+        fontWeight: 700,
+        flexShrink: 0,
+      },
+    },
+    "K",
+  );
+}
+
+function metaChip(symbol: string, label: string): El {
+  return el(
+    "div",
+    { style: { display: "flex", alignItems: "center", gap: 12, minWidth: 0 } },
+    iconBox(symbol, 30, BRAND_LIGHT, "#12264f"),
+    text(label, {
+      fontSize: 22,
+      fontWeight: 700,
+      color: TEXT,
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      maxWidth: 250,
+    }),
+  );
+}
+
+function statCell(icon: string, label: string, value: string, color: string): El {
   return el(
     "div",
     {
@@ -172,15 +238,62 @@ function statCell(label: string, value: string, color: string): El {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
+        justifyContent: "center",
+        gap: 9,
         flex: 1,
-        background: "#0e1530",
+        minWidth: 0,
+        background: "#0b1834",
         border: `1px solid ${EDGE}`,
-        borderRadius: 12,
-        padding: "14px 8px",
+        borderRadius: 15,
+        padding: "16px 10px",
       },
     },
-    text(label, { fontSize: 16, color: MUTED, letterSpacing: 2 }),
-    text(value, { fontSize: 34, fontWeight: 700, color }),
+    el(
+      "div",
+      { style: { display: "flex", alignItems: "center", gap: 8, color: MUTED } },
+      iconBox(icon, 24, BRAND_LIGHT, "#12264f"),
+      text(label, { fontSize: 15, fontWeight: 700, color: MUTED, letterSpacing: 1.6 }),
+    ),
+    text(value, { fontSize: 37, fontWeight: 700, color, lineHeight: 1 }),
+  );
+}
+
+function agentChip(agent: string | undefined, rankIcon: string | null): El {
+  return el(
+    "div",
+    {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        background: "#18264d",
+        border: `1px solid ${EDGE}`,
+        borderRadius: 12,
+        padding: "7px 12px",
+        flexShrink: 0,
+      },
+    },
+    text("◆", { fontSize: 12, color: BRAND_LIGHT, lineHeight: 1 }),
+    text(agent ?? "?", { fontSize: 18, fontWeight: 700, color: TEXT, whiteSpace: "nowrap" }),
+    rankIcon ? el("img", { src: rankIcon, width: 25, height: 25 }) : null,
+  );
+}
+
+function infoPill(value: string, color: string): El {
+  return el(
+    "div",
+    {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        background: `${color}18`,
+        border: `1px solid ${color}44`,
+        borderRadius: 9,
+        padding: "5px 9px",
+        flexShrink: 0,
+      },
+    },
+    text(value, { fontSize: 15, fontWeight: 700, color, whiteSpace: "nowrap" }),
   );
 }
 
@@ -190,7 +303,7 @@ function memberCard(
   rankIcon: string | null,
   partyColor: string,
 ): El {
-  const seasonKd = member.season ? kdValue(member.season.kills, member.season.deaths) : null;
+  const seasonKd = member.season ? `szn K/D ${kdValue(member.season.kills, member.season.deaths)}` : null;
   const met = member.encountersAll != null ? `met ${member.encountersAct ?? 0}/${member.encountersAll}` : null;
   return el(
     "div",
@@ -199,40 +312,58 @@ function memberCard(
         display: "flex",
         alignItems: "center",
         gap: 18,
-        background: PANEL,
+        background: PANEL_2,
         border: `1px solid ${EDGE}`,
-        borderLeft: `5px solid ${partyColor}`,
-        borderRadius: 14,
-        padding: "16px 22px",
+        borderLeft: `7px solid ${partyColor}`,
+        borderRadius: 17,
+        padding: "16px 20px",
+        height: 108,
+        boxSizing: "border-box",
       },
     },
     icon
-      ? el("img", { src: icon, width: 74, height: 74, style: { borderRadius: 10 } })
-      : el("div", { style: { width: 74, height: 74, borderRadius: 10, background: EDGE } }),
+      ? el("img", { src: icon, width: 76, height: 76, style: { borderRadius: 14 } })
+      : el("div", { style: { width: 76, height: 76, borderRadius: 14, background: EDGE } }),
     el(
       "div",
-      { style: { display: "flex", flexDirection: "column", flex: 1, minWidth: 0 } },
-      text(`${member.name}#${member.tag}`, {
-        fontSize: 27, fontWeight: 700, color: TEXT,
-        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 470,
-      }),
+      { style: { display: "flex", flexDirection: "column", gap: 8, flex: 1, minWidth: 0 } },
       el(
         "div",
-        { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "nowrap", overflow: "hidden", whiteSpace: "nowrap" } },
-        text(`${member.agent ?? "?"}`, { fontSize: 17, color: MUTED, flexShrink: 0 }),
-        rankIcon ? el("img", { src: rankIcon, width: 24, height: 24 }) : null,
-        seasonKd ? text(`· szn K/D ${seasonKd}`, { fontSize: 17, color: BRAND_LIGHT, flexShrink: 0 }) : null,
-        met ? text(`· ${met}`, { fontSize: 17, color: MUTED, flexShrink: 0 }) : null,
+        { style: { display: "flex", alignItems: "baseline", gap: 5, minWidth: 0 } },
+        text(member.name, {
+          fontSize: 29, fontWeight: 700, color: TEXT,
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 330,
+        }),
+        text(`#${member.tag}`, { fontSize: 22, fontWeight: 700, color: BRAND_LIGHT, flexShrink: 0 }),
+      ),
+      el(
+        "div",
+        { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "nowrap", overflow: "hidden" } },
+        agentChip(member.agent, rankIcon),
+        seasonKd ? infoPill(seasonKd, BRAND_LIGHT) : null,
+        met ? infoPill(met, MUTED) : null,
       ),
     ),
     el(
       "div",
-      { style: { display: "flex", flexDirection: "column", alignItems: "flex-end" } },
-      text(`${member.kills}/${member.deaths}/${member.assists}`, { fontSize: 26, fontWeight: 700, color: TEXT }),
+      {
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+          justifyContent: "center",
+          minWidth: 142,
+          paddingLeft: 18,
+          borderLeft: `2px solid ${EDGE}`,
+          flexShrink: 0,
+        },
+      },
+      text(`${member.kills}/${member.deaths}/${member.assists}`, { fontSize: 30, fontWeight: 700, color: TEXT, lineHeight: 1 }),
       text(`K/D ${kdValue(member.kills, member.deaths)}`, {
-        fontSize: 19,
+        fontSize: 17,
         fontWeight: 700,
         color: kdColor(member.kills, member.deaths),
+        marginTop: 5,
       }),
     ),
   );
@@ -264,11 +395,20 @@ export async function renderWatchCard(
     const watchedRankIcon = await iconData(match.rankTier ? tierIcon(match.rankTier, "small") : undefined);
 
     const result = match.won === true ? "VICTORY" : match.won === false ? "DEFEAT" : "RESULT";
-    const resultColor = match.won === true ? WIN : match.won === false ? LOSS : "#cbb765";
+    const resultBg =
+      match.won === true
+        ? "linear-gradient(90deg, #087955 0%, #0ccf9f 58%, #07875f 100%)"
+        : match.won === false
+          ? "linear-gradient(90deg, #8f1f3d 0%, #d63d59 58%, #8f2440 100%)"
+          : "linear-gradient(90deg, #423b22 0%, #716127 58%, #423b22 100%)";
+    const resultIcon = match.won === true ? "★" : match.won === false ? "×" : "◆";
     const date = match.gameStart
       ? new Date(match.gameStart * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC"
       : "";
-    const cardH = CARD_H + match.partyMembers.length * 116;
+    const partyRowsH = match.partyMembers.length
+      ? match.partyMembers.length * MEMBER_H + (match.partyMembers.length - 1) * MEMBER_GAP
+      : 92;
+    const cardH = BASE_H + partyRowsH;
 
     const fonts = await loadFonts();
     layoutInitPromise ??= initLayout(wasm.layout).catch((e) => {
@@ -287,25 +427,50 @@ export async function renderWatchCard(
         style: {
           display: "flex",
           flexDirection: "column",
+          alignItems: "stretch",
+          width: CARD_W,
+          height: cardH,
+          boxSizing: "border-box",
           background: BG,
           color: TEXT,
           fontFamily: "Noto Sans JP",
-          padding: "36px 44px",
+          padding: "26px 30px 24px",
         },
       },
-      // Header
       el(
         "div",
-        { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+        { style: { display: "flex", alignItems: "center", height: 52 } },
+        brandLogo(46),
+        el("div", { style: { width: 1, height: 38, background: EDGE, margin: "0 16px" } }),
         el(
           "div",
-          { style: { display: "flex", alignItems: "center", gap: 10 } },
-          el("div", { style: { width: 15, height: 15, background: BRAND, borderRadius: 3 } }),
-          text("KIWAMERO PARTY WATCH", { fontSize: 20, fontWeight: 700, color: BRAND_LIGHT, letterSpacing: 3 }),
+          { style: { display: "flex", flexDirection: "column", justifyContent: "center" } },
+          el(
+            "div",
+            { style: { display: "flex", alignItems: "baseline", gap: 8 } },
+            text("KIWAMERO", { fontSize: 25, fontWeight: 700, color: TEXT, letterSpacing: 1 }),
+            text("PARTY WATCH", { fontSize: 25, fontWeight: 700, color: CYAN, letterSpacing: 1 }),
+          ),
+          text(`${match.partyLabel} MATCH ALERT`, { fontSize: 13, color: MUTED, letterSpacing: 2.2, marginTop: 2 }),
         ),
-        text(`${match.mode} · ${match.map}`, { fontSize: 20, color: MUTED }),
       ),
-      // Result banner
+      el(
+        "div",
+        {
+          style: {
+            display: "flex",
+            alignItems: "center",
+            height: 58,
+            marginTop: 16,
+            background: PANEL,
+            border: `1px solid ${EDGE}`,
+            borderRadius: 14,
+          },
+        },
+        el("div", { style: { display: "flex", flex: 1, paddingLeft: 20, minWidth: 0 } }, metaChip("▦", match.mode)),
+        el("div", { style: { width: 1, height: 34, background: EDGE, flexShrink: 0 } }),
+        el("div", { style: { display: "flex", flex: 1, paddingLeft: 20, minWidth: 0 } }, metaChip("◇", match.map)),
+      ),
       el(
         "div",
         {
@@ -313,89 +478,104 @@ export async function renderWatchCard(
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginTop: 22,
-            padding: "14px 24px",
-            background: `${resultColor}1f`,
-            border: `2px solid ${resultColor}`,
-            borderRadius: 14,
+            height: 92,
+            marginTop: 18,
+            padding: "0 26px",
+            background: resultBg,
+            borderRadius: 18,
           },
         },
         el(
           "div",
           { style: { display: "flex", alignItems: "center", gap: 16 } },
-          text(result, { fontSize: 40, fontWeight: 700, color: resultColor }),
-          text(match.partyLabel, { fontSize: 20, color: MUTED }),
+          iconBox(resultIcon, 46, "#ffffff", "#ffffff20"),
+          text(result, { fontSize: 44, fontWeight: 700, color: "#ffffff", letterSpacing: 0.8, lineHeight: 1 }),
         ),
-        text(match.score, { fontSize: 40, fontWeight: 700, color: TEXT }),
+        text(match.score, { fontSize: 42, fontWeight: 700, color: "#ffffff", lineHeight: 1 }),
       ),
-      // Watched player hero
       el(
         "div",
         {
           style: {
             display: "flex",
             flexDirection: "column",
-            marginTop: 20,
-            background: "#141d3d",
-            border: `2px solid ${BRAND}`,
-            borderRadius: 18,
-            padding: "22px 26px",
+            marginTop: 18,
+            background: PANEL,
+            border: `2px solid ${EDGE}`,
+            borderRadius: 20,
+            padding: "22px 24px",
           },
         },
         el(
           "div",
-          { style: { display: "flex", alignItems: "center", gap: 20 } },
+          { style: { display: "flex", alignItems: "center", gap: 22 } },
           watchedIcon
-            ? el("img", { src: watchedIcon, width: 112, height: 112, style: { borderRadius: 14 } })
-            : el("div", { style: { width: 112, height: 112, borderRadius: 14, background: EDGE } }),
+            ? el("img", { src: watchedIcon, width: 112, height: 112, style: { borderRadius: 18 } })
+            : el("div", { style: { width: 112, height: 112, borderRadius: 18, background: EDGE } }),
           el(
             "div",
             { style: { display: "flex", flexDirection: "column", flex: 1, minWidth: 0 } },
-            text(`${watched.name}#${watched.tag}`, { fontSize: 42, fontWeight: 700, color: BRAND_LIGHT }),
             el(
               "div",
-              { style: { display: "flex", alignItems: "center", gap: 10 } },
-              text(`${match.agent ?? "?"}`, { fontSize: 21, color: MUTED }),
-              watchedRankIcon ? el("img", { src: watchedRankIcon, width: 34, height: 34 }) : null,
+              { style: { display: "flex", alignItems: "baseline", gap: 6, minWidth: 0 } },
+              text(watched.name, {
+                fontSize: 42, fontWeight: 700, color: TEXT,
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 430,
+              }),
+              text(`#${watched.tag}`, { fontSize: 30, fontWeight: 700, color: BRAND_LIGHT, flexShrink: 0 }),
+            ),
+            el(
+              "div",
+              { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 10 } },
+              agentChip(match.agent, watchedRankIcon),
+              infoPill("WATCHED PLAYER", CYAN),
             ),
           ),
         ),
         el(
           "div",
           { style: { display: "flex", gap: 12, marginTop: 18 } },
-          statCell("K/D/A", `${match.kills}/${match.deaths}/${match.assists}`, TEXT),
-          statCell("K/D", kdValue(match.kills, match.deaths), kdColor(match.kills, match.deaths)),
-          statCell("ACS", String(match.acs), BRAND_LIGHT),
+          statCell("▥", "K/D/A", `${match.kills}/${match.deaths}/${match.assists}`, TEXT),
+          statCell("◆", "K/D", kdValue(match.kills, match.deaths), kdColor(match.kills, match.deaths)),
+          statCell("≡", "ACS", String(match.acs), BRAND_LIGHT),
         ),
       ),
-      // Party members
       el(
         "div",
-        { style: { display: "flex", flexDirection: "column", gap: 12, marginTop: 20 } },
-        text(
-          match.partyMembers.length ? `PARTY — ${match.partyLabel}` : "PARTY — SOLO",
-          { fontSize: 18, fontWeight: 700, color: MUTED, letterSpacing: 2 },
+        { style: { display: "flex", flexDirection: "column", gap: 12, marginTop: 18 } },
+        el(
+          "div",
+          { style: { display: "flex", alignItems: "center", gap: 10 } },
+          iconBox("◉", 30, BRAND_LIGHT, "#12264f"),
+          text(
+            match.partyMembers.length ? `PARTY — ${match.partyLabel}` : "PARTY — SOLO",
+            { fontSize: 18, fontWeight: 700, color: MUTED, letterSpacing: 2 },
+          ),
         ),
-        ...(match.partyMembers.length
-          ? match.partyMembers.map((m, i) => memberCard(m, memberIcons[i], memberRankIcons[i], BRAND))
-          : [el(
-              "div",
-              {
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  border: `2px dashed ${EDGE}`,
-                  borderRadius: 14,
-                  padding: "26px 0",
-                  color: MUTED,
-                  fontSize: 24,
+        el(
+          "div",
+          { style: { display: "flex", flexDirection: "column", gap: MEMBER_GAP } },
+          ...(match.partyMembers.length
+            ? match.partyMembers.map((m, i) => memberCard(m, memberIcons[i], memberRankIcons[i], BRAND_LIGHT))
+            : [el(
+                "div",
+                {
+                  style: {
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 12,
+                    border: `2px dashed ${EDGE}`,
+                    borderRadius: 16,
+                    height: 90,
+                    color: MUTED,
+                  },
                 },
-              },
-              "Queued solo",
-            )]),
+                iconBox("◉", 28, MUTED, "#101b35"),
+                text("Queued solo", { fontSize: 24, fontWeight: 700, color: MUTED }),
+              )]),
+        ),
       ),
-      // Footer
       el(
         "div",
         {
@@ -405,11 +585,21 @@ export async function renderWatchCard(
             alignItems: "center",
             borderTop: `1px solid ${EDGE}`,
             paddingTop: 14,
-            marginTop: 20,
+            marginTop: 18,
           },
         },
-        text("Kiwamero Tracking", { fontSize: 17, color: BRAND_LIGHT, letterSpacing: 1 }),
-        text(date, { fontSize: 17, color: MUTED }),
+        el(
+          "div",
+          { style: { display: "flex", alignItems: "center", gap: 10 } },
+          brandLogo(28),
+          text("Kiwamero Tracking", { fontSize: 18, fontWeight: 700, color: BRAND_LIGHT, letterSpacing: 0.8 }),
+        ),
+        el(
+          "div",
+          { style: { display: "flex", alignItems: "center", gap: 8 } },
+          iconBox("◉", 24, MUTED, "#101b35"),
+          text(date, { fontSize: 16, color: MUTED }),
+        ),
       ),
     );
 

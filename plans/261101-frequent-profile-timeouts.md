@@ -2,9 +2,8 @@
 
 ## User Report
 - The unavailable-timeout message appears often; user suspects encounter fetches.
-- Prioritize this over rollout of the already-approved PUUID feature. PUUID
-  implementation remains in the worktree, with 259 tests/build/browser passing.
-- No commits or production deployments for PUUID have happened yet.
+- Initially prioritized over PUUID rollout. PUUID + recovery later shipped as
+  80c68c0, Worker 16237370-c067-46d5-ad8d-a6589f01b9df; the auth issue recurred.
 
 ## Approved Investigation
 - Read-only production Worker logs and D1 aggregates; no DB writes, manual cron
@@ -18,9 +17,9 @@
 - Therefore no evidence that encounter/audit enrichment is exhausting quota at
   this snapshot; do not generalize that to all past failures.
 - `/api/auth/get-session` sampled at 519ms, watchlist check at 82ms; audit cron
-  returned completed=0, failed=0, deferred=0. Current version still ec3e8f57.
+  returned completed=0, failed=0, deferred=0. Initial version was ec3e8f57.
 - The quoted message can mean auth deadline or initial account deadline, not
-  only stats timeout. Existing logs do not distinguish these phases.
+  only stats timeout. Initial logs did not distinguish these phases.
 - Code: encounters queues <=150 missing matches only on encounter tab, background
   queue runs each minute under background quota; diagnosis may fetch extra details.
 - SDK inflight entries are bare promises with no wall-clock expiry. If a request
@@ -63,3 +62,20 @@
 
 ## Active Monitoring
 - Sanitized production tail process: shell 3e95ce. Stop it when finished.
+
+## Auth Cause And Second Fix
+- User retest of 16237370 repeatedly logged `[profile] access deadline exceeded`
+  at ~8s, proving the failure is before stats-provider work.
+- Actual Better Auth 1.7.14 sources: `createBetterAuth` eagerly starts
+  `ctx.checkSchema`; adapter `createSchemaCheck` caches its pending promise;
+  `toAuthEndpoints` awaits it before session/cookie processing.
+- Offline actual module + real SQLite reproduction stalled only schema SQL:
+  two fresh cookie-free session calls timed out, with one cached probe.
+- Runtime schema validation is now disabled via the supported option. Real
+  migration tests still explicitly validate schema, and real session SQL,
+  signature/expiry/owner checks are unchanged. Auth-specific copy added.
+- 263 tests, lint/typecheck, build/compat/scrub pass; real workerd/D1 validation
+  passes with schema I/O blocked and zero external calls. Browser auth timeout
+  is distinguished with zero provider calls; PUUID/search/loading checks pass.
+- User approved extra commit/push/deploy for this auth fix. Production retest
+  must still confirm the affected profile no longer hits access timeouts.

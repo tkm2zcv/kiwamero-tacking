@@ -180,7 +180,16 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     assert.match(identity, /取得元の応答に時間/);
     assert.match(identity, /aria-label="再試行"/);
     console.log("PASS: unknown identity times out with retry rather than an endless skeleton");
+    await reset("fast");
+    globalThis.__accessDelay = 8_500;
+    const access = await page();
+    assert.match(access, /ログイン状態の確認に時間/);
+    assert.ok(!access.includes("取得元の応答"), "auth failure must not be blamed on the stats provider");
+    assert.equal(calls, 0, "auth deadline cannot start provider calls");
+    globalThis.__accessDelay = 0;
+    console.log("PASS: auth deadline is distinct from provider failure and starts zero upstream calls");
   } finally {
+    globalThis.__accessDelay = 0;
     await browser?.close();
     await new Promise((resolve) => server ? server.close(resolve) : resolve());
     await flush();

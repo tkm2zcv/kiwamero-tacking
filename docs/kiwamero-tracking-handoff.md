@@ -1,9 +1,26 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
-## 261101 - Repeated Timeout Investigation (Not Deployed)
+## 261101 - Auth Schema Wait (Verified, Rollout Approved)
+
+- PUUID is already deployed. User's retest on Worker 16237370 still showed the
+  timeout; live warnings were `[profile] access deadline exceeded`, not identity.
+- Root reproduced with actual Better Auth 1.7.14 + Kysely: shared
+  `ctx.checkSchema` promise stalls all later session calls, including cookie-free
+  calls, before token validation. The introspection can belong to an old request.
+- `auth.ts` now disables runtime schema introspection only. Explicit schema
+  compatibility runs in real DB tests. No cookie-cache bypass, new allowlist,
+  relaxed signatures/expiry, credential change, migration or manual notification.
+- New `auth-runtime.test.ts` covers stalled schema, valid/tampered/expired cookies
+  and immediate allowlist removal. `tools/check-auth-worker.cjs` uses real workerd
+  + D1 with blocked schema I/O and real session/owner checks across requests.
+- 263 tests/lint/typecheck/build/compat/scrub and native worker/browser pass.
+  Auth and provider timeout copy are separate. User approved extra rollout;
+  commit/deploy and authenticated production retest remain.
+
+## 261101 - Repeated Timeout Investigation (Recovery Deployed)
 
 - User interrupted PUUID rollout to prioritize frequent unavailable-timeout
-  messages and question encounter API usage. No commits/deployments yet.
+  messages and question encounter API usage; both later shipped in 80c68c0.
 - Approved production read-only logs/D1 aggregates, not manual provider probes,
   cron invocations, notifications or DB mutations.
 - D1: four buckets, interactive=5/background=0 in sampled minute, no cooldown;
@@ -12,14 +29,14 @@
 - Reproduced abandoned in-flight promise poisoning offline; HTTP 16s and SWR 45s
   leases plus generation-safe cleanup implemented. Added non-sensitive, deferred
   logging to distinguish access deadline vs identity failure after rollout.
-- Do not claim the sole production cause is proven: observed failures could be
-  before provider admission or waiting on abandoned work. Need live phase logs.
+- Worker 16237370 phase logs then proved the repeated waits were in access
+  verification. Recovery leases alone did not resolve this report.
 - Final 262 tests, lint/typecheck, Worker build/compat gate and scrub pass.
-  Combined commit/push/deploy now approved; no new provider probes performed.
+  Combined commit/push/deploy done; no new provider probes performed.
 - Plan: `plans/261101-frequent-profile-timeouts.md`. Sanitized tail shell 3e95ce
   is running; stop it after investigation.
 
-## 261101 - PUUID Search (Not Deployed)
+## 261101 - PUUID Search (Deployed)
 
 - UUID-format PUUID input is supported alongside name#tag. `player-search.ts`
   handles parsing/canonical path construction; same profile route accepts UUIDs.
@@ -35,9 +52,9 @@
   300ms read deadline under CPU contention (311ms), not PUUID behavior. The lossless
   codec test controls its deadline timer; real compression/all 5,000 rows and the
   separate deadline test remain. No production timing/config workaround.
-- Final 259 tests, lint/typecheck, Worker build and scrub pass. Rollout approved,
-  pending at this entry's creation. Live authenticated browser performance remains
-  outside these offline browser/direct-SDK checks.
+- Final 259 tests, lint/typecheck, Worker build and scrub pass. Shipped in
+  80c68c0 / Worker 16237370-c067-46d5-ad8d-a6589f01b9df with recovery changes
+  (262 tests). Profile rendering still faces the separate auth-schema wait.
 
 ## 261101 - History Acquisition Stability (Deployed)
 

@@ -1,6 +1,24 @@
 # Project Changelog
 
-## 261101 - Recover Abandoned Profile Work (Not Deployed)
+## 261101 - Auth Schema Probe Wait (Verified, Rollout Approved)
+
+- New production phase logs proved repeated 8s waits occur in `getSiteAccess`,
+  before HenrikDev/encounter reads. The first recovery rollout did not fix them.
+- Better Auth 1.7.14 starts and caches one schema-introspection promise on its
+  shared adapter; direct session calls await it before even checking cookies.
+  Stalling that one real SQL boundary reproduced two blocked cookie-free retries.
+- Disable only runtime structural introspection through
+  `advanced.database.validateSchema:false`. Migration/DB tests explicitly call
+  `explicitSchemaCheck`; signatures, live session expiry and Discord authorization
+  still use the real database and are not weakened.
+- Add a distinct auth-timeout message rather than falsely blaming the stats
+  provider. The auth deadline regression proves zero provider calls.
+- 263 tests, lint/typecheck, Worker build/compat gate and scrub pass. Real workerd
+  + D1 verifies anonymous/valid/tampered/unlisted access across requests with
+  schema I/O deliberately stalled, zero introspection and no external network.
+- Rollout approved; pending production verification on the affected profile.
+
+## 261101 - Recover Abandoned Profile Work (Deployed)
 
 - Read-only production inspection during reported repeated timeouts found no
   active enrichment backlog, background reservations or cooling keys. Captured
@@ -16,10 +34,11 @@
 - No longer UI deadline, extra roster fanout, DB migration, auth bypass or manual
   cron/webhook invocation. Combined PUUID/recovery rollout now approved.
 - Final 262 tests, lint/typecheck, Worker build/compat guard and scrub pass.
-  Offline browser: partial profile 8,219ms, stale snapshot 63ms. Live authenticated
-  recurrence attribution remains pending the new warning phases.
+  Offline browser: partial profile 8,219ms, stale snapshot 63ms.
+- `80c68c0` deployed as `16237370-c067-46d5-ad8d-a6589f01b9df`. User retest still
+  failed; the new warnings attributed it to access verification, not provider use.
 
-## 261101 - PUUID Player Search (Not Deployed)
+## 261101 - PUUID Player Search (Deployed)
 
 - Home/nav forms accept name#tag or a UUID-format PUUID through one pure parser.
   PUUID URLs reuse the profile renderer and retain tab/filter paths without an
@@ -40,7 +59,10 @@
   The existing large-history round-trip test now controls its deadline timer:
   native compression/5,000-row equality remain real, while deadline behavior is
   tested separately. This removes host-load-dependent codec false failures
-  without relaxing any production budget. Rollout approved, not yet performed.
+  without relaxing any production budget.
+- Included in `80c68c0` / Worker `16237370-c067-46d5-ad8d-a6589f01b9df`.
+  Production UUID route retains the Discord gate; authenticated rendering is
+  blocked by the separately diagnosed auth-schema wait until that fix rolls out.
 
 ## 261101 - Stable Large-History Cache (Deployed)
 

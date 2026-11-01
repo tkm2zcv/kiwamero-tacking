@@ -26,3 +26,10 @@
 - Final 259 tests, lint/typecheck, Worker build/compat guard and scrub pass.
 - Offline stalled optional source: 8,082ms; stale snapshot: 38ms. No API calls
   outside the one approved live identity read.
+
+## Rollout
+- Shipped in 80c68c0, Worker 16237370-c067-46d5-ad8d-a6589f01b9df, alongside
+  recovery/phase logging (262 tests). Anonymous UUID and Riot routes retain auth.
+- User confirmed continued profile timeout, now attributed by the new logs to
+  access verification; this is separate from identifier parsing/resolution.
+- See `261101-frequent-profile-timeouts.md` for the auth-schema fix.

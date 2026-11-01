@@ -69,6 +69,11 @@ npm run dev -- -p 3002
 - `/api/valorant/*`・`/api/watchlist/*` も同じ許可判定を使います。
   既存の `kt_` APIキーは `/api/valorant/*` では引き続き有効です。
 - `/api/auth/*` と `CRON_SECRET` 保護の `/api/cron/*` は例外です。
+- Better Authの実行時DB構造チェックは無効です。共有された構造チェックの待ちが
+  認証を止めないよう、構造の互換性はDBテストの `explicitSchemaCheck()` で検証します。
+  Cookie署名・期限切れ・DB上のセッション・Discord許可判定は通常どおり検証します。
+- `node tools/check-auth-worker.cjs` で、実workerd/D1を使う認証回帰を実行できます。
+  本番や外部APIへ接続せず、一時的なテストDBだけを使用します。
 
 ## スクリプト
 

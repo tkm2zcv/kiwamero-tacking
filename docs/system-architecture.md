@@ -23,6 +23,19 @@
 - These are recovery leases, not extended render deadlines. Foreground rendering
   still shares its original 8s budget, and transport still has a 15s budget.
 
+## Runtime Auth Schema Policy (261101)
+
+- Better Auth's isolate-global adapter must not start/cache request-owned D1
+  introspection as a prerequisite for every session lookup. A stalled cached
+  schema probe blocks cookie-free and signed session calls alike.
+- `advanced.database.validateSchema:false` disables that optional runtime
+  introspection, not authentication. Explicit `ctx.explicitSchemaCheck()` is
+  asserted in DB/migration tests against the real checked-in schema.
+- Session signatures/expiry are still verified by Better Auth and the database;
+  every human access still checks the live linked Discord account allowlist.
+- Native workerd/D1 regression blocks schema queries and verifies allowed,
+  anonymous, tampered-cookie and unlisted-user outcomes across requests.
+
 ## Large-History Snapshot Encoding (261101)
 
 - Snapshot v2 uses native gzip, not row truncation. Encoded snapshots are bounded

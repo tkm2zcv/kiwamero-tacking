@@ -106,6 +106,9 @@ test("better-auth adapter reads/writes the real schema", async () => {
   await applySchema();
   const { auth } = await import("../src/lib/auth.ts");
   const ctx = await auth.$context;
+  // Runtime login does not introspect D1; migration compatibility is checked here.
+  assert.ok(ctx.explicitSchemaCheck);
+  await ctx.explicitSchemaCheck();
 
   const user = await ctx.internalAdapter.createUser(
     { email: "t@example.com", name: "tester" },

@@ -102,7 +102,7 @@ export default async function ProfilePage({
     const t = await getDict();
     return (
       <div className="kt-container kt-card-body" role="status">
-        <p>{t.profile.unavailableTimeout}</p>
+        <p>{t.profile.unavailableAuth}</p>
         <RefreshProfileButton inline />
       </div>
     );

@@ -35,8 +35,8 @@ export function normalizeDiscordWebhook(input: string): string | null {
   if (!/^\/api\/(v\d+\/)?webhooks\/\d+\/[\w-]+$/.test(url.pathname)) return null;
   const token = url.pathname.split("/").pop() ?? "";
   if (token.length < 20) return null;
-  // Drop query/hash: they are not part of the webhook identity.
-  return `https://${host}${url.pathname}`;
+  // Canonicalize accepted Discord aliases without following a server redirect.
+  return `https://discord.com${url.pathname}`;
 }
 
 /** Safe display form: keeps the webhook id, masks the token. */

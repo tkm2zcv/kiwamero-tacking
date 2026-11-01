@@ -1,5 +1,35 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 261102 - Watch Notification Failure (Local Fix; Not Yet Deployed)
+
+- User reports watch is inactive. Read-only D1 proves five entries with configured
+  canonical webhooks; all notification cursors/timestamps are null.
+- Actual hourly 2026-11-01 16:00 UTC run on 071ca9c7 checked five entries, sent
+  zero, and reported workerd rejecting `redirect:"error"` before webhook fetch.
+  Audit still ran. This is not absence of cron or webhook registration.
+- Fix all three such fetch sites (webhook, icon, font) to `redirect:"manual"`;
+  existing `res.ok` checks reject redirects. Preserve sender allowlist, no-follow
+  policy, successful-delivery-only cursors, background quota and hourly cadence.
+- `tools/check-watch-worker.cjs` runs actual workerd with only local outbound
+  fixtures for JSON, multipart, assets and 302 refusal. It gates check/deploy.
+- Native regression and Worker build/scrub have passed. A stale Node assertion
+  initially expected the unsupported option; updated it and added 302 rejection.
+  Final full checks and review are being recorded in the investigation plan.
+- Only approved Cloudflare reads and two provider reads used: AP/ap both returned
+  200 at size=1, so no speculative region fix. All four production quota hashes
+  match local configured keys; an archived real roster generates a summary.
+- Do not query historical observability again without new access: it returned
+  403. Live sanitized tail is shell 785311; ignored file
+  `kiwamero-tracking/.tmp/watch-production-tail.ndjson`. Stop when finished.
+- User approved independent read-only review, commit/push/deploy and ONE normal
+  watch cycle, including provider reads and messages to the existing destination
+  (currently five entries). Those production operations are not performed yet.
+  No second manual cycle or extra standalone provider probes authorized.
+- Review found no remaining blockers after accepted Discord aliases were
+  canonicalized before fetch; all current production URLs are already canonical.
+  Low-priority CSS/wasm loader hardening and webhook timeouts remain follow-ups,
+  not changes in this delivery fix. Plan: `plans/261102-watch-notifications.md`.
+
 ## 261101 - Auth Schema Wait (Deployed; Profile Render Confirmed)
 
 - PUUID is already deployed. User's retest on Worker 16237370 still showed the

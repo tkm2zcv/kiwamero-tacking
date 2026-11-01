@@ -4,6 +4,7 @@ const { spawnSync } = require("node:child_process");
 // spawns a local workerd that cannot write under the project root on Windows),
 // so plain `wrangler deploy` runs. Existing Cloudflare secrets are untouched.
 const steps = [
+  ["npm", ["run", "check:watch-worker"]],
   ["npm", ["run", "build:worker"]],
   ["npm", ["run", "scrub:bundle"]],
   ["npx", ["wrangler", "deploy"], { OPEN_NEXT_DEPLOY: "true" }],

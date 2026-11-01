@@ -19,14 +19,9 @@ const WEBHOOK = "https://discord.com/api/webhooks/123456789012345678/abcdefghijk
 
 test("normalizeDiscordWebhook accepts discord hosts only", () => {
   assert.equal(normalizeDiscordWebhook(WEBHOOK), WEBHOOK);
-  assert.equal(
-    normalizeDiscordWebhook("https://discordapp.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyz"),
-    "https://discordapp.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyz",
-  );
-  assert.equal(
-    normalizeDiscordWebhook("https://ptb.discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyz"),
-    "https://ptb.discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyz",
-  );
+  for (const host of ["discordapp.com", "ptb.discord.com", "canary.discord.com"]) {
+    assert.equal(normalizeDiscordWebhook(WEBHOOK.replace("discord.com", host)), WEBHOOK);
+  }
 });
 
 test("normalizeDiscordWebhook drops query strings", () => {

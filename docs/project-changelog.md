@@ -1,5 +1,26 @@
 # Project Changelog
 
+## 261102 - Watch Redirect Runtime Failure (Local Fix; Deployment Pending)
+
+- High impact: the normal 16:00 UTC production watch run checked all five
+  registered targets but delivered zero messages. Existing webhooks and API keys
+  were configured; errors identified workerd rejecting `redirect:"error"`.
+- Earlier redirect hardening introduced a Node/Workers compatibility regression
+  in webhook delivery and card icon/font fetches. Use `redirect:"manual"` and the
+  existing non-2xx rejection instead: redirects are still never followed.
+- Add native workerd JSON/multipart delivery, asset loading and redirect rejection
+  regression with local-only outbound fixtures. `check:watch-worker` now gates
+  `npm run check` and `npm run deploy`, not just optional manual verification.
+- No migration, credential rotation, quota change, auth relaxation or cursor
+  reset. Two approved provider reads rejected the region-case hypothesis;
+  no further provider probes or manual production messages/cron were performed.
+- Accepted legacy Discord hosts now canonicalize to `discord.com` before sending
+  rather than relying on HTTP redirects. The native probe covers this path.
+- Independent review has no remaining blockers. User approved commit/push/deploy
+  and one real watch cycle after final checks; production rollout remains pending.
+- Final 263 tests, lint/typecheck, native workerd check, Next build, Worker
+  build/compat gate and deployment scrub all pass.
+
 ## 261101 - Auth Schema Probe Wait (Deployed)
 
 - New production phase logs proved repeated 8s waits occur in `getSiteAccess`,

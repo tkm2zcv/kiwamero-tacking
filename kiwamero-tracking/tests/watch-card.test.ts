@@ -64,12 +64,17 @@ test("iconData accepts an allowlisted https image and forbids redirects", async 
   const data = await iconData("https://media.valorant-api.com/agents/ok/displayicon.png");
   assert.equal(data, `data:image/png;base64,${Buffer.from(png).toString("base64")}`);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].init?.redirect, "error");
+  assert.equal(calls[0].init?.redirect, "manual");
 
   // Other allowlisted asset hosts work too, keeping their real content type.
   stubFetch(() => new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/jpeg" } }));
   const jpg = await iconData("https://imgsvc.trackercdn.com/url/size/image.jpg");
   assert.equal(jpg, "data:image/jpeg;base64,AQID");
+  const redirects = stubFetch(() => new Response(null, {
+    status: 302, headers: { location: "https://untrusted.example/image.png" },
+  }));
+  assert.equal(await iconData("https://media.valorant-api.com/agents/redirect/displayicon.png"), null);
+  assert.equal(redirects.length, 1, "redirect target must never be fetched");
 });
 
 test("loadFonts fetches the css2 URL without a text= subset", async () => {

@@ -343,6 +343,12 @@ test("webhook send re-validates the URL and blocks redirects", async () => {
   assert.equal(await deps.sendWebhook(good, payload), true);
   assert.equal(calls, 1);
   assert.equal(seen.url, good);
-  assert.equal(seen.init?.redirect, "error");
+  assert.equal(seen.init?.redirect, "manual");
   assert.equal(seen.init?.method, "POST");
+  globalThis.fetch = async () => {
+    calls++;
+    return new Response(null, { status: 302, headers: { location: "https://evil.example.com/hook" } });
+  };
+  assert.equal(await deps.sendWebhook(good, payload), false);
+  assert.equal(calls, 2, "redirect response must not trigger another request");
 });

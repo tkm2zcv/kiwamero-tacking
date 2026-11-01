@@ -88,7 +88,7 @@ export async function iconData(url: string | undefined): Promise<string | null> 
       try {
         const u = new URL(url);
         if (u.protocol !== "https:" || !ICON_HOSTS.has(u.hostname)) return null;
-        const r = await fetch(u, { redirect: "error" });
+        const r = await fetch(u, { redirect: "manual" });
         if (!r.ok) return null;
         const type = (r.headers.get("content-type") ?? "").split(";")[0].trim();
         if (!type.startsWith("image/")) return null;
@@ -129,7 +129,7 @@ export function loadFonts(): Promise<CardFont[]> {
         if (u.protocol !== "https:" || u.hostname !== "fonts.gstatic.com") {
           throw new Error("font url rejected");
         }
-        const res = await fetch(u, { redirect: "error" });
+        const res = await fetch(u, { redirect: "manual" });
         if (!res.ok) throw new Error(`font fetch ${res.status}`);
         const data = await res.arrayBuffer();
         if (data.byteLength > MAX_FONT_BYTES) throw new Error("font too large");

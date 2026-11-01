@@ -84,9 +84,15 @@ npm run dev -- -p 3002
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | `node --test` による単体テスト (Node 24 の型ストリップを使用) |
-| `npm run check` | lint + typecheck + test + build |
+| `npm run check:watch-worker` | 実workerdでWebhook送信・添付・リダイレクト拒否を検証 (外部送信なし) |
+| `npm run check` | lint + typecheck + test + workerd監視回帰 + build |
 | `npm run build:worker` | OpenNext で Workers バンドルを生成 (`.open-next/`) |
 | `npm run preview:worker` | 生成した Worker を wrangler dev で起動 |
+
+`npm run deploy` もビルド前に監視のworkerd回帰を実行します。
+Webhook・カード素材の取得は `redirect:"manual"` と非2xx拒否で、
+別の送信先へリダイレクトしません。Workersは `redirect:"error"` を受け付けないため、
+Nodeだけのテストでその指定を安全と判定しないでください。
 
 ## DB (ローカル D1 / SQLite)
 

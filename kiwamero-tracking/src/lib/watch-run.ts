@@ -67,7 +67,9 @@ export function createWatchDeps(): WatchDeps {
         headers = { "content-type": "application/json" };
         body = JSON.stringify(payload);
       }
-      const res = await fetch(safeUrl, { method: "POST", headers, body, redirect: "error" });
+      // Workerd rejects redirect:"error"; manual keeps the payload on this host
+      // and res.ok rejects all redirect responses without following Location.
+      const res = await fetch(safeUrl, { method: "POST", headers, body, redirect: "manual" });
       return res.ok;
     },
   };

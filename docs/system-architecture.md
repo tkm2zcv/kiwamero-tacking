@@ -2,6 +2,20 @@
 
 対象は `kiwamero-tracking/`。これは「実装済み」と「本番推奨」を混同しないためのメモ。
 
+## Watch Fetch Redirect Policy (261102)
+
+- Workerd rejects `fetch` with `redirect:"error"` before network I/O, unlike Node.
+  Webhook delivery and allowlisted card icon/font loads use `redirect:"manual"`
+  and reject non-2xx responses. Never replace this with automatic redirect follow.
+- The webhook is revalidated immediately before sending. Payloads, tokens and
+  credentials must not follow an untrusted `Location`; successful HTTP delivery
+  remains a prerequisite for advancing notification cursors.
+- `npm run check:watch-worker` exercises real workerd JSON/multipart requests,
+  icons/fonts and redirect rejection, entirely against local outbound fixtures.
+  Both check and deployment scripts require it to pass.
+- The 16:00 UTC production sample confirmed the failure; source is corrected
+  locally, with deployment and real-message verification tracked in the handoff.
+
 ## PUUID Search (261101)
 
 - The shared parser distinguishes UUID PUUID from name#tag without normalizing

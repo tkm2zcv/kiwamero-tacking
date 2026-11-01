@@ -21,8 +21,10 @@
 - Live owner-request samples no longer emit access-deadline warnings. One profile
   took 8,217ms without an auth/identity failure warning; other responses included
   prefetch/RSC traffic and are not complete browser latency measurements.
-  User's visual retest arrived as an unreadable blob attachment, so displayed
-  stats/partial-state confirmation is still pending; do not call all timeouts fixed.
+- User resent a readable screenshot confirming the authenticated profile with
+  rank, 31-match overview (19 wins/12 losses, K/D 1.04) and match-history section.
+  The prior full-page error is absent in that retest. This does not establish
+  universal latency, complete-history retrieval, or latest-data freshness.
 
 ## 261101 - Recover Abandoned Profile Work (Deployed)
 

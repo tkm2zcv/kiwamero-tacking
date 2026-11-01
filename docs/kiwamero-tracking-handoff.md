@@ -1,6 +1,6 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
-## 261101 - Auth Schema Wait (Deployed; Visual Retest Pending)
+## 261101 - Auth Schema Wait (Deployed; Profile Render Confirmed)
 
 - PUUID is already deployed. User's retest on Worker 16237370 still showed the
   timeout; live warnings were `[profile] access deadline exceeded`, not identity.
@@ -20,9 +20,10 @@
   access-deadline warnings in the observed sample. One profile took 8,217ms with
   no failure warning; other short responses include prefetch/RSC, not full
   authenticated browser latency.
-- User replied with ATTACHMENT blob:vscode-file URL only; no image bytes/path.
-  Asked them to resend the image or paste the displayed text. Do not pretend to
-  have seen it, claim full rendered stats, or declare all latency issues fixed.
+- User resent the actual screenshot: KingLeo profile, current rank, 31-match
+  overview (19 wins/12 losses, K/D 1.04) and match-history section are visible.
+  This confirms authenticated profile rendering after the fix, not a guarantee
+  of every profile's latency, complete history, or latest-data freshness.
 - Both monitoring tails (3e95ce, baee5c) stopped. No live provider probes beyond
   the one approved PUUID lookup, no manual DB writes/cron/webhooks.
 
@@ -43,7 +44,7 @@
 - Final 262 tests, lint/typecheck, Worker build/compat gate and scrub pass.
   Combined commit/push/deploy done; no new provider probes performed.
 - Plan: `plans/261101-frequent-profile-timeouts.md`. See latest auth entry for
-  rollout, monitoring and pending screenshot status.
+  rollout, monitoring and confirmed screenshot scope.
 
 ## 261101 - PUUID Search (Deployed)
 

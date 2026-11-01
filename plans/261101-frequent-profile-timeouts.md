@@ -77,8 +77,8 @@
 - 263 tests, lint/typecheck, build/compat/scrub pass; real workerd/D1 validation
   passes with schema I/O blocked and zero external calls. Browser auth timeout
   is distinguished with zero provider calls; PUUID/search/loading checks pass.
-- User approved extra commit/push/deploy for this auth fix. Production retest
-  must still confirm the affected profile no longer hits access timeouts.
+- User approved extra commit/push/deploy for this auth fix. The subsequent
+  screenshot retest confirms the affected profile renders instead of the error.
 
 ## Final Rollout Observations
 - Auth fix 6da04a5 is pushed/deployed as 071ca9c7-9865-4708-b517-79609c2de338.
@@ -86,10 +86,11 @@
 - Live owner-request sample now has no auth-deadline warnings. A profile took
   8,217ms with no auth/identity failure log; others include prefetch/RSC responses,
   so these are not conclusive full-browser timings or full-data confirmations.
-- User visual retest arrived as ATTACHMENT blob:vscode-file reference only.
-  Requested reattachment/text; image content is not accessible in this transcript.
+- Initial visual retest arrived as an inaccessible blob reference. User then
+  resent the actual screenshot: profile/rank, 31-match overview, 19 wins/12 losses,
+  K/D 1.04 and match-history section are visible, with no full-page error.
 - Latest D1 aggregate: four keys, no cooldown, last minute interactive/background
   both zero, ready/pending queue zero. All inspections read-only.
-- Pending: determine what user actually sees (data, partial stats, or new error)
-  from a proper screenshot/text; continue diagnosis if necessary. Do not claim
-  every unavailable state is solved solely from successful HTTP status.
+- Visual verification is complete for this retest. Do not infer full-history
+  completeness, freshness, universal latency or all future unavailable states
+  being resolved from this single screenshot.

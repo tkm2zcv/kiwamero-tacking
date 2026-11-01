@@ -2,6 +2,21 @@
 
 対象は `kiwamero-tracking/`。これは「実装済み」と「本番推奨」を混同しないためのメモ。
 
+## Watch PNG Runtime (261102)
+
+- src/worker.js imports compiled resvg and Yoga WASM; rendering never downloads
+  WASM for runtime compilation. Satori standalone is pinned at 0.32.0 because
+  newer releases eagerly initialize Worker-incompatible HarfBuzz. Revalidate
+  native PNG generation before changing this dependency.
+- Node development reads installed binaries under the app's cwd/node_modules.
+  The fixed legacy font UA returns two full Noto JP TTFs (~5.7MB each). Limits:
+  two fonts, 8MiB/file, 16KiB CSS, size headers plus buffered checks, no redirects.
+  Never pass private player names via text= font subsetting.
+- Native gate renders PNGs and validates real multipart attachment data;
+  optional cached-production-font mode adds zero external calls.
+- Successful-delivery metrics separate imagesSent and embedFallbacks. Cursor
+  semantics, hourly cadence and webhook origin restrictions are unchanged.
+
 ## Watch Fetch Redirect Policy (261102)
 
 - Workerd rejects `fetch` with `redirect:"error"` before network I/O, unlike Node.

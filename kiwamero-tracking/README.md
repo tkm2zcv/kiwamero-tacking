@@ -20,6 +20,8 @@ tracker.gg 風の VALORANT トラッカー。Discord ログイン必須の限定
 - 本番構成: Cloudflare Workers + D1 (OpenNext、`@opennextjs/cloudflare` 1.20.x)
 - 監視対象: プロフィールの目アイコンで登録/解除 → `/watchlist` で一覧・Discord Webhook設定
 - 監視通知: Workers Cron (毎時) → ユーザーごとの Discord Webhook（試合embed＋同パーティメンバー別embed）
+- 画像カード: Workerにresvg/Yogaを静的WASMとして同梱。SatoriはWorkers互換の`0.32.0`に固定し、
+  更新時は`npm run check:watch-worker`の実PNG生成・添付検証を必ず通す
 
 ## ローカル起動
 

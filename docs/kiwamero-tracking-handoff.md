@@ -1,5 +1,32 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 261102 - PNG Watch Card Correction (Rollout Approved; Pending)
+
+- User expects the previously built image-card notification. Prior five messages
+  proved successful HTTP delivery only, not generated images.
+- Workerd reproduction: runtime resvg byte compilation rejected. Default and
+  standalone Satori 0.60.3 eagerly initialize HarfBuzz; official latest 0.63.2
+  retains the problem. Use exact Satori 0.32.0 standalone + statically imported
+  resvg/Yoga WASM in src/worker.js, exposed as __kiwameroWatchWasm.
+- Node fallback reads binaries from app cwd/node_modules (development/direct
+  Node use verified; packaged standalone Node deployment is not supported here).
+  No changed card tree/styles, no unsafe compilation or modified dependency code.
+- Approved Google reads are EXHAUSTED (three). Real fixed-UA CSS has TWO full
+  fonts, not 90 subsets; each is ~5.7MB, larger than old 4MiB cap. New bounds:
+  8MiB/font, two fonts max, 16KiB CSS, header/body checks, manual redirects,
+  original host allowlist and no text= leakage. Error causes are retained.
+- Cached real font CSS/TTFs/manifest in ignored .tmp/watch-font-production-*.
+  WATCH_TEST_PRODUCTION_FONTS=1 replays them offline in native check.
+- Native PNG and actual PNG multipart pass with those fonts; Node solo/party
+  880x660/880x776 pass. 264 tests/lint/typecheck/Next/Worker/compat/scrub pass;
+  wrapper dry-run passes, gzip3302.22KiB. Independent review: no blockers.
+- WatchSummary now distinguishes successful imagesSent from embedFallbacks.
+- User newly approved commit/push/deploy plus ONE normal cycle with required
+  provider reads and NEW-match delivery. Not yet used. Do not reset cursors or
+  resend prior five. If no new matches, report production image delivery unobserved.
+- Existing production remains ca1bdd98 until this correction is deployed.
+  Plan: plans/261102-watch-image-cards.md.
+
 ## 261102 - Watch Notification Failure (Deployed; Five Deliveries Verified)
 
 - User reports watch is inactive. Read-only D1 proves five entries with configured

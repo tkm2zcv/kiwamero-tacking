@@ -264,6 +264,8 @@ export interface WatchSummary {
   playersChecked: number;
   entriesProcessed: number;
   matchesSent: number;
+  imagesSent: number;
+  embedFallbacks: number;
   webhookFailures: number;
   skipped: number;
   errors: string[];
@@ -297,6 +299,8 @@ export async function runWatchCycle(
     playersChecked: 0,
     entriesProcessed: 0,
     matchesSent: 0,
+    imagesSent: 0,
+    embedFallbacks: 0,
     webhookFailures: 0,
     skipped: 0,
     errors: [],
@@ -406,6 +410,8 @@ export async function runWatchCycle(
           if (!complete) break;
           delivered += 1;
           summary.matchesSent += 1;
+          if (cardFile) summary.imagesSent += 1;
+          else summary.embedFallbacks += 1;
           await db.watchlistEntry.update({
             where: { id: entry.id },
             data: {

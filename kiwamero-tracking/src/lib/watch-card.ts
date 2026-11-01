@@ -1,8 +1,8 @@
 /**
  * Server-side match card renderer for Discord watch notifications.
  * satori (element tree -> SVG) + @resvg/resvg-wasm (SVG -> PNG).
- * Works in Node dev and Cloudflare Workers: the wasm binary is read from
- * node_modules when available, otherwise fetched from the app's own origin.
+ * Workers use statically imported WASM modules; Node reads installed binaries.
+ * Pin Satori 0.32.0: newer builds eagerly initialize Worker-incompatible HarfBuzz.
  */
 
 import type { NewMatchSummary } from "./watch-core";
@@ -34,8 +34,10 @@ const el = (type: string, props: Record<string, unknown>, ...children: unknown[]
 const text = (value: string, style: Record<string, unknown>): El =>
   el("div", { style }, value);
 
-let wasmPromise: Promise<BufferSource> | null = null;
+type WatchWasm = { resvg: BufferSource | WebAssembly.Module; layout: BufferSource | WebAssembly.Module };
+let wasmPromise: Promise<WatchWasm> | null = null;
 let wasmInitPromise: Promise<unknown> | null = null;
+let layoutInitPromise: Promise<void> | null = null;
 type CardFont = { name: string; data: ArrayBuffer; weight: 400 | 700; style: "normal" };
 let fontPromise: Promise<CardFont[]> | null = null;
 const iconCache = new Map<string, Promise<string | null>>();
@@ -49,24 +51,26 @@ const ICON_HOSTS = new Set([
   "titles.trackercdn.com",
 ]);
 const MAX_ICON_BYTES = 512 * 1024;
-const MAX_FONT_BYTES = 4 * 1024 * 1024;
+// Full Noto JP TTFs are about 5.7 MB each, not the smaller browser subsets.
+const MAX_FONT_BYTES = 8 * 1024 * 1024;
+const MAX_FONT_CSS_BYTES = 16 * 1024;
 
-async function loadWasm(): Promise<BufferSource> {
+async function loadWasm(): Promise<WatchWasm> {
+  const compiled = (globalThis as typeof globalThis & {
+    __kiwameroWatchWasm?: WatchWasm;
+  }).__kiwameroWatchWasm;
+  if (compiled) return compiled;
   wasmPromise ??= (async () => {
-    try {
-      const fs = await import("node:fs/promises");
-      const url = new URL("../../node_modules/@resvg/resvg-wasm/index_bg.wasm", import.meta.url);
-      return await fs.readFile(url);
-    } catch {
-      const base =
-        process.env.APP_BASE_URL ??
-        process.env.BETTER_AUTH_URL ??
-        "https://tracking.kiwamero.dev";
-      const res = await fetch(`${base.replace(/\/$/, "")}/resvg.wasm`);
-      if (!res.ok) throw new Error(`wasm fetch ${res.status}`);
-      return res.arrayBuffer();
-    }
-  })();
+    const fs = await import("node:fs/promises");
+    const [resvg, layout] = await Promise.all([
+      fs.readFile(`${process.cwd()}/node_modules/@resvg/resvg-wasm/index_bg.wasm`),
+      fs.readFile(`${process.cwd()}/node_modules/satori/yoga.wasm`),
+    ]);
+    return { resvg, layout };
+  })().catch((error) => {
+    wasmPromise = null;
+    throw error;
+  });
   return wasmPromise;
 }
 
@@ -115,11 +119,18 @@ export async function iconData(url: string | undefined): Promise<string | null> 
 // Exported for tests — internal rendering helper.
 export function loadFonts(): Promise<CardFont[]> {
   fontPromise ??= (async () => {
-    const css = await fetch(
+    const cssResponse = await fetch(
       "https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700",
-      { headers: { "user-agent": "Mozilla/4.0" } },
-    ).then((r) => r.text());
+      { headers: { "user-agent": "Mozilla/4.0" }, redirect: "manual" },
+    );
+    if (!cssResponse.ok) throw new Error(`font CSS fetch ${cssResponse.status}`);
+    if (Number(cssResponse.headers.get("content-length")) > MAX_FONT_CSS_BYTES) throw new Error("font CSS too large");
+    const cssBytes = await cssResponse.arrayBuffer();
+    if (cssBytes.byteLength > MAX_FONT_CSS_BYTES) throw new Error("font CSS too large");
+    const css = new TextDecoder().decode(cssBytes);
     const blocks = css.split("@font-face").slice(1);
+    // The fixed legacy UA requests exactly the two full fonts, not unicode subsets.
+    if (!blocks.length || blocks.length > 2) throw new Error(`unexpected font count: ${blocks.length}`);
     return Promise.all(
       blocks.map(async (block) => {
         const weight = (Number(block.match(/font-weight:\s*(\d+)/)?.[1] ?? 400) === 700 ? 700 : 400) as 400 | 700;
@@ -131,14 +142,15 @@ export function loadFonts(): Promise<CardFont[]> {
         }
         const res = await fetch(u, { redirect: "manual" });
         if (!res.ok) throw new Error(`font fetch ${res.status}`);
+        if (Number(res.headers.get("content-length")) > MAX_FONT_BYTES) throw new Error("font too large");
         const data = await res.arrayBuffer();
         if (data.byteLength > MAX_FONT_BYTES) throw new Error("font too large");
         return { name: "Noto Sans JP", data, weight, style: "normal" as const };
       }),
     );
-  })().catch(() => {
+  })().catch((error) => {
     fontPromise = null;
-    throw new Error("fonts unavailable");
+    throw new Error("fonts unavailable", { cause: error });
   });
   return fontPromise;
 }
@@ -237,8 +249,8 @@ export async function renderWatchCard(
   watched: { name: string; tag: string },
 ): Promise<Uint8Array | null> {
   try {
-    const [{ default: satori }, resvgWasm, wasm] = await Promise.all([
-      import("satori"),
+    const [{ default: satori, init: initLayout }, resvgWasm, wasm] = await Promise.all([
+      import("satori/standalone"),
       import("@resvg/resvg-wasm"),
       loadWasm(),
     ]);
@@ -259,11 +271,15 @@ export async function renderWatchCard(
     const cardH = CARD_H + match.partyMembers.length * 116;
 
     const fonts = await loadFonts();
-    wasmInitPromise ??= initWasm(await wasm).catch((e) => {
+    layoutInitPromise ??= initLayout(wasm.layout).catch((e) => {
+      layoutInitPromise = null;
+      throw e;
+    });
+    wasmInitPromise ??= initWasm(wasm.resvg).catch((e) => {
       wasmInitPromise = null;
       throw e;
     });
-    await wasmInitPromise;
+    await Promise.all([layoutInitPromise, wasmInitPromise]);
 
     const tree = el(
       "div",

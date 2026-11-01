@@ -1,5 +1,26 @@
 # Project Changelog
 
+## 261102 - Restore PNG Watch Cards (Verified Locally; Rollout Approved)
+
+- Prior delivery verification proved Discord HTTP acceptance, not image delivery.
+  Actual workerd reproduction failed runtime resvg WASM compilation; Satori
+  0.60.3/0.63.2 also eagerly initialize incompatible HarfBuzz.
+- Custom Worker statically imports resvg/Yoga modules. Renderer uses Satori
+  standalone pinned exactly to 0.32.0, the newest pre-HarfBuzz release. Preserve
+  the card tree and layout, no unsafe compilation or patched node_modules.
+- Three approved public-font reads found exactly two full TTFs, 5,703,608 and
+  5,698,616 bytes; the old 4MiB cap independently forced embed fallback.
+  Keep 8MiB/file, at most two fonts, 16KiB CSS, header/body checks, approved hosts,
+  manual redirects and no private-name font subsetting. Preserve error causes.
+- Native probe now generates actual PNGs and inspects real multipart attachments,
+  not marker bytes. It also supports offline replay of the approved real fonts.
+  Add guard regression; successful cycles report imagesSent vs embedFallbacks.
+- 264 tests, lint/typecheck, Next/Worker build, compat and scrub pass. Actual
+  fonts pass native rendering; Node solo/party PNGs are 880x660 / 880x776.
+  Wrangler dry-run packages static modules (3302.22KiB gzip); review has no blockers.
+- User approves commit/push/deploy and ONE new normal cycle; no cursor reset or
+  replay of earlier five. Rollout/production image result not performed yet.
+
 ## 261102 - Watch Redirect Runtime Failure (Deployed; Delivery Verified)
 
 - High impact: the normal 16:00 UTC production watch run checked all five

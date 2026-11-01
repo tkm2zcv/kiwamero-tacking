@@ -150,6 +150,8 @@ test("a rendered match card is sent as one image attachment", async () => {
   const summary = await runWatchCycle(db, d);
 
   assert.equal(summary.matchesSent, 1);
+  assert.equal(summary.imagesSent, 1);
+  assert.equal(summary.embedFallbacks, 0);
   assert.equal(sent.length, 1, "single message, not one per embed");
   const payload = sent[0] as { embeds: { image?: { url: string } }[]; attachments?: { filename: string }[] };
   assert.equal(payload.embeds[0].image?.url, "attachment://watch-match.png");
@@ -167,6 +169,8 @@ test("a failed card render falls back to separate embed messages", async () => {
   const summary = await runWatchCycle(db, d);
 
   assert.equal(summary.matchesSent, 1);
+  assert.equal(summary.imagesSent, 0);
+  assert.equal(summary.embedFallbacks, 1);
   assert.equal(sent.length, 1);
   assert.equal(sentFiles[0].length, 0);
   const payload = sent[0] as { embeds: { image?: unknown }[] };

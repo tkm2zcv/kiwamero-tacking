@@ -77,6 +77,31 @@ test("iconData accepts an allowlisted https image and forbids redirects", async 
   assert.equal(redirects.length, 1, "redirect target must never be fetched");
 });
 
+test("loadFonts bounds CSS, font count and full-font bytes without following redirects", async () => {
+  const css = "@font-face {font-weight:400;src:url(https://fonts.gstatic.com/guard.ttf)}";
+  for (const response of [
+    new Response(null, { status: 302, headers: { location: "https://untrusted.example/" } }),
+    new Response("x", { headers: { "content-length": String(17 * 1024) } }),
+    new Response("x".repeat(17 * 1024)),
+    new Response(css.repeat(3)),
+  ]) {
+    const calls = stubFetch(() => response);
+    await assert.rejects(loadFonts(), /fonts unavailable/);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].init?.redirect, "manual");
+  }
+  for (const font of [
+    new Response(null, { status: 302, headers: { location: "https://untrusted.example/" } }),
+    new Response(new Uint8Array([1]), { headers: { "content-length": String(9 * 1024 * 1024) } }),
+    new Response(new Uint8Array(8 * 1024 * 1024 + 1), { headers: { "content-length": "1" } }),
+  ]) {
+    const calls = stubFetch(url => url.startsWith("https://fonts.googleapis.com/") ? new Response(css) : font);
+    await assert.rejects(loadFonts(), /fonts unavailable/);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1].init?.redirect, "manual");
+  }
+});
+
 test("loadFonts fetches the css2 URL without a text= subset", async () => {
   const fontCss =
     "@font-face { font-family: 'Noto Sans JP'; font-style: normal; font-weight: 400; " +

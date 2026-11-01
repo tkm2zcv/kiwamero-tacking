@@ -1,6 +1,6 @@
 # Project Changelog
 
-## 261101 - Auth Schema Probe Wait (Verified, Rollout Approved)
+## 261101 - Auth Schema Probe Wait (Deployed)
 
 - New production phase logs proved repeated 8s waits occur in `getSiteAccess`,
   before HenrikDev/encounter reads. The first recovery rollout did not fix them.
@@ -16,7 +16,13 @@
 - 263 tests, lint/typecheck, Worker build/compat gate and scrub pass. Real workerd
   + D1 verifies anonymous/valid/tampered/unlisted access across requests with
   schema I/O deliberately stalled, zero introspection and no external network.
-- Rollout approved; pending production verification on the affected profile.
+- `6da04a5` deployed as `071ca9c7-9865-4708-b517-79609c2de338`.
+  Anonymous root/login/UUID routes retain the Discord gate; anonymous API is 403.
+- Live owner-request samples no longer emit access-deadline warnings. One profile
+  took 8,217ms without an auth/identity failure warning; other responses included
+  prefetch/RSC traffic and are not complete browser latency measurements.
+  User's visual retest arrived as an unreadable blob attachment, so displayed
+  stats/partial-state confirmation is still pending; do not call all timeouts fixed.
 
 ## 261101 - Recover Abandoned Profile Work (Deployed)
 

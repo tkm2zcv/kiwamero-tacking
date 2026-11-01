@@ -1,6 +1,6 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
-## 261101 - Auth Schema Wait (Verified, Rollout Approved)
+## 261101 - Auth Schema Wait (Deployed; Visual Retest Pending)
 
 - PUUID is already deployed. User's retest on Worker 16237370 still showed the
   timeout; live warnings were `[profile] access deadline exceeded`, not identity.
@@ -14,8 +14,17 @@
   and immediate allowlist removal. `tools/check-auth-worker.cjs` uses real workerd
   + D1 with blocked schema I/O and real session/owner checks across requests.
 - 263 tests/lint/typecheck/build/compat/scrub and native worker/browser pass.
-  Auth and provider timeout copy are separate. User approved extra rollout;
-  commit/deploy and authenticated production retest remain.
+  Auth and provider timeout copy are separate. 6da04a5 deployed as
+  071ca9c7-9865-4708-b517-79609c2de338; source pushed.
+- Anonymous gates/CSP/403 API smoke pass. Live owner profile traffic has no
+  access-deadline warnings in the observed sample. One profile took 8,217ms with
+  no failure warning; other short responses include prefetch/RSC, not full
+  authenticated browser latency.
+- User replied with ATTACHMENT blob:vscode-file URL only; no image bytes/path.
+  Asked them to resend the image or paste the displayed text. Do not pretend to
+  have seen it, claim full rendered stats, or declare all latency issues fixed.
+- Both monitoring tails (3e95ce, baee5c) stopped. No live provider probes beyond
+  the one approved PUUID lookup, no manual DB writes/cron/webhooks.
 
 ## 261101 - Repeated Timeout Investigation (Recovery Deployed)
 
@@ -33,8 +42,8 @@
   verification. Recovery leases alone did not resolve this report.
 - Final 262 tests, lint/typecheck, Worker build/compat gate and scrub pass.
   Combined commit/push/deploy done; no new provider probes performed.
-- Plan: `plans/261101-frequent-profile-timeouts.md`. Sanitized tail shell 3e95ce
-  is running; stop it after investigation.
+- Plan: `plans/261101-frequent-profile-timeouts.md`. See latest auth entry for
+  rollout, monitoring and pending screenshot status.
 
 ## 261101 - PUUID Search (Deployed)
 

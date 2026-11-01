@@ -37,6 +37,12 @@
 - The backfill was a controlled sender, not a normal Worker cycle; workerd PNG
   and multipart behavior are covered separately by the native gate. Automatic
   repeats are blocked by an attempt ledger; do not rerun without approval.
+- Follow-up user correction found the first sender omitted party `szn K/D` and
+  `met` fields. A separately approved corrected run sent one latest image per
+  original entry (5/5) at 18:04-18:05 UTC. It used two HenrikDev stored-match
+  reads plus archive-derived encounter counts; no Google reads. The sixth was not
+  manually sent, but the ordinary 18:00 UTC cycle had already delivered its first
+  notification before the corrected run.
 
 ## 261102 - Watch Redirect Runtime Failure (Deployed; Delivery Verified)
 

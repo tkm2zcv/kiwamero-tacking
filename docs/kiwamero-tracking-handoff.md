@@ -38,10 +38,18 @@
   past-three image test. A controlled sender read only archived payloads and
   cached approved fonts, rendered the same card code, sent 15/15 image messages
   (no fallbacks), and persisted the latest notification IDs/timestamps. It made
-  no HenrikDev or Google reads; public icon assets were fetched. The sixth row
-  remains `lastSeenGameStart/lastNotified* = null`. This was not the hourly cycle.
-- The one-off `.tmp/send-watch-backfill.mjs` attempt ledger prevents automatic
-  repeats; do not rerun or send more messages without a new approval.
+  no HenrikDev or Google reads; public icon assets were fetched. This was not
+  the hourly cycle.
+- The first 15-message sender omitted party `szn K/D`/`met` enrichment. User then
+  approved exactly one corrected message per original entry. At 18:04-18:05 UTC
+  the corrected sender used archived matches, archive-derived encounter counts,
+  two HenrikDev stored-match reads, cached fonts/icons, and sent 5/5 image
+  messages; final cursors persisted. Sixth was not manually sent.
+- Separately, the ordinary 18:00 UTC watch cycle delivered the sixth entry's
+  first notification and persisted its cursor before the corrected run. Do not
+  describe the sixth as unnotified after that point.
+- The one-off `.tmp/send-watch-backfill.mjs` attempt ledgers prevent automatic
+  repeats for both runs; do not rerun or send more messages without new approval.
 - Root/login/watchlist200; anonymous stats/cross-site watchlist API403; CSP/frame
   protections unchanged. Plan: plans/261102-watch-image-cards.md.
 

@@ -83,7 +83,7 @@
 ## Approved Past-Three Backfill Test
 - After a sixth entry appeared, user explicitly selected the ORIGINAL five only
   and approved advancing notification records. Scope: up to 15 messages; the new
-  sixth entry is untouched and remains unnotified.
+  sixth entry was untouched by this controlled test.
 - Used `.tmp/send-watch-backfill.mjs`: read last-three archived match payloads,
   replayed cached approved fonts (zero new Google/provider reads), allowed only
   public icon hosts and Discord POSTs, rendered the same card code, multipart
@@ -91,6 +91,12 @@
 - Dry run loaded all 15 payloads and rendered an 82,241-byte PNG. Actual run
   17:56:16-17:57:55 UTC sent 15/15 image messages; failures 0; PNG sizes
   38,012-137,009 bytes.
-- Read-only D1 confirmed final `lastNotified*` values for the original five and
-  null cursors/fields for the sixth. This controlled sender is not evidence that
-  the next hourly Worker cycle completed; that remains for normal observation.
+- Read-only D1 confirmed final `lastNotified*` values for the original five. This
+  controlled sender is not evidence that the hourly Worker cycle completed.
+- Correction: that first sender omitted party `szn K/D`/`met` enrichment. User
+  approved one corrected latest image per original entry (not 15 more). At
+  18:04:20-18:05:04 UTC it sent 5/5, PNG sizes 56,661-82,651 bytes, with two
+  HenrikDev stored-match reads and archive-derived encounter counts. Ledger:
+  `.tmp/watch-corrected-one-attempt.json`.
+- The ordinary 18:00 UTC cycle separately delivered the sixth entry's first
+  notification; it was not manually sent in either controlled test.

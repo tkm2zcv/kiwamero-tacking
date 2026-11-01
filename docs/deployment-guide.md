@@ -3,16 +3,19 @@
 対象: `kiwamero-tracking/` → Cloudflare Workers + D1、`tracking.kiwamero.dev`。
 DB 層は 2026-10-29 に Prisma から生 SQL + Kysely へ移行済み (workerd 動作確認済み)。
 
-**状態: 初回デプロイ済み (2026-10-29)。** D1 `a8f05616-…` (APAC)、6シークレット投入、
-`tracking.kiwamero.dev` カスタムドメイン、cron `0 * * * *` 全て稼働確認済み
-(`/` 200、`/api/keys` anon 403、`/api/cron/watch` anon 401/認証 200、
-プロフィール 200、POST cron `ok:true`)。
-残る手動作業は Discord Developer Portal への本番 callback 登録のみ (§4)。
-以降は再デプロイ・運用時の手順として参照すること。
+**状態: 本番反映済み (261102更新)。** Worker
+`ca1bdd98-149e-4d96-a70e-0f3da7c2739a`、D1 `a8f05616-…` (APAC)、
+`tracking.kiwamero.dev`、必要なシークレットとDiscord callbackは設定済み。
+Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
+承認された監視1回で5件のDiscord送信成功と通知済み記録を確認しています。
+`npm run deploy` は外部送信しない実workerd回帰 → build → scrub → deploy の順です。
+`redirect:"error"` はWorkers未対応のため、Webhook送信には使用しません。
+詳細な検証範囲・制約は [引き継ぎ](kiwamero-tracking-handoff.md) を参照してください。
 
-## 2026-10-30 履歴補完版の追加移行（まだ本番未反映）
+## 2026-10-30 履歴補完版の追加移行（本番適用済み）
 
-以下はデプロイ承認後の手順です。この作業では実行していません。
+既存本番へは2026-10-31に適用済みです。以下は未移行環境のための手順であり、
+通常の再デプロイで再適用するものではありません。
 
 1. キーの独立枠と保存データの保持条件を確認する。
    独立枠未確認/共有枠なら`HENRIK_QUOTA_SCOPE=shared`。
@@ -35,8 +38,8 @@ npx wrangler d1 execute kiwamero-tracking --remote --file=db/upgrade-2026-10-30.
    キュー、D1費用、CPU、通常検索/監視の余力を観測する。
    Cloudflare rate-limit/WAFで公開プロフィール/補完開始の濫用も制限する。
 
-ローカル適用済みなのはD1/SQLiteのみ。本番の独立枠・実行費用・負荷・保持方針は
-未検証です。[詳細レビュー](reports/20261030-history-queue-review.md)を参照。
+本番スキーマは適用済みですが、独立枠・実行費用・最大負荷・保持方針を保証する
+検証ではありません。[詳細レビュー](reports/20261030-history-queue-review.md)を参照。
 
 ## 前提
 

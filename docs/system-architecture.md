@@ -13,8 +13,9 @@
 - `npm run check:watch-worker` exercises real workerd JSON/multipart requests,
   icons/fonts and redirect rejection, entirely against local outbound fixtures.
   Both check and deployment scripts require it to pass.
-- The 16:00 UTC production sample confirmed the failure; source is corrected
-  locally, with deployment and real-message verification tracked in the handoff.
+- The 16:00 UTC production sample confirmed the failure. Worker ca1bdd98 includes
+  the correction; one approved real cycle delivered all five targets and persisted
+  all five cursors. Subsequent minute audit events remain healthy.
 
 ## PUUID Search (261101)
 

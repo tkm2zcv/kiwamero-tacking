@@ -1,6 +1,6 @@
 # Project Changelog
 
-## 261102 - Watch Redirect Runtime Failure (Local Fix; Deployment Pending)
+## 261102 - Watch Redirect Runtime Failure (Deployed; Delivery Verified)
 
 - High impact: the normal 16:00 UTC production watch run checked all five
   registered targets but delivered zero messages. Existing webhooks and API keys
@@ -17,9 +17,18 @@
 - Accepted legacy Discord hosts now canonicalize to `discord.com` before sending
   rather than relying on HTTP redirects. The native probe covers this path.
 - Independent review has no remaining blockers. User approved commit/push/deploy
-  and one real watch cycle after final checks; production rollout remains pending.
+  and one real watch cycle after final checks.
 - Final 263 tests, lint/typecheck, native workerd check, Next build, Worker
   build/compat gate and deployment scrub all pass.
+- `c7cb0cd` deployed as `ca1bdd98-149e-4d96-a70e-0f3da7c2739a`.
+  The single approved POST completed in 31,273ms: checked=5, sent=5,
+  webhookFailures=0, errors=[]; Discord returned successful HTTP responses.
+- Read-only D1 confirms all five notification timestamps, match IDs and cursors
+  populated. Root/login/watchlist remain 200, anonymous stats and cross-site
+  watchlist API remain 403 with CSP/frame protections intact.
+- Subsequent minute audit events on the new version are healthy. The next hourly
+  watch on this version and recipient-side visual inspection are not observed.
+  No second manual cycle was run.
 
 ## 261101 - Auth Schema Probe Wait (Deployed)
 

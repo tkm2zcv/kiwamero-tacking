@@ -43,7 +43,8 @@
 - Baseline before this fix: 263 tests, lint/typecheck pass. Matching local keys
   correspond to all four production quota buckets. Archived real roster generates
   a notification summary successfully. No additional provider calls authorized.
-- Deployment and the single real-cycle verification remain pending final checks.
+- Deployed and verified with the single approved real cycle; that approval is
+  exhausted. Do not retry/send another manual cycle without new confirmation.
 
 ## Local Verification
 - Native workerd probe passes: real JSON and multipart fetches, icons/fonts and
@@ -58,3 +59,17 @@
 - Low-priority follow-ups remain: font-CSS/wasm loader redirect/size hardening
   and a webhook transport deadline. They predate this defect and do not permit
   webhook payload redirects; keep them out of this focused delivery correction.
+
+## Production Result
+- Source commit `c7cb0cd` pushed; Worker `ca1bdd98-149e-4d96-a70e-0f3da7c2739a`.
+- Preflight: authorized side-effect-free cron GET 200; five entries, one user,
+  five configured webhooks and zero prior notification timestamps.
+- Exactly one approved cron POST at 2026-11-01T16:34:55.725Z, HTTP 200 in
+  31,273ms: checked=5, processed=5, sent=5, webhookFailures=0, errors=[].
+- Read-only D1 after: timestamps=5, match IDs=5, positive cursors=5; no raw
+  SQL production writes, migration, cursor reset or second manual cycle.
+- Root/login/watchlist 200, anonymous stats 403, cross-site watchlist API 403;
+  CSP and frame protection retained. New-version minute audit tail is healthy.
+- Discord HTTP acceptance is verified; recipient-side visual inspection and the
+  next hourly watch on the new version are not observed.
+- Live tail 785311 stopped after verification.

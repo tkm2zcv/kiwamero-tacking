@@ -1,6 +1,6 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
-## 261102 - Watch Notification Failure (Local Fix; Not Yet Deployed)
+## 261102 - Watch Notification Failure (Deployed; Five Deliveries Verified)
 
 - User reports watch is inactive. Read-only D1 proves five entries with configured
   canonical webhooks; all notification cursors/timestamps are null.
@@ -12,23 +12,33 @@
   policy, successful-delivery-only cursors, background quota and hourly cadence.
 - `tools/check-watch-worker.cjs` runs actual workerd with only local outbound
   fixtures for JSON, multipart, assets and 302 refusal. It gates check/deploy.
-- Native regression and Worker build/scrub have passed. A stale Node assertion
+- Final 263 tests, lint/typecheck, native regression, Next build and Worker
+  build/compat/scrub pass. A stale Node assertion
   initially expected the unsupported option; updated it and added 302 rejection.
   Final full checks and review are being recorded in the investigation plan.
 - Only approved Cloudflare reads and two provider reads used: AP/ap both returned
   200 at size=1, so no speculative region fix. All four production quota hashes
   match local configured keys; an archived real roster generates a summary.
 - Do not query historical observability again without new access: it returned
-  403. Live sanitized tail is shell 785311; ignored file
-  `kiwamero-tracking/.tmp/watch-production-tail.ndjson`. Stop when finished.
+  403. Sanitized tail evidence is in ignored file
+  `kiwamero-tracking/.tmp/watch-production-tail.ndjson`; tail is stopped.
 - User approved independent read-only review, commit/push/deploy and ONE normal
   watch cycle, including provider reads and messages to the existing destination
-  (currently five entries). Those production operations are not performed yet.
-  No second manual cycle or extra standalone provider probes authorized.
+  (five entries). The one approved cycle is now USED; no second manual cycle or
+  extra standalone provider probes authorized.
 - Review found no remaining blockers after accepted Discord aliases were
   canonicalized before fetch; all current production URLs are already canonical.
   Low-priority CSS/wasm loader hardening and webhook timeouts remain follow-ups,
   not changes in this delivery fix. Plan: `plans/261102-watch-notifications.md`.
+- `c7cb0cd` pushed and deployed as `ca1bdd98-149e-4d96-a70e-0f3da7c2739a`.
+  Authorized POST at 2026-11-01 16:34:55 UTC completed in 31,273ms:
+  checked=5, entries=5, sent=5, webhookFailures=0, skipped=0, errors=[].
+- Read-only D1: notified timestamps=5, match IDs=5, positive cursors=5.
+  Delivery timestamps span 16:35:04-16:35:27 UTC. This confirms Discord HTTP
+  acceptance and state persistence, not recipient-side visual inspection.
+- Root/login/watchlist 200; anonymous stats and cross-site watchlist API 403;
+  CSP and frame denial retained. New-version minute audit events are healthy.
+  Do not claim the next hourly watch on this version was observed; it was not.
 
 ## 261101 - Auth Schema Wait (Deployed; Profile Render Confirmed)
 

@@ -2,6 +2,17 @@
 
 対象は `kiwamero-tracking/`。これは「実装済み」と「本番推奨」を混同しないためのメモ。
 
+## Large-History Snapshot Encoding (261101)
+
+- Snapshot v2 uses native gzip, not row truncation. Encoded snapshots are bounded
+  to 1.8MB, decoded data to 8MB, memory to 8MB total / 16 entries. Values are
+  detached bytes rather than request-owned streams/Responses.
+- Cache reads and inflation share a 300ms sub-budget. Full profiles retain capture
+  timestamps, 60s freshness and 24h retention, and refresh after the response.
+- Valid HTTP memory entries precede inflight dedupe for normal readers; explicit
+  fresh/no-cache readers still wait. Authentication/privacy/error distinctions
+  are unchanged. Cache API remains best-effort/per-colo, not durable global storage.
+
 ## Request-Local Module Loading (261101)
 
 - Workers timer ownership is request-scoped. Next's module-loading `CacheSignal`

@@ -159,6 +159,11 @@ async function fetchOnce<T>(path: string, init?: HenrikCallOptions): Promise<T> 
 
 export function henrikCall<T>(path: string, opts?: HenrikCallOptions): Promise<T> {
   const ttl = opts?.ttl ?? 60_000;
+  // A fresh background read must not hold a valid interactive cache hit hostage.
+  if (!opts?.fresh && ttl > 0) {
+    const hit = readCache(path);
+    if (hit !== undefined) return Promise.resolve(hit as T);
+  }
   const pending = inflight.get(path);
   if (pending) return pending as Promise<T>;
   const p = lookup<T>(path, opts, ttl).finally(() => inflight.delete(path));

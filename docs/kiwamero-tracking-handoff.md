@@ -1,5 +1,21 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 261101 - History Acquisition Stability (Rollout Pending)
+
+- User approved ten provider reads, all ten used. No more live measurement is
+  authorized without asking again. No production DB/data/notification changes.
+- Root: real 2,954-row snapshot is 2,138,613 bytes; the prior raw 1.8MB guard
+  always evicted it. Gzip retains all rows at 229,346 bytes (22ms measured).
+- `profile-cache.ts` now stores detached gzip bytes in memory and Cache API v2:
+  1.8MB encoded / 8MB decoded limits, 8MB aggregate memory, max 16 entries.
+  Inflation is stream-bounded; captures/60s freshness/24h retention unchanged.
+  Snapshot lookup+inflation is bounded to 300ms within the 8s route budget.
+- `henrik-client.ts` returns valid memory cache before joining a pending fresh
+  refresh; fresh/ttl=0 callers still join. This prevents cron refresh from holding
+  usable interactive data hostage. No fabricated zeros or row truncation.
+- Tests cover real compression, 5,000-row retention, cold-isolate reads, limits
+  and refresh races. Full verification/rollout status is recorded in the plan.
+
 ## 261101 - Entry Hang Compatibility Fix (Deployed)
 
 - Intermittent anonymous page hangs reproduce in HTTP and Chrome. Session API

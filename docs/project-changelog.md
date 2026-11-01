@@ -1,5 +1,23 @@
 # Project Changelog
 
+## 261101 - Stable Large-History Cache (Rollout Pending)
+
+- Approved real-provider measurements used ten reads, without production DB
+  writes. A 2,954-row profile completed cold in 2,199-4,099ms; HTTP-cache warm
+  reads completed in 2ms. Its 2,138,613-byte snapshot was always rejected by the
+  previous 1.8MB raw limit, explaining missed profile-cache reuse.
+- Preserve every retrieved row using native gzip (measured 229,346 bytes / 22ms).
+  Versioned snapshot encoding has 1.8MB compressed and 8MB decoded limits, plus
+  an 8MB aggregate memory budget. Streamed inflation is bounded, including
+  corrupted/oversized entries; timestamps, TTLs and permission gates are unchanged.
+- Interactive HTTP readers now use valid memory data before joining an inflight
+  fresh/background refresh. Fresh/no-cache readers still await/dedupe the refresh.
+- Regression coverage includes 5,000-row cold-isolate round trips without dropped
+  matches, encoded/decoded limits and slow-refresh cache priority.
+- Native snapshot cache reads/inflation share a 300ms sub-budget inside the
+  existing overall 8s foreground deadline. Underlying HTTP-cache operations
+  retain their 150ms cap. No schema migration or auth relaxation.
+
 ## 261101 - Intermittent Entry Request Hangs (Deployed)
 
 - Anonymous HTML requests sometimes received no headers for 8-12s, while the

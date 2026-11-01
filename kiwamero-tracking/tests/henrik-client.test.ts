@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
 import { requestHenrik } from "../src/lib/henrik-request.ts";
+import { beforeDeadline } from "../src/lib/deadline.ts";
 import { execute } from "../src/lib/db.ts";
 import {
   apiKeys,
@@ -85,6 +86,26 @@ test("concurrent calls share one in-flight request", async () => {
   const [a, b] = await Promise.all([henrikCall("/x"), henrikCall("/x")]);
   assert.deepEqual(a, b);
   assert.equal(calls.length, 1);
+});
+
+test("a slow fresh refresh does not block an existing valid cache hit", async () => {
+  const calls = stubFetch(() => ({ status: 200, data: { revision: 1 } }));
+  await henrikCall("/refreshing");
+  const started = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<Response>();
+  globalThis.fetch = async () => { started.resolve(); return release.promise; };
+  const refresh = henrikCall("/refreshing", { fresh: true });
+  await started.promise;
+  try {
+    assert.deepEqual(await beforeDeadline(henrikCall("/refreshing"), Date.now() + 100), { revision: 1 });
+    assert.equal(henrikCall("/refreshing", { fresh: true }), refresh, "fresh callers still dedupe");
+    assert.equal(henrikCall("/refreshing", { ttl: 0 }), refresh, "no-cache callers still wait for fresh data");
+    assert.equal(calls.length, 1);
+  } finally {
+    release.resolve(Response.json({ status: 200, data: { revision: 2 } }));
+    await refresh;
+  }
+  assert.deepEqual(await henrikCall("/refreshing"), { revision: 2 });
 });
 
 test("errors are not cached", async () => {

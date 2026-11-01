@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
+import { randomBytes } from "node:crypto";
+import { matchId, selfId } from "./history-fixtures.ts";
 import {
   deleteProfileSnapshot, profileCacheKey, readProfileSnapshot, refreshProfileSnapshot,
   resetProfileCache, writeProfileSnapshot, type ProfileSnapshot,
@@ -12,12 +14,12 @@ const snapshot = (age = 0): ProfileSnapshot => ({
   storedMatches: [],
 });
 function edgeStore() {
-  const store = new Map<string, string>();
+  const store = new Map<string, Response>();
   (globalThis as { caches?: unknown }).caches = { default: {
-    match: async (req: Request) => store.has(req.url) ? new Response(store.get(req.url)) : undefined,
+    match: async (req: Request) => store.get(req.url)?.clone(),
     put: async (req: Request, res: Response) => {
       assert.match(res.headers.get("cache-control")!, /max-age=86400/);
-      store.set(req.url, await res.text());
+      store.set(req.url, res.clone());
     },
     delete: async (req: Request) => store.delete(req.url),
   } };
@@ -53,7 +55,7 @@ test("expired, malformed, and seed snapshots never become live data", async () =
   assert.equal(await readProfileSnapshot("expired", Date.now() + 1000), null);
   await writeProfileSnapshot("bad-source", { ...snapshot(), bundle: { ...snapshot().bundle, source: "seed" } });
   assert.equal(await readProfileSnapshot("bad-source", Date.now() + 1000), null);
-  store.set("https://profile-cache.internal/v1/corrupt", "{");
+  store.set("https://profile-cache.internal/v2/corrupt", new Response("{"));
   assert.equal(await readProfileSnapshot("corrupt", Date.now() + 1000), null);
 });
 
@@ -77,10 +79,49 @@ test("oversized profiles are not retained in memory or edge cache", async () => 
   const store = edgeStore();
   await writeProfileSnapshot("large", snapshot());
   const data = snapshot();
-  data.bundle.profile.name = "x".repeat(1_800_001);
+  data.bundle.profile.name = "x".repeat(8_000_001);
   await writeProfileSnapshot("large", data);
   assert.equal(store.size, 0);
   assert.equal(await readProfileSnapshot("large", Date.now() + 1000), null);
+});
+
+test("large complete histories survive compression and cold-isolate reads without losing matches", async () => {
+  const store = edgeStore();
+  const data = snapshot(120_000);
+  data.storedMatches = Array.from({ length: 5000 }, (_, i) => ({
+    meta: { id: matchId(i), map: { id: matchId(1), name: "Ascent" }, mode: "Competitive",
+      started_at: new Date(1_790_000_000_000 + i * 3600_000).toISOString(),
+      season: { id: matchId(2), short: "e11a6" }, region: "ap", cluster: "Tokyo" },
+    stats: { puuid: selfId, name: "Player", tag: "TAG", team: "red", level: 100,
+      character: { id: matchId(3), name: "Jett" }, tier: 12, score: 4800,
+      kills: 12, deaths: 12, assists: 3, shots: { head: 8, body: 14, leg: 2 },
+      damage: { made: 1000, received: 1000 } },
+    teams: { red: 13, blue: 11 },
+  }));
+  assert.ok(new TextEncoder().encode(JSON.stringify(data)).byteLength > 1_800_000);
+  await writeProfileSnapshot("long-history", data);
+  const response = [...store.values()][0];
+  assert.ok((await response.clone().arrayBuffer()).byteLength < 1_800_000);
+  resetProfileCache();
+  const restored = await readProfileSnapshot("long-history", Date.now() + 1000);
+  assert.deepEqual(restored, data);
+  assert.equal(restored?.storedMatches.length, 5000);
+});
+
+test("incompressible oversized snapshots cannot exceed the encoded size cap", async () => {
+  const store = edgeStore();
+  const data = snapshot();
+  data.bundle.profile.name = randomBytes(2_000_000).toString("base64");
+  await writeProfileSnapshot("random", data);
+  assert.equal(store.size, 0);
+  assert.equal(await readProfileSnapshot("random", Date.now() + 1000), null);
+});
+
+test("inflation is bounded even when encoded bytes are small", async () => {
+  const store = edgeStore();
+  const stream = new Blob(["x".repeat(8_000_001)]).stream().pipeThrough(new CompressionStream("gzip"));
+  store.set("https://profile-cache.internal/v2/expansion", new Response(await new Response(stream).arrayBuffer()));
+  assert.equal(await readProfileSnapshot("expansion", Date.now() + 1000), null);
 });
 
 test("SWR refresh is deferred, coalesced, and released after failure", async () => {

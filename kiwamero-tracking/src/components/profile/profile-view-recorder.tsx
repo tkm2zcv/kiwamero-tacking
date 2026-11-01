@@ -14,7 +14,7 @@ export function ProfileViewRecorder(props: {
 }) {
   const { name, tag, puuid, card, rankIcon, rankName } = props;
   useEffect(() => {
-    if (consumeSearchIntent(name, tag)) {
+    if (consumeSearchIntent(name, tag, puuid)) {
       recordSearch({ name, tag, puuid, card, rankIcon, rankName });
     }
   }, [name, tag, puuid, card, rankIcon, rankName]);

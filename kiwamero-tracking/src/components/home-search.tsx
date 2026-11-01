@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { ImageSearchButton, type ImageSearchDict } from "./image-search";
-import { markSearchIntent } from "@/lib/search-history";
+import { markPuuidSearchIntent, markSearchIntent } from "@/lib/search-history";
 import { trackerProfileUrl } from "@/lib/tracker-gg";
+import { parsePlayerSearch, playerProfilePath } from "@/lib/player-search";
 
 export function HomeSearch({ placeholder, cta, imageSearch }: { placeholder: string; cta: string; imageSearch: ImageSearchDict }) {
   const router = useRouter();
@@ -16,25 +17,30 @@ export function HomeSearch({ placeholder, cta, imageSearch }: { placeholder: str
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
-    const m = q.trim().match(/^(.+?)#(.+)$/);
-    if (!m) {
+    const player = parsePlayerSearch(q);
+    if (!player) {
       setErr(true);
       return;
     }
-    const local = `/valorant/profile/riot/${encodeURIComponent(m[1])}%23${encodeURIComponent(m[2])}/overview`;
+    const local = `${playerProfilePath(player)}/overview`;
+    if (player.kind === "puuid") {
+      markPuuidSearchIntent(player.puuid);
+      router.push(local);
+      return;
+    }
     // The local profile always loads; the tracker.gg tab is an extra that only
     // appears when the account actually resolves. Reserving the tab inside the
     // user gesture keeps popup blockers quiet.
     const tab = window.open("about:blank", "_blank");
     if (tab) tab.opener = null;
     setBusy(true);
-    markSearchIntent(m[1], m[2]);
+    markSearchIntent(player.name, player.tag);
     router.push(local);
-    if (!tab) return;
+    if (!tab) { setBusy(false); return; }
     try {
-      const res = await fetch(`/api/valorant/account/${encodeURIComponent(m[1])}/${encodeURIComponent(m[2])}`);
+      const res = await fetch(`/api/valorant/account/${encodeURIComponent(player.name)}/${encodeURIComponent(player.tag)}`);
       if (res.ok) {
-        tab.location.href = trackerProfileUrl(m[1], m[2]);
+        tab.location.href = trackerProfileUrl(player.name, player.tag);
       } else {
         tab.close();
       }
@@ -56,6 +62,8 @@ export function HomeSearch({ placeholder, cta, imageSearch }: { placeholder: str
             setErr(false);
           }}
           placeholder={placeholder}
+          aria-label={placeholder}
+          aria-invalid={err || undefined}
           className="h-14 w-full rounded-xl pl-12 pr-4 text-base outline-none"
           style={{
             background: "var(--color-surface-1)",

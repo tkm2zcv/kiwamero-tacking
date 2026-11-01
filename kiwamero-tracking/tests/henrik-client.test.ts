@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { requestHenrik } from "../src/lib/henrik-request.ts";
 import { beforeDeadline } from "../src/lib/deadline.ts";
 import { execute } from "../src/lib/db.ts";
+import { getAccountByPuuid } from "../src/lib/henrikdev.ts";
 import {
   apiKeys,
   henrikCall,
@@ -70,6 +71,35 @@ test("henrikCall caches responses within the TTL", async () => {
   assert.equal(calls.length, 1);
 });
 
+test("PUUID account lookup uses the documented endpoint, validates identity and reuses cache", async () => {
+  const id = "4172c23f-8c2e-5c68-9afb-2ea38c5e2028";
+  const calls = stubFetch(() => ({ status: 200, data: { puuid: id, name: "Current Player", tag: "TAG", region: "ap" } }));
+  const account = await getAccountByPuuid(id.toUpperCase());
+  assert.equal(account.name, "Current Player");
+  assert.equal(account.puuid, id);
+  assert.equal((await getAccountByPuuid(id)).name, account.name);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, `https://api.henrikdev.xyz/valorant/v1/by-puuid/account/${id}`);
+});
+
+test("malformed PUUID lookups do not consume upstream quota", async () => {
+  const calls = stubFetch(() => ({ status: 200 }));
+  await assert.rejects(getAccountByPuuid("../invalid"), { status: 400 });
+  assert.equal(calls.length, 0);
+});
+
+test("a mismatched account cannot resolve to another player's profile", async () => {
+  const id = "4172c23f-8c2e-5c68-9afb-2ea38c5e2028";
+  stubFetch(() => ({ status: 200, data: { puuid: id.replace("4172", "4173"), name: "Wrong", tag: "TAG", region: "ap" } }));
+  await assert.rejects(getAccountByPuuid(id), { status: 502 });
+});
+
+test("PUUID not-found status is preserved rather than becoming empty history", async () => {
+  const calls = stubFetch(() => ({ status: 404 }));
+  await assert.rejects(getAccountByPuuid("4172c23f-8c2e-5c68-9afb-2ea38c5e2028"), { status: 404 });
+  assert.equal(calls.length, 1);
+});
+
 test("fresh bypasses the cache and rewrites it", async () => {
   let n = 0;
   const calls = stubFetch(() => ({ status: 200, data: { n: ++n } }));
@@ -115,6 +145,35 @@ test("errors are not cached", async () => {
   const ok = await henrikCall("/x");
   assert.deepEqual(ok, { ok: 1 });
   assert.equal(calls.length, 2);
+});
+
+test("abandoned inflight leases recover without stale writes or deleting a newer request", { timeout: 5000 }, async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 1_800_000_000_000 });
+  process.env.HENRIK_API_KEY = "offline-lease-key";
+  const store = stubEdgeCache();
+  const starts = [Promise.withResolvers<void>(), Promise.withResolvers<void>()];
+  const bodies = [Promise.withResolvers<Response>(), Promise.withResolvers<Response>()];
+  let calls = 0;
+  globalThis.fetch = async () => {
+    const index = calls++;
+    starts[index].resolve();
+    return bodies[index].promise;
+  };
+  const old = henrikCall("/abandoned");
+  await starts[0].promise;
+  // Model a new request after the original context (and its timers) has died.
+  t.mock.timers.tick(20_000);
+  const replacement = henrikCall("/abandoned");
+  await starts[1].promise;
+  bodies[0].resolve(Response.json({ status: 200, data: { generation: "old" } }));
+  assert.deepEqual(await old, { generation: "old" });
+  assert.equal(store.size, 0, "superseded work must not publish to the shared edge cache");
+  const joined = henrikCall("/abandoned");
+  bodies[1].resolve(Response.json({ status: 200, data: { generation: "new" } }));
+  assert.deepEqual(await replacement, { generation: "new" });
+  assert.deepEqual(await joined, { generation: "new" }, "old cleanup must not delete the replacement");
+  assert.deepEqual(await henrikCall("/abandoned"), { generation: "new" });
+  assert.equal(calls, 2);
 });
 
 test("apiKeys merges HENRIK_API_KEYS and legacy HENRIK_API_KEY", () => {

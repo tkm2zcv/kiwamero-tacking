@@ -54,6 +54,7 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
   const account = { name: "Budget Player", tag: "TAG", puuid: selfId, region: "ap", account_level: 100, card: {}, last_update: "" };
   const match = rawMatch(1);
   let scenario = "fast", calls = 0;
+  const requested = [];
   const pending = [];
   const realFetch = globalThis.fetch;
   globalThis.__allowed = true;
@@ -62,6 +63,7 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     const url = String(input);
     assert.ok(url.startsWith("https://api.henrikdev.xyz/"), "unexpected external fetch");
     calls++;
+    requested.push(url);
     if (scenario === "private") return new Response(null, { status: 403 });
     if ((scenario === "identity" && url.includes("/account/")) ||
         (scenario === "all" && !url.includes("/account/")) ||
@@ -95,9 +97,9 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     }
     return node;
   }
-  async function page() {
+  async function page(id = "Budget%20Player%23TAG") {
     const tree = await resolveServer(await app.Page({
-      params: Promise.resolve({ id: "Budget%20Player%23TAG" }), searchParams: Promise.resolve({}),
+      params: Promise.resolve({ id }), searchParams: Promise.resolve({}),
     }));
     return renderToStaticMarkup(React.createElement(app.I18nProvider, { locale: "ja", dict: app.dicts.ja }, tree));
   }
@@ -112,9 +114,19 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     app.resetHenrikClient(); app.resetProfileCache();
     await app.execute("DELETE FROM HenrikQuota");
     scenario = next; calls = 0;
+    requested.length = 0;
   }
   let browser, server;
   try {
+    await reset("fast");
+    const byPuuid = await page(selfId);
+    assert.match(byPuuid, /Budget Player/);
+    assert.match(byPuuid, new RegExp(`/valorant/profile/riot/${selfId}/matches`));
+    assert.equal(calls, 5, "PUUID resolves once plus four profile reads, not an extra name lookup");
+    assert.equal(requested[0], `https://api.henrikdev.xyz/valorant/v1/by-puuid/account/${selfId}`);
+    assert.equal(requested.filter(url => url.includes("/v1/account/")).length, 0);
+    await flush();
+    console.log("PASS: real PUUID page/data/HTTP pipeline resolves identity once and preserves tab URLs");
     await reset("optional");
     server = http.createServer(async (_req, res) => {
       try { res.setHeader("Content-Type", "text/html; charset=utf-8"); res.end(await page()); }

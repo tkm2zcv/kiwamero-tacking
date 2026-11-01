@@ -2,7 +2,7 @@ import "server-only";
 import type {
   Match, MatchPlayer, ProfileBundle, SeasonRank, TopAgent, Teammate,
 } from "./types";
-import { getAccount, getMatches, getMmr, getMmrHistory, getStoredMatches, tierIcon } from "./henrikdev";
+import { getAccount, getAccountByPuuid, getMatches, getMmr, getMmrHistory, getStoredMatches, tierIcon } from "./henrikdev";
 import type { HDStoredMatch } from "./henrik-model";
 import { normalizeHDMatches } from "./match-normalize";
 import { loadProfileSource, PROFILE_LOAD_BUDGET_MS, type ProfileFailure, type ProfileIssue, type ProfileLoadOptions, type ProfileSourceData, type ProfileSourceResult } from "./profile-source";
@@ -184,6 +184,8 @@ export async function loadProfile(
   opts?: ProfileLoadOptions & { defer?: (task: () => Promise<void>) => void },
 ): Promise<ProfileResult> {
   const deadline = opts?.deadline ?? Date.now() + PROFILE_LOAD_BUDGET_MS;
+  // Empty tag is reserved for a validated PUUID search; resolve identity once.
+  const accountSource = tag ? getAccount : (id: string) => getAccountByPuuid(id);
   const key = profileCacheKey(name, tag, opts);
   const save = async (completed: ProfileSourceResult) => {
     if (completed.ok && !completed.issues.length) {
@@ -201,7 +203,7 @@ export async function loadProfile(
     if (cached) refreshProfileSnapshot(key, opts!.defer!, async () => {
       let completion: Promise<ProfileSourceResult> | undefined;
       await loadProfileSource(
-        { getAccount, getMatches, getMmr, getMmrHistory, getStoredMatches },
+        { getAccount: accountSource, getMatches, getMmr, getMmrHistory, getStoredMatches },
         name, tag, { ...opts, deadline: Date.now() + PROFILE_LOAD_BUDGET_MS,
           background: (task) => { completion = task; } },
       );
@@ -210,7 +212,7 @@ export async function loadProfile(
     return { ok: true, ...snapshot, cached };
   }
   const result = await loadProfileSource(
-    { getAccount, getMatches: (region, puuid, query) => getMatches(region, puuid, { ...query, defer: opts?.defer }),
+    { getAccount: accountSource, getMatches: (region, puuid, query) => getMatches(region, puuid, { ...query, defer: opts?.defer }),
       getMmr, getMmrHistory, getStoredMatches }, name, tag,
     { ...opts, deadline, background: opts?.defer ? (completion) => opts.defer!(async () => {
       await save(await completion);

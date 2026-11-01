@@ -33,6 +33,7 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
           () => ({ path: path.join(root, "src/lib/henrik-errors.ts") }));
         build.onLoad({ filter: /.*/, namespace: "fixture" }, ({ path }) => ({ contents: path === "empty" ? "" : `
           export const getAccount = async () => globalThis.__profileAccount;
+          export const getAccountByPuuid = async () => globalThis.__profileAccount;
           export const getMmr = async () => ({});
           export const getMmrHistory = async () => [];
           export const getStoredMatches = async () => [];

@@ -1,5 +1,47 @@
 # Project Changelog
 
+## 261101 - Recover Abandoned Profile Work (Not Deployed)
+
+- Read-only production inspection during reported repeated timeouts found no
+  active enrichment backlog, background reservations or cooling keys. Captured
+  8,003/8,000ms profile responses had no new provider reservations.
+- Offline reproduction proves an abandoned origin can leave a bare in-flight
+  promise that later searches keep joining. This is a real recovery defect, not
+  confirmation that every reported production timeout has the same cause.
+- Add wall-clock leases to HTTP dedupe (16s) and snapshot refresh flags (45s),
+  pruning abandoned entries and fencing superseded writes/cleanup. Healthy
+  dedupe, cache-first reads, quota rotation and background priorities remain.
+- Add post-response, non-sensitive warning phases for access vs identity failure
+  so production recurrence can be attributed rather than called API exhaustion.
+- No longer UI deadline, extra roster fanout, DB migration, auth bypass or manual
+  cron/webhook invocation. Combined PUUID/recovery rollout now approved.
+- Final 262 tests, lint/typecheck, Worker build/compat guard and scrub pass.
+  Offline browser: partial profile 8,219ms, stale snapshot 63ms. Live authenticated
+  recurrence attribution remains pending the new warning phases.
+
+## 261101 - PUUID Player Search (Not Deployed)
+
+- Home/nav forms accept name#tag or a UUID-format PUUID through one pure parser.
+  PUUID URLs reuse the profile renderer and retain tab/filter paths without an
+  extra client resolver request or redirect budget.
+- Resolve via documented `/valorant/v1/by-puuid/account/{puuid}`, validating UUID,
+  returned identity and region before fetching stats. Missing/private/failed
+  lookups retain the existing typed error states and shared 8s profile deadline.
+- Explicit PUUID intent matches the rendered player's PUUID and records the
+  resolved Riot ID once. Direct URL visits, other players and unresolved searches
+  do not add history. Existing Riot ID/OCR intent behavior is unchanged.
+- PUUID search stays local; the existing Riot ID tracker.gg popup remains intact.
+  Japanese/English labels and not-found copy cover both identifier types.
+- User-approved live lookup resolved the supplied ID in 819ms (one provider read
+  out of the approved three). No DB migration, notification or auth relaxation.
+- Offline browser verifies home/nav/invalid/mobile input, history and Riot popup;
+  real page/data/HTTP check verifies one identity + four reads, not a name refetch.
+- 259/259 tests, lint/typecheck, Worker build and deployment-bundle scrub pass.
+  The existing large-history round-trip test now controls its deadline timer:
+  native compression/5,000-row equality remain real, while deadline behavior is
+  tested separately. This removes host-load-dependent codec false failures
+  without relaxing any production budget. Rollout approved, not yet performed.
+
 ## 261101 - Stable Large-History Cache (Deployed)
 
 - Approved real-provider measurements used ten reads, without production DB

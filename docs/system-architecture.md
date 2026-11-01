@@ -2,6 +2,27 @@
 
 対象は `kiwamero-tracking/`。これは「実装済み」と「本番推奨」を混同しないためのメモ。
 
+## PUUID Search (261101)
+
+- The shared parser distinguishes UUID PUUID from name#tag without normalizing
+  player names. Both use `/valorant/profile/riot/[id]/[[...tab]]`.
+- A UUID id reaches the account-by-PUUID v1 resolver inside the existing profile
+  source deadline. Its returned PUUID must match before downstream stats reads.
+- Explicit UUID search intent is consumed by the resolved profile's PUUID, then
+  history stores name/tag/PUUID. Direct navigation does not mark search intent.
+- No new public resolver API, redirects, schema changes or authentication bypass.
+
+## Request Work Leases (261101)
+
+- Do not assume a request-owned timeout/finally survives a canceled workerd
+  request. HTTP dedupe entries expire by wall clock after 16s; background profile
+  refresh flags expire after 45s. Later callers can replace abandoned work.
+- Entry identity guards ensure older completions cannot clear a newer lease or
+  publish stale HTTP-cache results over a newer request. Expired keys are pruned
+  opportunistically without a shared periodic timer.
+- These are recovery leases, not extended render deadlines. Foreground rendering
+  still shares its original 8s budget, and transport still has a 15s budget.
+
 ## Large-History Snapshot Encoding (261101)
 
 - Snapshot v2 uses native gzip, not row truncation. Encoded snapshots are bounded

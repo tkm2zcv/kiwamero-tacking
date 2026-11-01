@@ -70,7 +70,7 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     await page.setViewport({ width: 1100, height: 900 });
     await page.goto(origin);
     await page.waitForSelector('[aria-haspopup="dialog"]');
-    await page.type('input[placeholder="プレイヤーを検索 (Name#TAG)"]', "Previous#OLD");
+    await page.type("#root form input", "Previous#OLD");
     await page.focus('[aria-haspopup="dialog"]');
     await page.keyboard.press("Enter");
     await page.waitForSelector("dialog[open]");

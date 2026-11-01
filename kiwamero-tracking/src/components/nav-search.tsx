@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { markSearchIntent } from "@/lib/search-history";
+import { markPuuidSearchIntent, markSearchIntent } from "@/lib/search-history";
+import { parsePlayerSearch, playerProfilePath } from "@/lib/player-search";
 
 export function NavSearch({ placeholder }: { placeholder: string }) {
   const router = useRouter();
@@ -11,10 +12,11 @@ export function NavSearch({ placeholder }: { placeholder: string }) {
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    const m = q.trim().match(/^(.+?)#(.+)$/);
-    if (!m) return;
-    markSearchIntent(m[1], m[2]);
-    router.push(`/valorant/profile/riot/${encodeURIComponent(m[1])}%23${encodeURIComponent(m[2])}/overview`);
+    const player = parsePlayerSearch(q);
+    if (!player) return;
+    if (player.kind === "puuid") markPuuidSearchIntent(player.puuid);
+    else markSearchIntent(player.name, player.tag);
+    router.push(`${playerProfilePath(player)}/overview`);
   }
 
   return (

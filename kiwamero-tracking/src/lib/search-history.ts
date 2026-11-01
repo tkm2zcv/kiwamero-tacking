@@ -4,6 +4,8 @@
  * intent in sessionStorage, and the profile render consumes it — so failed
  * searches, direct URL visits, and link clicks never land in history.
  */
+import { isPuuid } from "./player-search.ts";
+
 export interface SearchHistoryEntry {
   name: string;
   tag: string;
@@ -56,15 +58,23 @@ export function markSearchIntent(name: string, tag: string): void {
   }
 }
 
+export function markPuuidSearchIntent(puuid: string): void {
+  if (typeof window === "undefined" || !isPuuid(puuid)) return;
+  try {
+    window.sessionStorage.setItem(INTENT_KEY, JSON.stringify({ puuid: puuid.toLowerCase() }));
+  } catch { /* History is best-effort when storage is unavailable. */ }
+}
+
 /** True (and clears the marker) when this render fulfills a pending search. */
-export function consumeSearchIntent(name: string, tag: string): boolean {
+export function consumeSearchIntent(name: string, tag: string, puuid?: string): boolean {
   if (typeof window === "undefined") return false;
   try {
     const raw = window.sessionStorage.getItem(INTENT_KEY);
     if (!raw) return false;
-    const intent = JSON.parse(raw) as { name?: unknown; tag?: unknown };
-    const match =
-      typeof intent.name === "string" &&
+    const intent = JSON.parse(raw) as { name?: unknown; tag?: unknown; puuid?: unknown };
+    const match = typeof intent.puuid === "string"
+      ? isPuuid(intent.puuid) && intent.puuid.toLowerCase() === puuid?.toLowerCase()
+      : typeof intent.name === "string" &&
       typeof intent.tag === "string" &&
       intent.name.toLowerCase() === name.toLowerCase() &&
       intent.tag.toLowerCase() === tag.toLowerCase();

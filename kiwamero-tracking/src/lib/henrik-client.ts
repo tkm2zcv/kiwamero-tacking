@@ -16,6 +16,8 @@ import type { HenrikPriority } from "./henrik-quota";
 export { HenrikDevError } from "./henrik-errors.ts";
 
 const MAX_CACHE_ENTRIES = 200;
+// Workerd may discard an originating request's timers along with its I/O.
+const INFLIGHT_LEASE_MS = 16_000; // 15s transport plus best-effort cache I/O.
 
 // --- API keys -----------------------------------------------------------
 
@@ -59,7 +61,7 @@ export function markKeyCooldown(key: string, untilMs: number): void {
 // Layer 2: Cloudflare Cache API — shared across isolates in the same colo,
 // so most requests never reach the upstream API even on cold isolates.
 const cache = new Map<string, { at: number; ttl: number; data: unknown }>();
-const inflight = new Map<string, Promise<unknown>>();
+const inflight = new Map<string, { task: Promise<unknown>; expiresAt: number }>();
 
 interface EdgeBody {
   exp: number;
@@ -164,25 +166,31 @@ export function henrikCall<T>(path: string, opts?: HenrikCallOptions): Promise<T
     const hit = readCache(path);
     if (hit !== undefined) return Promise.resolve(hit as T);
   }
+  const now = Date.now();
+  for (const [key, entry] of inflight) if (key !== path && entry.expiresAt <= now) inflight.delete(key);
   const pending = inflight.get(path);
-  if (pending) return pending as Promise<T>;
-  const p = lookup<T>(path, opts, ttl).finally(() => inflight.delete(path));
-  inflight.set(path, p);
+  if (pending && pending.expiresAt > now) return pending.task as Promise<T>;
+  if (pending) console.warn("[henrik] abandoned inflight lease replaced");
+  const current = () => inflight.get(path)?.task === p;
+  const p: Promise<T> = lookup<T>(path, opts, ttl, current).finally(() => {
+    if (current()) inflight.delete(path);
+  });
+  inflight.set(path, { task: p, expiresAt: now + INFLIGHT_LEASE_MS });
   return p;
 }
 
-async function lookup<T>(path: string, opts: HenrikCallOptions | undefined, ttl: number): Promise<T> {
+async function lookup<T>(path: string, opts: HenrikCallOptions | undefined, ttl: number, current: () => boolean): Promise<T> {
   if (!opts?.fresh && ttl > 0) {
     const hit = readCache(path) as T | undefined;
     if (hit !== undefined) return hit;
     const edge = await readEdgeCache(path);
     if (edge !== undefined) {
-      writeCache(path, edge.data, Math.min(ttl, edge.exp - Date.now()));
+      if (current()) writeCache(path, edge.data, Math.min(ttl, edge.exp - Date.now()));
       return edge.data as T;
     }
   }
   const data = await fetchOnce<T>(path, opts);
-  if (ttl > 0) {
+  if (ttl > 0 && current()) {
     writeCache(path, data, ttl);
     await writeEdgeCache(path, data, ttl);
   }

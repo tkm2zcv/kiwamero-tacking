@@ -1,5 +1,44 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 261101 - Repeated Timeout Investigation (Not Deployed)
+
+- User interrupted PUUID rollout to prioritize frequent unavailable-timeout
+  messages and question encounter API usage. No commits/deployments yet.
+- Approved production read-only logs/D1 aggregates, not manual provider probes,
+  cron invocations, notifications or DB mutations.
+- D1: four buckets, interactive=5/background=0 in sampled minute, no cooldown;
+  archived=536/552, ready=0, no pending linked/unlinked or active audits.
+  Later two profile failures at 8,003/8,000ms had no newer reservations.
+- Reproduced abandoned in-flight promise poisoning offline; HTTP 16s and SWR 45s
+  leases plus generation-safe cleanup implemented. Added non-sensitive, deferred
+  logging to distinguish access deadline vs identity failure after rollout.
+- Do not claim the sole production cause is proven: observed failures could be
+  before provider admission or waiting on abandoned work. Need live phase logs.
+- Final 262 tests, lint/typecheck, Worker build/compat gate and scrub pass.
+  Combined commit/push/deploy now approved; no new provider probes performed.
+- Plan: `plans/261101-frequent-profile-timeouts.md`. Sanitized tail shell 3e95ce
+  is running; stop it after investigation.
+
+## 261101 - PUUID Search (Not Deployed)
+
+- UUID-format PUUID input is supported alongside name#tag. `player-search.ts`
+  handles parsing/canonical path construction; same profile route accepts UUIDs.
+- Empty tag in `loadProfile` selects `getAccountByPuuid`; identity resolution is
+  inside the existing 8s deadline, with no second name lookup or client redirect.
+  Existing auth/Fetch Metadata checks precede API/cache access.
+- `markPuuidSearchIntent` + recorder PUUID matching preserves explicit-search-only
+  history and stores resolved names. PUUID forms do not open tracker.gg popups.
+- Official v1 docs and actual SDK lookup confirmed; one approved provider read
+  used out of at most three, 819ms. Do not expose credentials or trigger webhooks.
+- Browser tool: `tools/check-player-search.cjs`; existing profile budget/loading
+  tools cover direct UUID rendering. Large-cache unit failure was isolated to the
+  300ms read deadline under CPU contention (311ms), not PUUID behavior. The lossless
+  codec test controls its deadline timer; real compression/all 5,000 rows and the
+  separate deadline test remain. No production timing/config workaround.
+- Final 259 tests, lint/typecheck, Worker build and scrub pass. Rollout approved,
+  pending at this entry's creation. Live authenticated browser performance remains
+  outside these offline browser/direct-SDK checks.
+
 ## 261101 - History Acquisition Stability (Deployed)
 
 - User approved ten initial and five additional provider reads; all fifteen used.

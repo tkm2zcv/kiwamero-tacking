@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { consumeSearchIntent, getSearchHistory, markSearchIntent, recordSearch, clearSearchHistory } from "../src/lib/search-history.ts";
+import { consumeSearchIntent, getSearchHistory, markSearchIntent, markPuuidSearchIntent, recordSearch, clearSearchHistory } from "../src/lib/search-history.ts";
 
 function withStorage<T>(fn: () => T): T {
   const store = new Map<string, string>();
@@ -92,4 +92,26 @@ test("recorder ignores blank names and non-browser contexts", () => {
   // No window at all → no-op, no throw.
   recordSearch({ name: "A", tag: "B" });
   assert.deepEqual(getSearchHistory(), []);
+});
+
+test("PUUID intent only records the resolved player once, even after a rename", () => {
+  withStorage(() => {
+    const id = "4172c23f-8c2e-5c68-9afb-2ea38c5e2028";
+    assert.equal(consumeSearchIntent("Current Name", "TAG", id), false, "direct visits remain unrecorded");
+    markPuuidSearchIntent(id.toUpperCase());
+    assert.equal(getSearchHistory().length, 0, "unresolved/failed searches are not recorded");
+    assert.equal(consumeSearchIntent("Other", "TAG", id.replace("4172", "4173")), false);
+    assert.equal(consumeSearchIntent("Current Name", "TAG"), false);
+    if (consumeSearchIntent("Current Name", "TAG", id)) {
+      recordSearch({ name: "Current Name", tag: "TAG", puuid: id });
+    }
+    assert.equal(getSearchHistory()[0].name, "Current Name");
+    assert.equal(consumeSearchIntent("Renamed", "TAG", id), false);
+    markPuuidSearchIntent("not-a-puuid");
+    assert.equal(consumeSearchIntent("Current Name", "TAG", id), false);
+    markPuuidSearchIntent(id);
+    markSearchIntent("Another", "TAG");
+    assert.equal(consumeSearchIntent("Current Name", "TAG", id), false);
+    assert.equal(consumeSearchIntent("Another", "TAG"), true);
+  });
 });

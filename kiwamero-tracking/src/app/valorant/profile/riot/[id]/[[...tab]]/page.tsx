@@ -54,6 +54,7 @@ import { after } from "next/server";
 import { beforeDeadline, deadlineAfter, hasTimeRemaining } from "@/lib/deadline";
 import { PROFILE_LOAD_BUDGET_MS } from "@/lib/profile-source";
 import { RefreshProfileButton } from "@/components/profile/refresh-profile-button";
+import { parsePlayerSearch, playerProfilePath } from "@/lib/player-search";
 
 /** Max historical rows queued for one encounters render (details are immutable). */
 const ENCOUNTER_DETAIL_CAP = 150;
@@ -97,6 +98,7 @@ export default async function ProfilePage({
   const hdrs = await headers();
   const access = await beforeDeadline(getSiteAccess(hdrs), deadline).catch(() => null);
   if (!access) {
+    after(() => { console.warn("[profile] access deadline exceeded"); });
     const t = await getDict();
     return (
       <div className="kt-container kt-card-body" role="status">
@@ -110,12 +112,17 @@ export default async function ProfilePage({
   // render performs implicit writes and paid upstream calls, so refuse them.
   if (!sameSiteInitiator(hdrs)) return <AccessGate status="denied" />;
   const { id, tab } = await params;
-  const decoded = decodeURIComponent(id);
-  const m = decoded.match(/^(.+?)#(.+)$/);
-  if (!m) notFound();
+  let decoded = id;
+  if (!decoded.includes("#")) {
+    try { decoded = decodeURIComponent(id); } catch { notFound(); }
+  }
+  const player = parsePlayerSearch(decoded);
+  if (!player) notFound();
+  const name = player.kind === "riot" ? player.name : player.puuid;
+  const tagName = player.kind === "riot" ? player.tag : "";
   const activeTab = (tab?.[0] ?? "overview") as ProfileTab | "share";
   if (!VALID_TABS.has(activeTab)) notFound();
-  const basePath = `/valorant/profile/riot/${encodeURIComponent(`${m[1]}#${m[2]}`)}`;
+  const basePath = playerProfilePath(player);
   const query = await searchParams;
   const playlist = ["competitive", "premier", "unrated", "deathmatch", "swiftplay", "all"].includes(query.playlist ?? "")
     ? query.playlist! : "competitive";
@@ -126,7 +133,7 @@ export default async function ProfilePage({
 
   return (
     <Suspense fallback={<ProfileRouteSkeleton />}>
-      <ProfileContent name={m[1]} tag={m[2]} activeTab={activeTab} basePath={basePath} playlist={playlist} act={act} played={played} page={page} deadline={deadline} />
+      <ProfileContent name={name} tag={tagName} activeTab={activeTab} basePath={basePath} playlist={playlist} act={act} played={played} page={page} deadline={deadline} />
     </Suspense>
   );
 }
@@ -167,6 +174,8 @@ async function ProfileContent({
     }),
   ]);
   if (!result.ok) {
+    const reason = result.reason;
+    after(() => { console.warn("[profile] identity unavailable", { reason }); });
     const messages = {
       not_found: t.profile.notFound,
       private: t.profile.unavailablePrivate,
@@ -177,9 +186,9 @@ async function ProfileContent({
     return (
       <div className="kt-container">
         <div className="kt-card-body mt-8 p-12 text-center">
-          <h1 style={{ fontFamily: "var(--kt-title)", fontSize: 32, margin: 0 }}>
+          <h1 style={{ fontFamily: "var(--kt-title)", fontSize: 32, margin: 0, overflowWrap: "anywhere" }}>
             {name}
-            <span style={{ color: "var(--kt-text-2)" }}>#{tag}</span>
+            {tag ? <span style={{ color: "var(--kt-text-2)" }}>#{tag}</span> : null}
           </h1>
           <p style={{ marginTop: 8, color: "var(--kt-red)", fontWeight: 700 }}>{t.profile.unavailableTitle}</p>
           <p style={{ marginTop: 6, color: "var(--kt-text-2)", fontSize: 14 }}>{messages[result.reason]}</p>

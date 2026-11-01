@@ -3,6 +3,7 @@
 
 import { HenrikDevError, henrikCall } from "./henrik-client.ts";
 import { archivedMatch, rememberMatch } from "./match-archive.ts";
+import { isPuuid } from "./player-search.ts";
 import type { HDAccount, HDMatch, HDMmrData, HDMmrHistoryEntry, HDStoredMatch } from "./henrik-model";
 
 export { tierIcon, tierName, playerCardArt, normalizeCluster } from "./henrik-shared.ts";
@@ -26,6 +27,18 @@ export async function getAccount(name: string, tag: string, opts?: { fresh?: boo
     `/valorant/v1/account/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`,
     { ttl: TTL_ACCOUNT, fresh: opts?.fresh, priority: opts?.priority },
   );
+}
+
+export async function getAccountByPuuid(puuid: string) {
+  if (!isPuuid(puuid)) throw new HenrikDevError(400, "Invalid PUUID");
+  const id = puuid.toLowerCase();
+  const account = await call<HDAccount>(`/valorant/v1/by-puuid/account/${id}`, { ttl: TTL_ACCOUNT });
+  if (typeof account?.puuid !== "string" || account.puuid.toLowerCase() !== id || typeof account.name !== "string" ||
+      !account.name || typeof account.tag !== "string" || !account.tag ||
+      typeof account.region !== "string" || !/^[a-z]{2,8}$/i.test(account.region)) {
+    throw new HenrikDevError(502, "Invalid account identity");
+  }
+  return { ...account, puuid: id };
 }
 
 export async function getMmr(region: string, puuid: string, opts?: { fresh?: boolean }) {

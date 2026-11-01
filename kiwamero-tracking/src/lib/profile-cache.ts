@@ -15,7 +15,7 @@ export interface ProfileSnapshot {
 }
 const memory = new Map<string, ArrayBuffer>();
 let memoryBytes = 0;
-const refreshing = new Set<string>();
+const refreshing = new Map<string, { expiresAt: number }>();
 
 export function profileCacheKey(name: string, tag: string, opts?: ProfileLoadOptions): string {
   return JSON.stringify([name.toLowerCase(), tag.toLowerCase(), opts?.mode ?? "all",
@@ -100,10 +100,16 @@ export async function deleteProfileSnapshot(key: string): Promise<void> {
 }
 /** Coalesce refreshes in an isolate; HTTP reads also dedupe across page variants. */
 export function refreshProfileSnapshot(key: string, defer: (task: () => Promise<void>) => void, task: () => Promise<void>) {
+  const now = Date.now();
+  for (const [id, entry] of refreshing) if (entry.expiresAt <= now) refreshing.delete(id);
   if (refreshing.has(key)) return;
-  refreshing.add(key);
+  const lease = { expiresAt: now + 45_000 };
+  refreshing.set(key, lease);
   defer(async () => {
-    try { await task(); } finally { refreshing.delete(key); }
+    if (refreshing.get(key) !== lease) return;
+    try { await task(); } finally {
+      if (refreshing.get(key) === lease) refreshing.delete(key);
+    }
   });
 }
 export function resetProfileCache() {

@@ -85,7 +85,9 @@ test("oversized profiles are not retained in memory or edge cache", async () => 
   assert.equal(await readProfileSnapshot("large", Date.now() + 1000), null);
 });
 
-test("large complete histories survive compression and cold-isolate reads without losing matches", async () => {
+test("large complete histories survive compression and cold-isolate reads without losing matches", async (t) => {
+  // Test the real codec independently of host CPU contention; deadline behavior has its own test.
+  t.mock.timers.enable({ apis: ["setTimeout"] });
   const store = edgeStore();
   const data = snapshot(120_000);
   data.storedMatches = Array.from({ length: 5000 }, (_, i) => ({
@@ -104,6 +106,7 @@ test("large complete histories survive compression and cold-isolate reads withou
   assert.ok((await response.clone().arrayBuffer()).byteLength < 1_800_000);
   resetProfileCache();
   const restored = await readProfileSnapshot("long-history", Date.now() + 1000);
+  assert.ok(restored, "large snapshot did not survive the codec round trip");
   assert.deepEqual(restored, data);
   assert.equal(restored?.storedMatches.length, 5000);
 });
@@ -139,4 +142,35 @@ test("SWR refresh is deferred, coalesced, and released after failure", async () 
   refreshProfileSnapshot("player", defer, work);
   await tasks.shift()!();
   assert.equal(calls, 2);
+});
+
+test("an abandoned deferred refresh cannot disable future refreshes indefinitely", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 1_800_000_000_000 });
+  const tasks: (() => Promise<void>)[] = [];
+  const defer = (task: () => Promise<void>) => { tasks.push(task); };
+  let calls = 0;
+  refreshProfileSnapshot("player", defer, async () => { calls++; });
+  t.mock.timers.tick(46_000);
+  refreshProfileSnapshot("player", defer, async () => { calls++; });
+  assert.equal(tasks.length, 2, "wall-clock expiry must not depend on the old context running a timer");
+  await tasks[0]();
+  assert.equal(calls, 0, "a delayed, superseded callback must not start duplicate work");
+  await tasks[1]();
+  assert.equal(calls, 1);
+});
+
+test("late cleanup from an old refresh cannot clear a newer lease", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 1_800_000_000_000 });
+  const tasks: (() => Promise<void>)[] = [];
+  const defer = (task: () => Promise<void>) => { tasks.push(task); };
+  const oldWork = Promise.withResolvers<void>();
+  refreshProfileSnapshot("player", defer, () => oldWork.promise);
+  const old = tasks[0]();
+  t.mock.timers.tick(46_000);
+  refreshProfileSnapshot("player", defer, async () => {});
+  oldWork.resolve();
+  await old;
+  refreshProfileSnapshot("player", defer, async () => {});
+  assert.equal(tasks.length, 2, "replacement must still dedupe until its own callback runs");
+  await tasks[1]();
 });

@@ -221,10 +221,16 @@ test("summarizeMatchForNotify detects same-party members and their images", () =
   );
   assert.equal(embed.author?.name, "Meiy#B3L");
   assert.equal(embed.author?.url, "https://example.test/meiy");
+  const watched = embed.fields?.find((f) => f.name === "⭐ WATCHED PLAYER");
+  assert.match(watched?.value ?? "", /\[Meiy#B3L\]\(https:\/\/example\.test\/meiy\)/);
+  assert.match(watched?.value ?? "", /K\/D\/A 20\/10\/5/);
+  assert.match(watched?.value ?? "", /ACS 208/);
   const party = embed.fields?.find((f) => f.name.includes("パーティ"));
-  assert.match(party?.value ?? "", /\[DuoOne#111\]\(https:\/\/tracking\.kiwamero\.dev\/valorant\/profile\/riot\/DuoOne%23111\/overview\)/);
+  assert.equal(party?.name, "👥 パーティ — Trio");
+  assert.match(party?.value ?? "", /\*\*\[DuoOne#111\]\(https:\/\/tracking\.kiwamero\.dev\/valorant\/profile\/riot\/DuoOne%23111\/overview\)\*\*/);
+  assert.match(party?.value ?? "", /K\/D\/A 12\/14\/6/);
   assert.match(party?.value ?? "", /szn K\/D 1\.50/);
-  assert.match(party?.value ?? "", /act 2 \/ all 3/);
+  assert.match(party?.value ?? "", /met act 2 \/ all 3/);
 });
 
 test("countEncounters splits current act from all acts", () => {
@@ -253,7 +259,10 @@ test("buildMatchEmbed colours wins and losses differently", () => {
     partyLabel: "Solo", partyMembers: [], scoreboard: [],
   }, "https://example.test/p");
   assert.equal(win.color, 0x16e5b4);
-  assert.match(win.title, /Meiy#B3L — WIN on Sunset/);
+  assert.match(win.title, /🟢 VICTORY — Meiy#B3L/);
+  assert.match(win.description ?? "", /```ansi/);
+  assert.match(win.description ?? "", /\u001b\[1;32mVICTORY/);
+  assert.equal(win.fields?.find((field) => field.name === "🎯 SCORE")?.value, "**13 : 11**");
 
   const loss = buildMatchEmbed({ name: "Meiy", tag: "B3L" }, {
     matchid: "m2", map: "Lotus", mode: "Competitive", score: "11 : 13", won: false,
@@ -261,7 +270,8 @@ test("buildMatchEmbed colours wins and losses differently", () => {
     partyLabel: "Duo", partyMembers: [], scoreboard: [],
   }, "https://example.test/p");
   assert.equal(loss.color, 0xe4485d);
-  assert.match(loss.title, /LOSS/);
+  assert.match(loss.title, /🔴 DEFEAT/);
+  assert.match(loss.description ?? "", /\u001b\[1;31mDEFEAT/);
 });
 
 test("buildWebhookPayload never mentions anyone and caps embeds", () => {

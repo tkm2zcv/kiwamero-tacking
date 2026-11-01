@@ -195,38 +195,84 @@ export function watchProfileUrl(name: string, tag: string): string {
   return `https://tracking.kiwamero.dev/valorant/profile/riot/${encodeURIComponent(`${name}#${tag}`)}/overview`;
 }
 
+const ANSI_RESET = "\u001b[0m";
+
+function ansiSafe(value: string): string {
+  return String(value).replace(/[\u0000-\u001f\u007f]/g, " ").trim();
+}
+
+function ansi(code: string, value: string): string {
+  return `\u001b[${code}m${ansiSafe(value)}${ANSI_RESET}`;
+}
+
+function matchKd(kills: number, deaths: number): string {
+  return (deaths ? kills / deaths : kills).toFixed(2);
+}
+
+function statCodes(values: (string | undefined)[]): string {
+  return values.filter((value): value is string => Boolean(value)).map((value) => `\`${value}\``).join(" • ");
+}
+
 export function buildMatchEmbed(
   player: { name: string; tag: string },
   match: NewMatchSummary,
   profileUrl: string,
 ): DiscordEmbed {
-  const result = match.won === true ? "WIN" : match.won === false ? "LOSS" : "RESULT";
+  const result = match.won === true ? "VICTORY" : match.won === false ? "DEFEAT" : "RESULT";
+  const resultIcon = match.won === true ? "🟢" : match.won === false ? "🔴" : "🟡";
+  const resultAnsi = match.won === true ? "1;32" : match.won === false ? "1;31" : "1;33";
   const color = match.won === true ? 0x16e5b4 : match.won === false ? 0xe4485d : 0xcbb765;
+  const headline = [
+    ansi(resultAnsi, result),
+    ansi("1;36", match.map),
+    ansi("1;37", match.mode),
+    ansi("1;35", match.partyLabel),
+    ansi("1;33", match.score),
+  ].join("  •  ");
+  const watchedStats = statCodes([
+    match.agent,
+    match.rank,
+    `K/D/A ${match.kills}/${match.deaths}/${match.assists}`,
+    `K/D ${matchKd(match.kills, match.deaths)}`,
+    `ACS ${match.acs}`,
+  ]);
+  const watchedText = `**[${player.name}#${player.tag}](${profileUrl})**\n${watchedStats}`;
   const partyText = match.partyMembers.length
     ? match.partyMembers
         .map((m) => {
-          const link = `[${m.name}#${m.tag}](${watchProfileUrl(m.name, m.tag)})`;
-          const szn = m.season
-            ? `  szn K/D ${(m.season.deaths ? m.season.kills / m.season.deaths : m.season.kills).toFixed(2)}`
-            : "";
-          const met = m.encountersAll != null
-            ? `  act ${m.encountersAct ?? 0} / all ${m.encountersAll}`
-            : "";
-          return `${link}${szn}${met}`;
+          const link = `**[${m.name}#${m.tag}](${watchProfileUrl(m.name, m.tag)})**`;
+          const stats = statCodes([
+            m.agent,
+            m.rank,
+            `K/D/A ${m.kills}/${m.deaths}/${m.assists}`,
+            `K/D ${matchKd(m.kills, m.deaths)}`,
+          ]);
+          const meta = statCodes([
+            m.season
+              ? `szn K/D ${(m.season.deaths ? m.season.kills / m.season.deaths : m.season.kills).toFixed(2)}`
+              : undefined,
+            m.encountersAll != null ? `met act ${m.encountersAct ?? 0} / all ${m.encountersAll}` : undefined,
+          ]);
+          return [`▸ ${link}`, `　${stats}`, meta ? `　${meta}` : null].filter(Boolean).join("\n");
         })
-        .join("\n")
-    : "Solo queue";
+        .join("\n\n")
+    : "**Solo Queue**\n同じパーティのメンバーはいません。";
   return {
-    title: `${player.name}#${player.tag} — ${result} on ${match.map}`,
+    title: `${resultIcon} ${result} — ${player.name}#${player.tag}`,
     url: `https://tracker.gg/valorant/match/${match.matchid}`,
+    description: `\`\`\`ansi\n${headline}\n\`\`\``,
     color,
     timestamp: match.gameStart ? new Date(match.gameStart * 1000).toISOString() : new Date().toISOString(),
     author: { name: `${player.name}#${player.tag}`, url: profileUrl, icon_url: match.cardIcon ?? match.agentIcon },
     thumbnail: match.agentIcon ? { url: match.agentIcon } : undefined,
-    footer: { text: "監視通知 — Kiwamero Party Watch" },
-    fields: match.partyMembers.length
-      ? [{ name: "👥 パーティ", value: partyText, inline: false }]
-      : undefined,
+    footer: { text: "Kiwamero Tracking • Party Watch" },
+    fields: [
+      { name: "🏁 RESULT", value: `${resultIcon} **${result}**`, inline: true },
+      { name: "🎯 SCORE", value: `**${match.score}**`, inline: true },
+      { name: "🗺 MAP / MODE", value: `**${match.map}**\n${match.mode}`, inline: true },
+      { name: "⭐ WATCHED PLAYER", value: watchedText, inline: false },
+      { name: `👥 パーティ — ${match.partyLabel}`, value: partyText, inline: false },
+    ],
   };
 }
 

@@ -77,7 +77,7 @@ test("first cycle delivers only the newest match per entry", async () => {
   assert.equal(summary.matchesSent, 1);
   assert.equal(sent.length, 1);
   const payload = sent[0] as { embeds: { title: string }[] };
-  assert.match(payload.embeds[0].title, /WIN/);
+  assert.match(payload.embeds[0].title, /VICTORY/);
   assert.equal(updates[0].data.lastSeenGameStart, 200);
   assert.equal(updates[0].data.lastNotifiedMatchId, "m2");
 });

@@ -15,7 +15,7 @@
 - [x] Serve valid memory hits before joining refreshes; fresh callers still join.
 - [x] Test large/corrupt/expired snapshots, size guards and cross-isolate reuse.
 - [x] Re-run latency/browser checks, lint, typecheck and Worker build.
-- [ ] Review, obtain rollout permission, deploy and record verification scope.
+- [x] Review, obtain rollout permission, deploy and record verification scope.
 
 ## Boundaries
 - No invented empty history, truncation, auth relaxation or schema changes.
@@ -25,5 +25,8 @@
 - 251/251 tests, lint/typecheck, Worker build and bundle scrub pass.
 - Offline browser: one stalled provider source displays measured data in
   8,088ms; valid stale profile returns in 27ms without provider calls.
-- User approved commit/push/deploy plus five additional provider reads for
-  post-change measurement. The additional five reads have not yet been used.
+- Deployed code `6774aa4`, Worker `ec3e8f57-aac3-4fa0-b59d-8260a6407c92`.
+- All five approved additional provider reads used. Real 2,954-row profile:
+  snapshot retained, cold local server pipeline 2,682ms, cached revisit 20ms
+  with no additional requests. This is live-provider/local-server measurement,
+  not authenticated production browser timing. Anonymous live smoke passes.

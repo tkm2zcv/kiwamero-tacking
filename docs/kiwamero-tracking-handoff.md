@@ -1,9 +1,10 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
-## 261101 - History Acquisition Stability (Rollout Pending)
+## 261101 - History Acquisition Stability (Deployed)
 
-- User approved ten provider reads, all ten used. No more live measurement is
-  authorized without asking again. No production DB/data/notification changes.
+- User approved ten initial and five additional provider reads; all fifteen used.
+  No more provider reads authorized without asking again. No production
+  DB/data/notification changes.
 - Root: real 2,954-row snapshot is 2,138,613 bytes; the prior raw 1.8MB guard
   always evicted it. Gzip retains all rows at 229,346 bytes (22ms measured).
 - `profile-cache.ts` now stores detached gzip bytes in memory and Cache API v2:
@@ -15,6 +16,11 @@
   usable interactive data hostage. No fabricated zeros or row truncation.
 - Tests cover real compression, 5,000-row retention, cold-isolate reads, limits
   and refresh races. Full verification/rollout status is recorded in the plan.
+- Deployed `6774aa4` as `ec3e8f57-aac3-4fa0-b59d-8260a6407c92`.
+  251 tests/lint/typecheck/Worker build pass. Re-measured live-provider data in
+  local server harness: all 2,954 rows retained, cold 2,682ms, cached revisit 20ms,
+  zero additional provider requests on revisit. Production anonymous smoke passes;
+  authenticated production browser latency is still not measured.
 
 ## 261101 - Entry Hang Compatibility Fix (Deployed)
 

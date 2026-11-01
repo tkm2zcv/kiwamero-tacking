@@ -1,6 +1,6 @@
 # Project Changelog
 
-## 261101 - Stable Large-History Cache (Rollout Pending)
+## 261101 - Stable Large-History Cache (Deployed)
 
 - Approved real-provider measurements used ten reads, without production DB
   writes. A 2,954-row profile completed cold in 2,199-4,099ms; HTTP-cache warm
@@ -17,6 +17,13 @@
 - Native snapshot cache reads/inflation share a 300ms sub-budget inside the
   existing overall 8s foreground deadline. Underlying HTTP-cache operations
   retain their 150ms cap. No schema migration or auth relaxation.
+- Code `6774aa4` deployed as Worker `ec3e8f57-aac3-4fa0-b59d-8260a6407c92`.
+  251/251 tests, lint/typecheck, Worker build and scrub pass.
+- Approved five additional provider reads: real 2,954-row profile now retains
+  its snapshot; cold local server pipeline 2,682ms, compressed-cache revisit 20ms
+  with no additional provider requests. This uses live provider data in a local
+  server harness, not a measured authenticated production browser session.
+  Live root/login/profile-gate smoke returns 200; authorization remains intact.
 
 ## 261101 - Intermittent Entry Request Hangs (Deployed)
 

@@ -79,3 +79,18 @@
   CSP/frame protections retained. No raw SQL production write/migration.
 - Actual Worker PNG payload HTTP acceptance and persistence verified; recipient
   visual inspection not observed. All five healthy is NOT verified.
+
+## Approved Past-Three Backfill Test
+- After a sixth entry appeared, user explicitly selected the ORIGINAL five only
+  and approved advancing notification records. Scope: up to 15 messages; the new
+  sixth entry is untouched and remains unnotified.
+- Used `.tmp/send-watch-backfill.mjs`: read last-three archived match payloads,
+  replayed cached approved fonts (zero new Google/provider reads), allowed only
+  public icon hosts and Discord POSTs, rendered the same card code, multipart
+  sent, and persisted records after each success. Attempt ledger prevents rerun.
+- Dry run loaded all 15 payloads and rendered an 82,241-byte PNG. Actual run
+  17:56:16-17:57:55 UTC sent 15/15 image messages; failures 0; PNG sizes
+  38,012-137,009 bytes.
+- Read-only D1 confirmed final `lastNotified*` values for the original five and
+  null cursors/fields for the sixth. This controlled sender is not evidence that
+  the next hourly Worker cycle completed; that remains for normal observation.

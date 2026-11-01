@@ -34,6 +34,14 @@
   existing five rows retain notification/match IDs. No raw SQL production writes.
 - Real Worker image payload accepted by Discord and successful cursor persisted.
   Recipient-side visual inspection is not observed.
+- Later user chose the ORIGINAL five (new `けつでっかちゃん#1028` excluded) for a
+  past-three image test. A controlled sender read only archived payloads and
+  cached approved fonts, rendered the same card code, sent 15/15 image messages
+  (no fallbacks), and persisted the latest notification IDs/timestamps. It made
+  no HenrikDev or Google reads; public icon assets were fetched. The sixth row
+  remains `lastSeenGameStart/lastNotified* = null`. This was not the hourly cycle.
+- The one-off `.tmp/send-watch-backfill.mjs` attempt ledger prevents automatic
+  repeats; do not rerun or send more messages without a new approval.
 - Root/login/watchlist200; anonymous stats/cross-site watchlist API403; CSP/frame
   protections unchanged. Plan: plans/261102-watch-image-cards.md.
 

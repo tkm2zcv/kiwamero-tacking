@@ -29,6 +29,14 @@
   anonymous stats and cross-site watchlist API remain403 with CSP/frame protection.
 - Recipient-side visual inspection is not observed; real Worker PNG generation,
   image payload HTTP acceptance and successful cursor persistence are verified.
+- User-approved past-three test used archived payloads for the original five only
+  (new sixth entry untouched). At 17:56-17:57 UTC the same card code generated
+  PNGs and Discord accepted all 15 image messages; byte sizes were 38,012-137,009.
+  No provider or Google-font calls were used; approved cached fonts plus public
+  icon assets sufficed. Final notification IDs/timestamps are persisted.
+- The backfill was a controlled sender, not a normal Worker cycle; workerd PNG
+  and multipart behavior are covered separately by the native gate. Automatic
+  repeats are blocked by an attempt ledger; do not rerun without approval.
 
 ## 261102 - Watch Redirect Runtime Failure (Deployed; Delivery Verified)
 

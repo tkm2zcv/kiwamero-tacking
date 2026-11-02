@@ -227,8 +227,8 @@ test("summarizeMatchForNotify detects same-party members and their images", () =
   assert.equal(party?.name, "👥 パーティ — Trio");
   assert.match(party?.value ?? "", /\*\*\[DuoOne#111\]\(https:\/\/tracking\.kiwamero\.dev\/valorant\/profile\/riot\/DuoOne%23111\/overview\)\*\*/);
   assert.doesNotMatch(party?.value ?? "", /K\/D\/A/);
-  assert.match(party?.value ?? "", /szn K\/D 1\.50/);
-  assert.match(party?.value ?? "", /met act 2 \/ all 3/);
+  assert.match(party?.value ?? "", /シーズンK\/D `1\.50`/);
+  assert.match(party?.value ?? "", /遭遇回数 `今期 2 \/ 累計 3`/);
 });
 
 test("countEncounters splits current act from all acts", () => {

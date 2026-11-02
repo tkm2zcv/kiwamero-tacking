@@ -195,10 +195,6 @@ export function watchProfileUrl(name: string, tag: string): string {
   return `https://tracking.kiwamero.dev/valorant/profile/riot/${encodeURIComponent(`${name}#${tag}`)}/overview`;
 }
 
-function statCodes(values: (string | undefined)[]): string {
-  return values.filter((value): value is string => Boolean(value)).map((value) => `\`${value}\``).join(" • ");
-}
-
 export function buildMatchEmbed(
   player: { name: string; tag: string },
   match: NewMatchSummary,
@@ -211,13 +207,13 @@ export function buildMatchEmbed(
   const partyText = match.partyMembers
     .map((m) => {
       const link = `**[${m.name}#${m.tag}](${watchProfileUrl(m.name, m.tag)})**`;
-      const meta = statCodes([
+      const meta = [
         m.season
-          ? `szn K/D ${(m.season.deaths ? m.season.kills / m.season.deaths : m.season.kills).toFixed(2)}`
-          : undefined,
-        m.encountersAll != null ? `met act ${m.encountersAct ?? 0} / all ${m.encountersAll}` : undefined,
-      ]);
-      return [`▸ ${link}`, meta ? `　${meta}` : null].filter(Boolean).join("\n");
+          ? `　シーズンK/D \`${(m.season.deaths ? m.season.kills / m.season.deaths : m.season.kills).toFixed(2)}\``
+          : null,
+        m.encountersAll != null ? `　遭遇回数 \`今期 ${m.encountersAct ?? 0} / 累計 ${m.encountersAll}\`` : null,
+      ].filter(Boolean).join("\n");
+      return [`▸ ${link}`, meta || null].filter(Boolean).join("\n");
     })
     .join("\n\n");
   return {

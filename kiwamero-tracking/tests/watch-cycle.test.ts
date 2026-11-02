@@ -138,7 +138,7 @@ test("party member info lands inside the single match message", async () => {
   const embed = (sent[0] as { embeds: { fields?: { name: string; value: string }[] }[] }).embeds[0];
   const party = embed.fields?.find((f) => f.name.includes("パーティ"));
   assert.match(party?.value ?? "", /\[DuoOne#111\]\(https:\/\/tracking\.kiwamero\.dev/);
-  assert.match(party?.value ?? "", /szn K\/D 1\.50/);
+  assert.match(party?.value ?? "", /シーズンK\/D `1\.50`/);
 });
 
 test("a rendered match card is sent as one image attachment", async () => {

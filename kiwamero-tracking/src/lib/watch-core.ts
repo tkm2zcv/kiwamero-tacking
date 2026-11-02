@@ -195,16 +195,6 @@ export function watchProfileUrl(name: string, tag: string): string {
   return `https://tracking.kiwamero.dev/valorant/profile/riot/${encodeURIComponent(`${name}#${tag}`)}/overview`;
 }
 
-const ANSI_RESET = "\u001b[0m";
-
-function ansiSafe(value: string): string {
-  return String(value).replace(/[\u0000-\u001f\u007f]/g, " ").trim();
-}
-
-function ansi(code: string, value: string): string {
-  return `\u001b[${code}m${ansiSafe(value)}${ANSI_RESET}`;
-}
-
 function matchKd(kills: number, deaths: number): string {
   return (deaths ? kills / deaths : kills).toFixed(2);
 }
@@ -220,15 +210,7 @@ export function buildMatchEmbed(
 ): DiscordEmbed {
   const result = match.won === true ? "VICTORY" : match.won === false ? "DEFEAT" : "RESULT";
   const resultIcon = match.won === true ? "🟢" : match.won === false ? "🔴" : "🟡";
-  const resultAnsi = match.won === true ? "1;32" : match.won === false ? "1;31" : "1;33";
   const color = match.won === true ? 0x16e5b4 : match.won === false ? 0xe4485d : 0xcbb765;
-  const headline = [
-    ansi(resultAnsi, result),
-    ansi("1;36", match.map),
-    ansi("1;37", match.mode),
-    ansi("1;35", match.partyLabel),
-    ansi("1;33", match.score),
-  ].join("  •  ");
   const watchedIdentity = [
     match.agent ? `🎭 **Agent** \`${match.agent}\`` : null,
     match.rank ? `🏅 **Rank** \`${match.rank}\`` : null,
@@ -264,7 +246,6 @@ export function buildMatchEmbed(
   return {
     title: `${resultIcon} ${result} — ${player.name}#${player.tag}`,
     url: `https://tracker.gg/valorant/match/${match.matchid}`,
-    description: `\`\`\`ansi\n${headline}\n\`\`\``,
     color,
     timestamp: match.gameStart ? new Date(match.gameStart * 1000).toISOString() : new Date().toISOString(),
     author: { name: `${player.name}#${player.tag}`, url: profileUrl, icon_url: match.cardIcon ?? match.agentIcon },

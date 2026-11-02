@@ -262,8 +262,7 @@ test("buildMatchEmbed colours wins and losses differently", () => {
   }, "https://example.test/p");
   assert.equal(win.color, 0x16e5b4);
   assert.match(win.title, /🟢 VICTORY — Meiy#B3L/);
-  assert.match(win.description ?? "", /```ansi/);
-  assert.match(win.description ?? "", /\u001b\[1;32mVICTORY/);
+  assert.equal(win.description, undefined);
   assert.deepEqual(win.fields?.map((field) => field.name), ["⭐ WATCHED PLAYER"]);
 
   const loss = buildMatchEmbed({ name: "Meiy", tag: "B3L" }, {
@@ -273,7 +272,7 @@ test("buildMatchEmbed colours wins and losses differently", () => {
   }, "https://example.test/p");
   assert.equal(loss.color, 0xe4485d);
   assert.match(loss.title, /🔴 DEFEAT/);
-  assert.match(loss.description ?? "", /\u001b\[1;31mDEFEAT/);
+  assert.equal(loss.description, undefined);
 });
 
 test("buildWebhookPayload never mentions anyone and caps embeds", () => {

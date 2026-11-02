@@ -195,10 +195,6 @@ export function watchProfileUrl(name: string, tag: string): string {
   return `https://tracking.kiwamero.dev/valorant/profile/riot/${encodeURIComponent(`${name}#${tag}`)}/overview`;
 }
 
-function matchKd(kills: number, deaths: number): string {
-  return (deaths ? kills / deaths : kills).toFixed(2);
-}
-
 function statCodes(values: (string | undefined)[]): string {
   return values.filter((value): value is string => Boolean(value)).map((value) => `\`${value}\``).join(" • ");
 }
@@ -211,20 +207,7 @@ export function buildMatchEmbed(
   const result = match.won === true ? "VICTORY" : match.won === false ? "DEFEAT" : "RESULT";
   const resultIcon = match.won === true ? "🟢" : match.won === false ? "🔴" : "🟡";
   const color = match.won === true ? 0x16e5b4 : match.won === false ? 0xe4485d : 0xcbb765;
-  const watchedIdentity = [
-    match.agent ? `🎭 **Agent** \`${match.agent}\`` : null,
-    match.rank ? `🏅 **Rank** \`${match.rank}\`` : null,
-  ].filter(Boolean).join("　");
-  const watchedStats = [
-    `🎯 **K/D/A** \`${match.kills}/${match.deaths}/${match.assists}\``,
-    `📈 **K/D** \`${matchKd(match.kills, match.deaths)}\``,
-    `⚡ **ACS** \`${match.acs}\``,
-  ].join("　");
-  const watchedText = [
-    `**[${player.name}#${player.tag}](${profileUrl})**`,
-    watchedIdentity,
-    watchedStats,
-  ].filter(Boolean).join("\n");
+  const watchedText = `**[${player.name}#${player.tag}](${profileUrl})**`;
   const partyText = match.partyMembers
     .map((m) => {
       const link = `**[${m.name}#${m.tag}](${watchProfileUrl(m.name, m.tag)})**`;

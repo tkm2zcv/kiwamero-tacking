@@ -1,10 +1,14 @@
 import { clampImageCrop, suggestImageCrop, type ImageSearchCrop } from "./image-search-core.ts";
 
-const MAX_FILE_BYTES = 8 * 1024 * 1024;
+const MAX_FILE_BYTES = 32 * 1024 * 1024;
 const MAX_PIXELS = 20_000_000;
 
+export function isSearchImageBlob(file: Blob): boolean {
+  return (!file.type || file.type.startsWith("image/")) && file.size <= MAX_FILE_BYTES;
+}
+
 export async function loadSearchImage(file: Blob): Promise<HTMLImageElement> {
-  if (!file.type.startsWith("image/") || file.size > MAX_FILE_BYTES) throw new Error("invalid image");
+  if (!isSearchImageBlob(file)) throw new Error("invalid image");
   const url = URL.createObjectURL(file);
   try {
     const image = new Image();

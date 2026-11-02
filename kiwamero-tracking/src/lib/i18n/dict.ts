@@ -43,7 +43,7 @@ const en = {
     imageReview: "Compare with the preview before searching. Spaces that belong to the player's name are preserved.",
     imageConfirm: "Search this ID",
     imageInvalidId: "Enter the full name#tag (tag: 2-6 letters or numbers).",
-    imageInvalidFile: "Choose a valid image up to 8 MB and 20 megapixels.",
+    imageInvalidFile: "Choose a valid image up to 32 MB and 20 megapixels.",
     imageFailure: "OCR failed or timed out. Check your connection, retry, or enter the ID manually.",
   },
   tabs: {
@@ -231,7 +231,7 @@ const ja: Dict = {
     imageReview: "画像と見比べて確認してから検索してください。元のプレイヤー名に含まれる空白は、そのまま保持します。",
     imageConfirm: "このIDで検索",
     imageInvalidId: "名前#タグを入力してください（タグは2〜6文字の文字・数字）。",
-    imageInvalidFile: "8 MB・2000万画素以内の有効な画像を選択してください。",
+    imageInvalidFile: "32 MB・2000万画素以内の有効な画像を選択してください。",
     imageFailure: "読み取りに失敗、またはタイムアウトしました。通信状態を確認して再試行するか、IDを手入力してください。",
   },
   tabs: {

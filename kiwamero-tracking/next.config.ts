@@ -38,7 +38,7 @@ const nextConfig: NextConfig = {
               // is required by the OCR engine's WASM runtime.
               "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: https:",
+              "img-src 'self' data: blob: https:",
               "media-src 'self' https:",
               "font-src 'self' data:",
               "connect-src 'self'",

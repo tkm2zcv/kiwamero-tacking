@@ -228,19 +228,13 @@ export function buildMatchEmbed(
   const partyText = match.partyMembers
     .map((m) => {
       const link = `**[${m.name}#${m.tag}](${watchProfileUrl(m.name, m.tag)})**`;
-      const stats = statCodes([
-        m.agent,
-        m.rank,
-        `K/D/A ${m.kills}/${m.deaths}/${m.assists}`,
-        `K/D ${matchKd(m.kills, m.deaths)}`,
-      ]);
       const meta = statCodes([
         m.season
           ? `szn K/D ${(m.season.deaths ? m.season.kills / m.season.deaths : m.season.kills).toFixed(2)}`
           : undefined,
         m.encountersAll != null ? `met act ${m.encountersAct ?? 0} / all ${m.encountersAll}` : undefined,
       ]);
-      return [`▸ ${link}`, `　${stats}`, meta ? `　${meta}` : null].filter(Boolean).join("\n");
+      return [`▸ ${link}`, meta ? `　${meta}` : null].filter(Boolean).join("\n");
     })
     .join("\n\n");
   return {

@@ -230,7 +230,7 @@ test("summarizeMatchForNotify detects same-party members and their images", () =
   const party = embed.fields?.find((f) => f.name.includes("パーティ"));
   assert.equal(party?.name, "👥 パーティ — Trio");
   assert.match(party?.value ?? "", /\*\*\[DuoOne#111\]\(https:\/\/tracking\.kiwamero\.dev\/valorant\/profile\/riot\/DuoOne%23111\/overview\)\*\*/);
-  assert.match(party?.value ?? "", /K\/D\/A 12\/14\/6/);
+  assert.doesNotMatch(party?.value ?? "", /K\/D\/A/);
   assert.match(party?.value ?? "", /szn K\/D 1\.50/);
   assert.match(party?.value ?? "", /met act 2 \/ all 3/);
 });

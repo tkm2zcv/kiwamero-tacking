@@ -55,7 +55,7 @@
 - Full suite: 270/270 pass.
 - `lint`, `typecheck`, native workerd watch check, Next production build,
   OpenNext Worker bundle and deploy-bundle scrub all pass.
-- Deployment status: pending at document creation.
+- Deployed as `fadcc3ae-717b-41ff-82b4-ff21b3bf2076` from `b9dcf62`.
 
 ## Unresolved questions
 

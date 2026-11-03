@@ -1,5 +1,22 @@
 # Project Changelog
 
+## 261103 - Legacy-style Account Audit Parity (Deployed)
+
+- Rebuilt Account Audit around the observed legacy structure while retaining the
+  safer history-change framing: 100-point bounded index, S/A/B/C grade,
+  server-migration, combat-transformation, rank-trajectory and role-shift
+  categories, signals, timeline and Act history.
+- Added optional listed-country context through `?country=`, country metadata,
+  native-server matching and origin-mismatch evidence without claiming actual
+  nationality or ownership transfer.
+- The initial score still uses stored list data only; full-match enrichment
+  remains optional for roster-dependent evidence and is not required to render
+  the report.
+- Final 270 tests, lint/typecheck, native workerd watch check, Next/Worker
+  build, bundle compatibility and scrub all pass.
+- `b9dcf62` deployed as `fadcc3ae-717b-41ff-82b4-ff21b3bf2076`; the Worker
+  reports 24ms startup and 3309.15KiB gzip upload.
+
 ## 261102 - Restore PNG Watch Cards (Deployed; Image Delivery Verified)
 
 - Prior delivery verification proved Discord HTTP acceptance, not image delivery.

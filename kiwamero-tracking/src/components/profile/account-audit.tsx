@@ -13,7 +13,8 @@ export function AccountAudit({ profile, report }: { profile: Profile; report: Ac
   const L = reportText(locale);
   const { audit, comparison: cmp, lifetimeGenealogy: gen, serverStats } = report;
   const complete = report.auditCoverage?.state === "complete";
-  const tone = !complete || audit.score === null || !cmp.comparable ? "neutral" : audit.score >= 45 ? "warn" : "good";
+  const provisional = !complete && audit.score !== null;
+  const tone = audit.score === null || !cmp.comparable ? "neutral" : audit.score >= 45 ? "warn" : "good";
   const boundary = report.auditTimeline.candidates[0];
   const first = report.history[report.history.length - 1];
   const metrics = [
@@ -34,14 +35,18 @@ export function AccountAudit({ profile, report }: { profile: Profile; report: Ac
   return (
     <div className="kt-report">
       <ReportScope report={report} locale={locale} />
-      <AuditProgress key={profile.puuid} initial={report.auditCoverage} puuid={profile.puuid}
-        name={profile.name} tag={profile.tag} locale={locale} availableMatches={report.sample.storedMatches} />
       <div className="kt-report-layout">
         <aside className="kt-report-rail">
           <ReportCard title={L("アカウント査定", "Account audit")}>
             <div className="kt-report-summary" data-tone={tone}>
               <ReportRing value={audit.score} label={L("履歴変化指数", "History-change index")} tone={tone} />
-              <div><h3>{complete ? audit.title : L("取得範囲の暫定評価", "Provisional history assessment")}</h3><p>{audit.confidenceLabel}</p></div>
+              <div>
+                <h3>
+                  {audit.title}
+                  {provisional ? <span className="v3-chip kt-report-provisional">{L("暫定", "Provisional")}</span> : null}
+                </h3>
+                <p>{audit.confidenceLabel}{provisional ? L("・一覧データのみ", " · list data only") : ""}</p>
+              </div>
             </div>
             <p className="kt-report-footnote">{audit.recommendation}</p>
           </ReportCard>
@@ -59,6 +64,8 @@ export function AccountAudit({ profile, report }: { profile: Profile; report: Ac
             </dl>
             <p className="kt-report-footnote">{L("取得範囲のみ。生涯全試合・作成日は保証しません。", "Retrieved records only. Not guaranteed lifetime coverage or creation date.")}</p>
           </ReportCard>
+          <AuditProgress key={profile.puuid} initial={report.auditCoverage} puuid={profile.puuid}
+            name={profile.name} tag={profile.tag} locale={locale} availableMatches={report.sample.storedMatches} />
         </aside>
         <div className="kt-report-content">
           <ReportCard title={L("指数の内訳", "Change index breakdown")}

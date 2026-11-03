@@ -61,9 +61,9 @@ export function AuditProgress({ initial, puuid, name, tag, locale, availableMatc
   const idle = !coverage || coverage.state === "idle";
   const total = idle ? availableMatches : coverage.total;
   return (
-    <ReportCard title={L("全期間の詳細補完", "Historical detail coverage")}
-      description={L("取得できた保存履歴が対象です。生涯全試合の取得を保証するものではありません。",
-        "Covers retrieved stored history, not guaranteed lifetime coverage.")}>
+    <ReportCard title={L("詳細補完（任意）", "Optional detail coverage")}
+      description={L("査定スコアは一覧データから表示済みです。試合ロスター詳細まで保存する場合だけ開始してください。",
+        "The audit score is already shown from the match list. Start only to archive full match rosters.")}>
       <div className="kt-report-pad kt-audit-progress">
         <div className="kt-audit-progress__head">
           <strong>{!coverage ? L("保存先へ接続できません", "Analysis storage unavailable")

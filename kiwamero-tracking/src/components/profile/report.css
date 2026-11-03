@@ -75,6 +75,15 @@
 .kt-report-method summary:focus-visible, .kt-report-table-wrap:focus-visible { outline: 2px solid var(--color-action); outline-offset: 4px; }
 .kt-report-method > div { max-width: 1000px; }
 .kt-report-method p { margin: 12px 0; line-height: 1.8; }
+.kt-report-audit-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
+.kt-report-audit-head h2 { margin: 10px 0 4px; font: 600 28px/1.25 var(--kt-title); }
+.kt-report-audit-head p { margin: 0; color: var(--color-text-secondary); font-size: 13px; }
+.kt-report-badge { color: var(--color-action); border-color: color-mix(in srgb, var(--color-action) 35%, transparent); letter-spacing: .08em; }
+.kt-report-country { display: flex; flex-direction: column; gap: 7px; min-width: 220px; }
+.kt-report-country > span { color: var(--color-text-secondary); font-size: 12px; }
+.kt-report-country select { height: 38px; border: 1px solid var(--color-surface-3); border-radius: 6px; padding: 0 36px 0 12px; background: var(--color-surface-1); color: var(--color-text-primary); font: inherit; }
+.kt-report-grade { font: 700 44px/1 var(--kt-title); color: var(--report-tone); margin-bottom: 8px; }
+.kt-report-transition { margin: 0; padding: 18px 20px; color: var(--report-tone, var(--color-warning)); font-weight: 600; background: var(--color-surface-2); border-bottom: 1px solid var(--color-surface-3); }
 .kt-audit-progress { display: flex; flex-direction: column; gap: 12px; }
 .kt-audit-progress p { margin: 0; color: var(--color-text-secondary); font-size: 12px; }
 .kt-audit-progress__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -88,6 +97,8 @@
   .kt-report-tile { padding: 16px; }
 }
 @media (max-width: 767px) {
+  .kt-report-audit-head { display: block; }
+  .kt-report-country { margin-top: 16px; min-width: 0; }
   .kt-report { gap: 20px; padding-top: 0; }
   .kt-report-layout { grid-template-columns: minmax(0, 1fr); }
   .kt-report-rail, .kt-report-content { display: contents; }

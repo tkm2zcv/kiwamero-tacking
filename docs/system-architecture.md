@@ -237,6 +237,13 @@
   hidden ACT/playlist query. The report carries its locale for consistent copy.
 - Audit: >=40 valid stored rows; unavailable data cannot increase suspicion.
   Historical changes are descriptive indices, not ownership probabilities.
+- Audit scoring follows the observed legacy evidence classes with independent
+  implementation: server/base migration cap 40 (including optional listed-country
+  mismatch), combat transformation cap 35, rank trajectory/derank cap 35 and
+  role/activity shift cap 15. Total is capped at 100; S>=70, A>=45, B>=25.
+- `?country=<code>` on the assessment tab only selects contextual seller-listed
+  country metadata from `audit-countries.ts`. It adds bounded server-context
+  evidence and never establishes the user's location, identity or ownership.
 - Diagnosis: latest 25 Competitive rosters within 90 days, PUUID identity,
   >=10 valid rosters and >=5 decided games. Stats/rank/role use the same sample.
   `report-scope.ts` tops up a missing minimum with at most 10 recent detail IDs;

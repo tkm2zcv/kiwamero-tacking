@@ -110,7 +110,7 @@ test("low-level high-performer in easy lobbies → smurf verdict", () => {
   assert.ok(r.verdict.estimatedTrueRank.tierGap >= 2);
 });
 
-test("server choice change alone cannot imply ownership change", () => {
+test("server migration adds bounded evidence but no high-grade verdict by itself", () => {
   const stored = history(100, 300, ["Singapore", "Tokyo"], { tier: 22 });
   const r = report({
     profile: prof({ level: 600, currentTier: 22 }),
@@ -120,9 +120,22 @@ test("server choice change alone cannot imply ownership change", () => {
   });
   assert.equal(r.lifetimeGenealogy.hasClusterFlip, true);
   assert.equal(r.lifetimeGenealogy.earliestCluster, "Singapore");
-  assert.equal(r.audit.breakdown.serverScore, 0);
-  assert.equal(r.audit.score, 0);
-  assert.ok(r.audit.signals.some((s) => s.category === "server" && s.severity === "info"));
+  assert.equal(r.audit.breakdown.serverScore, 25);
+  assert.equal(r.audit.score, 25);
+  assert.equal(r.audit.grade, "B");
+  assert.ok(r.audit.signals.some((s) => s.category === "server" && s.severity === "warn"));
+});
+
+test("listed-country context adds bounded server evidence only", () => {
+  const stored = history(80, 200, "Tokyo", { tier: 22 });
+  const matching = report({ storedAll: stored, auditCountry: "Jpn" });
+  const mismatched = report({ storedAll: stored, auditCountry: "Vnm" });
+  assert.equal(matching.audit.matchedCountry?.nativeServer, "Tokyo");
+  assert.equal(matching.audit.originMismatch, false);
+  assert.equal(matching.audit.breakdown.serverScore, 0);
+  assert.equal(mismatched.audit.originMismatch, true);
+  assert.equal(mismatched.audit.breakdown.serverScore, 15);
+  assert.equal(mismatched.audit.grade, "C");
 });
 
 test("rename detected from earliest stored row", () => {
@@ -301,23 +314,25 @@ test("an unknown agent does not silently select a Duelist benchmark", () => {
   assert.equal(r.verdict.verdict.type, "INSUFFICIENT_DATA");
 });
 
-test("episode resets and non-adjacent acts do not count as abrupt rank jumps", () => {
+test("adjacent-act rank jumps score but wide drops do not", () => {
   const r = report({
     storedAll: history(80, 250, "Tokyo"),
     seasons: seasons([["e9a3", 10, "Silver 2", 50], ["e10a1", 26, "Immortal 3", 50], ["e10a5", 10, "Silver 2", 50]]),
   });
-  assert.equal(r.audit.breakdown.rankScore, 0);
+  assert.equal(r.audit.breakdown.rankScore, 18);
+  assert.ok(r.audit.signals.some((s) => s.category === "rank" && s.title === "Rapid rank jump"));
 });
 
 test("correlated performance, server and agent changes are scored and explained", () => {
-  const early = history(40, 30, "Singapore");
+  const early = history(40, 30, "Singapore", { agent: "Sage" });
   const recent = history(40, 30, "Tokyo", {
-    kills: 30, deaths: 12, score: 9000, head: 22, body: 15, agent: "Omen",
+    kills: 30, deaths: 12, score: 9000, head: 22, body: 15, agent: "Jett",
   }).map((r) => ({ ...r, id: `${r.id}-new`, startedAt: r.startedAt + 40 * DAY }));
   const r = report({ storedAll: [...early, ...recent] });
-  assert.ok(r.audit.score !== null && r.audit.score >= 55);
+  assert.ok(r.audit.score !== null && r.audit.score >= 70);
+  assert.equal(r.audit.grade, "S");
   assert.ok(r.audit.breakdown.performanceScore > 0);
-  assert.equal(r.audit.breakdown.serverScore, 15);
+  assert.equal(r.audit.breakdown.serverScore, 25);
   assert.equal(r.audit.breakdown.activityScore, 15);
   assert.ok(r.audit.signals.some((s) => s.category === "performance" && s.severity === "warn"));
 });

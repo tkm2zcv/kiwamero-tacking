@@ -29,6 +29,7 @@ export function buildAccountReport(input: {
   generatedAt: string;
   auditRosters?: Match[];
   auditCoverage?: AuditCoverage;
+  auditCountry?: string;
 }): AccountReport {
   const { profile, seasons, locale, generatedAt } = input;
   const storedAll = validAuditRows(input.storedAll, Date.parse(generatedAt) / 1000);
@@ -44,7 +45,13 @@ export function buildAccountReport(input: {
   const history = buildHistory(seasons, storedAll);
 
   const audit = scoreAudit({
-    locale, history, cluster, comparison, genealogy, transition: strongest?.server,
+    locale, history, cluster, comparison, genealogy,
+    rows: storedAll,
+    currentTier: profile.currentTier,
+    transition: strongest?.server.changed
+      ? { from: strongest.server.before, to: strongest.server.after }
+      : undefined,
+    auditCountry: input.auditCountry,
   });
 
   const topAgents = statBlock(storedAll).topAgents;

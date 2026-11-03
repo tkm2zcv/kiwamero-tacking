@@ -48,6 +48,10 @@ export interface LifetimeGenealogy {
   earliestCluster: string;
   recentCluster: string;
   hasClusterFlip: boolean;
+  /** Final dominant-cluster boundary and aggregate stats on each side. */
+  clusterTransition?: { from: string; to: string; date: string };
+  preFlipStats?: StatBlock;
+  postFlipStats?: StatBlock;
   lifetimeClusterBreakdown: Record<string, number>;
   originalName: string;
   currentName: string;
@@ -81,6 +85,19 @@ export interface ClusterEvidence {
   knownMatches: number;
 }
 
+export interface AuditCountry {
+  code: string;
+  iso2: string;
+  nameJa: string;
+  nameEn: string;
+  emoji: string;
+  nativeServer: string;
+  regionCategory: string;
+  regionCategoryJa: string;
+  pingEstimateToTokyo: number;
+  sampleCountInApi: number;
+}
+
 /** Descriptive history-change report; never an ownership probability. */
 export interface AuditReport {
   /** Heuristic change index, NOT an ownership probability. */
@@ -88,12 +105,16 @@ export interface AuditReport {
   grade: "S" | "A" | "B" | "C" | null;
   title: string;
   confidenceLabel: string;
+  verdictLabel: string;
   recommendation: string;
   signals: ReportSignal[];
   breakdown: AuditBreakdown;
   comparison: EarlyRecentComparison;
   evidence: { cluster: ClusterEvidence; time: EarlyRecentComparison };
   lifetimeGenealogy: LifetimeGenealogy;
+  matchedCountry: AuditCountry | null;
+  /** Selected-country server context does not match the observed main server. */
+  originMismatch: boolean;
 }
 
 export type VerdictType =

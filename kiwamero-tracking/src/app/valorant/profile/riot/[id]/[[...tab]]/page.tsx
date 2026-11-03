@@ -92,7 +92,7 @@ export default async function ProfilePage({
   searchParams,
 }: {
   params: Promise<{ id: string; tab?: string[] }>;
-  searchParams: Promise<{ playlist?: string; act?: string; season?: string; played?: string; page?: string }>;
+  searchParams: Promise<{ playlist?: string; act?: string; season?: string; played?: string; page?: string; country?: string }>;
 }) {
   const deadline = deadlineAfter(PROFILE_LOAD_BUDGET_MS);
   const hdrs = await headers();
@@ -130,10 +130,11 @@ export default async function ProfilePage({
   const act = seasonParam ?? "all";
   const played = query.played === "against" ? "against" : "with";
   const page = Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1);
+  const country = query.country;
 
   return (
     <Suspense fallback={<ProfileRouteSkeleton />}>
-      <ProfileContent name={name} tag={tagName} activeTab={activeTab} basePath={basePath} playlist={playlist} act={act} played={played} page={page} deadline={deadline} />
+      <ProfileContent name={name} tag={tagName} activeTab={activeTab} basePath={basePath} playlist={playlist} act={act} played={played} page={page} country={country} deadline={deadline} />
     </Suspense>
   );
 }
@@ -147,6 +148,7 @@ async function ProfileContent({
   act,
   played,
   page,
+  country,
   deadline,
 }: {
   name: string;
@@ -157,6 +159,7 @@ async function ProfileContent({
   act: string;
   played: "with" | "against";
   page: number;
+  country?: string;
   deadline: number;
 }) {
   const isReport = activeTab === "assessment" || activeTab === "diagnosis";
@@ -479,6 +482,7 @@ async function ProfileContent({
               storedAll={storedAll}
               matches={matches}
               capturedAt={capturedAt}
+              country={country}
               deadline={deadline}
             />
           </Suspense>
@@ -682,10 +686,11 @@ type ReportInput = {
   storedAll: StoredRow[];
   matches: Match[];
   capturedAt: string;
+  country?: string;
   deadline: number;
 };
 
-async function AssessmentReport({ profile, seasons, storedAll, matches, capturedAt, deadline }: ReportInput) {
+async function AssessmentReport({ profile, seasons, storedAll, matches, capturedAt, country, deadline }: ReportInput) {
   const [archived, locale] = await Promise.all([
     beforeDeadline(loadAuditHistory(profile.puuid), deadline).catch(() => null),
     getLocale(),
@@ -697,6 +702,7 @@ async function AssessmentReport({ profile, seasons, storedAll, matches, captured
     rosterMatches: [],
     auditRosters: archived ? [...archived.rosters, ...matches] : matches,
     auditCoverage: archived?.coverage,
+    auditCountry: country,
     locale,
     generatedAt: capturedAt,
   });

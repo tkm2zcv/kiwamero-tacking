@@ -72,7 +72,7 @@ export function ReportSignals({ signals, locale }: { signals: ReportSignal[]; lo
           const Icon = signal.severity === "normal" ? CheckCircle2
             : signal.severity === "warn" || signal.severity === "alert" ? TriangleAlert : Info;
           return (
-            <li key={`${signal.category}-${i}`} data-tone={signal.severity === "normal" ? "good" : signal.severity === "warn" ? "warn" : "neutral"}>
+            <li key={`${signal.category}-${i}`} data-tone={signal.severity === "normal" ? "good" : signal.severity === "warn" ? "warn" : signal.severity === "alert" ? "danger" : "neutral"}>
               <Icon size={18} aria-hidden="true" />
               <div><h3>{signal.title}</h3><p>{signal.description}</p></div>
             </li>
@@ -103,8 +103,8 @@ export function ReportMethod({ locale, diagnosis = false }: { locale: Locale; di
               "When eligible: rank mismatch = 12*(tier gap-2) + 25*max(0, composite deviation) + 15 if WR >=60%. Alt index = rank mismatch*0.6 + 20. Outlier index = sum(max(0, metric deviation-1.5)*20). Each is bounded to 0-100.")}</p>
           </>
         ) : (
-          <p>{L("40試合以上で採点。全履歴の各境界を前後20試合で比較し、重複候補をまとめ最大5件を表示。成績部分は最大変化点を使い、候補がなければ全履歴の前半/後半を比較します。ランク変化は全履歴で15点/件（上限30、同一Episodeの隣接ACT・各20試合以上・5ティア差）。比較窓の各80%以上でランクが判明し、各窓内の幅が4ティア以下・平均差が2以内でK/D差0.4・ACS差60・HS差8ptのうち2つ以上なら25点、3つなら40点。成績変化と重なるサーバー変化・主使用変更は各15点。活動時間・パートナー・改名・欠損・サーバー変更単独は加点しません。",
-            "Requires 40 matches. Compare 20 games on each side of every boundary; consolidate up to 5 candidates. Performance uses the strongest change, otherwise chronological halves. Whole-history rank changes: 15 each (cap 30; adjacent acts in one episode, 20+ games each, 5+ tiers). Performance: 25 for 2 of K/D 0.4, ACS 60, HS 8pt changes; 40 for all 3, with >=80% known ranks, within-window tier span <=4 and mean tiers within 2. Correlated server/agent changes add 15 each. Hours, partners, renames, missing data and server changes alone add nothing.")}</p>
+          <p>{L("40試合以上で採点。ランク履歴はACTコードと時代調整後ティアで比較し、高ランクからの急落・短期間の跳躍・急落を最大35点で計算します。主サーバー移行は海外→東京25点・東京→海外20点・海外間15点、任意の出品国籍と主要サーバーの不一致は15点（合計上限40点）です。戦闘変化は比較条件を満たす期間のみ、K/D・ACS・HS%の期間差とランク帯基準偏差を最大35点で計算します。役割変化・デュエリスト集中は最大15点。総合指数は0〜100に制限し、S=70以上・A=45以上・B=25以上・C=25未満です。",
+            "Requires 40 matches. Rank history uses era-adjusted act tiers; extreme deranks, rapid climbs and abrupt drops add up to 35 points. Primary-server migration adds 25 for overseas→Tokyo, 20 for Tokyo→overseas and 15 for overseas→overseas; an optional listed-country/server mismatch adds 15 (cap 40). Combat changes are scored only when the comparison windows qualify: K/D, ACS and HS% deltas plus rank-band deviations, capped at 35. Role/duelist shifts add up to 15. The total index is capped at 0-100: S>=70, A>=45, B>=25, C<25.")}</p>
         )}
         <p>{L("ベンチマークは独自の仮定定数で、tracker.ggの母集団統計ではありません。保存履歴は生涯全試合やアカウント作成日を保証しません。自動分析だけで人物・譲渡・不正の有無を判断しないでください。",
           "Benchmarks are heuristic constants, not tracker.gg population statistics. Retrieved history does not guarantee lifetime coverage or creation date. Do not infer identity, ownership or cheating from this analysis alone.")}</p>

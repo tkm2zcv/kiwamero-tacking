@@ -103,6 +103,22 @@ export function buildGenealogy(
   const named = sorted.find((r) => r.selfName && r.selfTag);
   const original = named ? `${named.selfName}#${named.selfTag}` : `${self.name}#${self.tag}`;
   const current = `${self.name}#${self.tag}`;
+  const hasClusterFlip = Boolean(earliestCluster !== recentCluster &&
+    dominant(early, earliestCluster) && dominant(recent, recentCluster));
+  let clusterTransition: LifetimeGenealogy["clusterTransition"];
+  let preFlipStats: StatBlock | undefined;
+  let postFlipStats: StatBlock | undefined;
+  if (hasClusterFlip) {
+    let boundary = sorted.length;
+    while (boundary > 0 && normalizeCluster(sorted[boundary - 1].cluster) === recentCluster) boundary--;
+    const transitionRow = sorted[boundary];
+    if (transitionRow) {
+      const date = new Date(transitionRow.startedAt * 1000).toISOString().slice(0, 10);
+      clusterTransition = { from: earliestCluster, to: recentCluster, date };
+      preFlipStats = statBlock(sorted.slice(0, boundary));
+      postFlipStats = statBlock(sorted.slice(boundary));
+    }
+  }
   return {
     oldestMatchDate: oldest ? new Date(oldest.startedAt * 1000).toISOString().slice(0, 10) : "",
     newestMatchDate: newest ? new Date(newest.startedAt * 1000).toISOString().slice(0, 10) : "",
@@ -110,8 +126,10 @@ export function buildGenealogy(
     totalLifetimeMatches: rows.length,
     earliestCluster,
     recentCluster,
-    hasClusterFlip: Boolean(earliestCluster !== recentCluster &&
-      dominant(early, earliestCluster) && dominant(recent, recentCluster)),
+    hasClusterFlip,
+    clusterTransition,
+    preFlipStats,
+    postFlipStats,
     lifetimeClusterBreakdown: breakdown,
     originalName: original,
     currentName: current,
@@ -144,10 +162,12 @@ export function buildClusterEvidence(rows: StoredRow[]): ClusterEvidence {
 export function buildHistory(seasons: SeasonRank[], rows: StoredRow[]): ActHistoryRow[] {
   const serverByAct = new Map<string, Map<string, number>>();
   for (const r of rows) {
-    if (!r.seasonShort || !r.cluster) continue;
+    if (!r.seasonShort) continue;
+    const cluster = normalizeCluster(r.cluster);
+    if (!cluster) continue;
     const key = r.seasonShort.toLowerCase();
     const m = serverByAct.get(key) ?? new Map<string, number>();
-    m.set(r.cluster, (m.get(r.cluster) ?? 0) + 1);
+    m.set(cluster, (m.get(cluster) ?? 0) + 1);
     serverByAct.set(key, m);
   }
   return [...seasons]

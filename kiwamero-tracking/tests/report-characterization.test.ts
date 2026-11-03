@@ -13,11 +13,11 @@ const profile = {
 // Recorded from 951c4ae before restructuring; change only for intentional report-contract changes.
 const cases = [
   { name: "empty", count: 0, shift: false, locale: "en",
-    hash: "01fe32071d272ff66e1245db3c56e28863bd97f52ce7e976355e8d0d94831f36" },
+    hash: "5b563ca1a1eee8f302fb86a2f2d5bd6ec89e668b850b2384d4c6487cd80ddc2a" },
   { name: "stable", count: 80, shift: false, locale: "ja",
-    hash: "5e5cf0dd149bdcae57bdb9256beaf01849633af4e884ad780e7b6948e035478c" },
+    hash: "290e4de7f4983e6753c954123566bd89ff53882fd46a522b14e28c44ac7d96b0" },
   { name: "middle-change", count: 120, shift: true, locale: "en",
-    hash: "b0356a902480050efe0063b8624474700c6a4a1c7806efee522c75c016a0fe8a" },
+    hash: "e6c40a35cee851f61d9ed11cc6377c5dfcbca253c42d95728334f29927699402" },
 ] as const;
 
 for (const scenario of cases) test(`full ${scenario.name} report retains its pre-refactor output`, () => {

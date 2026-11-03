@@ -865,6 +865,33 @@ body::before {
   font-size: 13px;
   font-weight: 700;
 }
+.kt-share-modal--confirm {
+  width: min(480px, 100%);
+}
+.kt-confirm-copy {
+  margin: 0;
+  padding: 20px 24px 0;
+  color: var(--kt-text-2);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.kt-confirm-error {
+  margin: 14px 24px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 70, 85, 0.35);
+  border-radius: 8px;
+  background: rgba(255, 70, 85, 0.1);
+  color: var(--kt-red);
+  font-size: 13px;
+  font-weight: 700;
+}
+.kt-confirm-actions {
+  justify-content: flex-end;
+}
+.kt-confirm-actions .trn-button:disabled {
+  opacity: 0.62;
+  cursor: wait;
+}
 .kt-spin { animation: kt-spin 0.9s linear infinite; }
 @keyframes kt-spin { to { transform: rotate(360deg); } }
 @media (max-width: 640px) {
@@ -873,6 +900,8 @@ body::before {
   .kt-share-modal__footer { padding-left: 16px; padding-right: 16px; }
   .kt-share-modal__preview,
   .kt-share-modal__url { margin-left: 16px; margin-right: 16px; }
+  .kt-confirm-copy { padding-left: 16px; padding-right: 16px; }
+  .kt-confirm-error { margin-left: 16px; margin-right: 16px; }
   .kt-share-modal__title { font-size: 26px; }
   .kt-share-modal__status { flex-basis: 100%; margin-left: 0; }
 }

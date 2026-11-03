@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
+import { useT } from "@/lib/i18n/client";
+import { watchlistRemoveBody } from "@/lib/watchlist-copy";
+import { WatchlistConfirmDialog } from "@/components/watchlist-confirm";
 
 type WatchStatus = "idle" | "error" | "full";
 
@@ -27,10 +30,13 @@ export function WatchlistButton({
   variant?: "button" | "icon";
 }) {
   const { data: session, isPending } = useSession();
+  const { t } = useT();
   const [watching, setWatching] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<WatchStatus>("idle");
   const router = useRouter();
+  const playerLabel = `${riotName}#${riotTag}`;
 
   useEffect(() => {
     if (!session) return;
@@ -44,21 +50,18 @@ export function WatchlistButton({
     return () => controller.abort();
   }, [session, riotName, riotTag]);
 
-  async function toggle() {
-    if (!session) {
-      router.push("/login");
-      return;
-    }
+  async function update(remove: boolean) {
     setBusy(true);
     setStatus("idle");
     try {
       const res = await fetch("/api/watchlist", {
-        method: watching ? "DELETE" : "POST",
+        method: remove ? "DELETE" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ riotName, riotTag, puuid, region }),
       });
       if (res.ok) {
-        setWatching(!watching);
+        setWatching(!remove);
+        if (remove) setConfirming(false);
       } else {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
         setStatus(data?.error === "watchlist_full" ? "full" : "error");
@@ -70,9 +73,38 @@ export function WatchlistButton({
     }
   }
 
+  function toggle() {
+    if (!session) {
+      router.push("/login");
+      return;
+    }
+    if (watching) {
+      setStatus("idle");
+      setConfirming(true);
+      return;
+    }
+    void update(false);
+  }
+
   const statusText = status === "full" ? "Watchlist is full" : status === "error" ? "Could not update watchlist" : "";
   const label = watching ? watchingLabel : addLabel;
   const title = statusText || (session ? label : signInLabel);
+  const dialog = (
+    <WatchlistConfirmDialog
+      open={confirming}
+      playerLabel={playerLabel}
+      title={t.watchlist.removeTitle}
+      body={watchlistRemoveBody(t.watchlist.removeBody, playerLabel)}
+      confirmLabel={t.watchlist.removeConfirm}
+      cancelLabel={t.watchlist.removeCancel}
+      busyLabel={t.watchlist.removeBusy}
+      closeLabel={t.watchlist.removeCancel}
+      busy={busy}
+      error={status === "error" ? t.watchlist.removeError : ""}
+      onCancel={() => setConfirming(false)}
+      onConfirm={() => void update(true)}
+    />
+  );
 
   if (variant === "icon") {
     return (
@@ -84,10 +116,12 @@ export function WatchlistButton({
           data-watching={watching}
           aria-label={label}
           aria-pressed={watching}
+          aria-haspopup={watching ? "dialog" : undefined}
           title={title}
         >
           {watching ? <EyeOff size={20} /> : <Eye size={20} />}
         </button>
+        {dialog}
         <span className="sr-only" role="status">{statusText}</span>
       </>
     );
@@ -116,10 +150,12 @@ export function WatchlistButton({
         className={`kt-btn ${watching ? "kt-btn--primary" : "kt-btn--secondary"} gap-2`}
         title={title}
         aria-pressed={watching}
+        aria-haspopup={watching ? "dialog" : undefined}
       >
         {watching ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
         <span className="hidden lg:inline">{label}</span>
       </button>
+      {dialog}
       <span className="sr-only" role="status">{statusText}</span>
     </>
   );

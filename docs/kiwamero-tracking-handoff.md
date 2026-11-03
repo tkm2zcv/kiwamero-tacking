@@ -1,5 +1,32 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 261104 - Stable Origin-Server Scoring (Production Pending)
+
+- Latest user approved scoring plus commit/push of this and pending UI fixes.
+- `audit-origin.ts`: initial20/recent40 non-overlap, different80%-dominant
+  servers in each20,7+ recent days ->30pt;30+ recording-gap days ->15pt.
+- Max with local10/20, never double-count. Same-direction sustained destination
+  can reinforce a boundary; otherwise independent assessments compete.
+- Origin-only gradual moves display sample dates, not an invented abrupt date.
+  Existing rank/KD withholding and smurf verdicts are retained.
+- Commit/push only. Production migrations/deploy are not authorized.
+- Verified326 tests (original smurf verdict hashes unchanged), lint/types,
+  native profile D1/PNG checks, Next/Worker build/scrub and CSS browser regression.
+
+## 261104 - Profile Scroll/Copy Follow-Up (Local; Not Deployed)
+
+- After pushed source commit `6d25a63`, user requested Japanese encounter text
+  and removal of Performance/Best Matches' puzzling filter-area scrollbars.
+- Fix scopes normal toolbar layout to those two cards, keeps ACT menus visible
+  and preserves only table-level horizontal overflow for narrow screens.
+- Readable coverage formatter has separate JA/EN and honest failure/partial states.
+- Optional `npm run check:profile-layout` needs a supplied Puppeteer module;
+  `PROFILE_LAYOUT_BUILT=1` checks compiled CSS after build. No external calls.
+- No new commit/push/deploy or DB changes. Previous production migrations remain
+  pending; those were not authorized by the last commit/push-only request.
+- Verified317 tests, lint/typecheck, Next/Worker build/compatibility/scrub and
+  real-card browser probe with freshly compiled CSS at1440/1024/375px.
+
 ## 261104 - Profile DB Persistence (Local; Not Deployed)
 
 - Latest user preference: profiles/self history should persist in DB, not just

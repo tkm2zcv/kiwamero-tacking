@@ -1,5 +1,29 @@
 # Project Changelog
 
+## 261104 - Stable Origin-Server Scoring (Production Pending)
+
+- User authorized score addition and commit/push, including pending profile UI.
+- Initial20 vs recent40,80% in each20 and7+ recent days:30 reference points;
+  30+ day recording gaps halve to15. Local migration uses the larger score only.
+- Same-direction, sustained destination evidence can reinforce its boundary;
+  unrelated K/D/server events are not summed. Gradual moves need no abrupt date.
+- JA/EN evidence/methodology updated. Rank/KD withholding and diagnosis retained.
+- No production migration/deploy, live game requests or external notifications.
+- Verified326 tests, lint/types, native workerd/D1 and PNG/watch checks,
+  Next/Worker build/compatibility/scrub and compiled-CSS browser regression.
+
+## 261104 - Profile Coverage Copy and Scroll Fix (Local; Not Deployed)
+
+- Japanese encounter coverage now explains actual counts, recent50 acquisition
+  and missing/unavailable details in readable sentences; English remains opt-in.
+- Performance/Best Matches filter bars no longer create nested vertical scroll
+  regions from copied overflow/negative-spacing utilities.
+- Keep ACT menus unclipped and the table's necessary narrow-screen horizontal
+  scroll. No match filtering, acquisition budget or scoring changes.
+- Offline browser regression uses actual cards/CSS at1440/1024/375px.
+- Verified317 tests, lint/typecheck, Next/Worker build/compatibility/scrub and
+  browser regression against freshly compiled CSS. No new commit/push/deploy.
+
 ## 261104 - Durable Profile Snapshots (Local; Not Deployed)
 
 - Persist complete compressed profiles/self history to D1 with real capture

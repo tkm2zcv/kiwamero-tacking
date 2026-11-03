@@ -2,6 +2,19 @@
 
 対象は `kiwamero-tracking/`。これは「実装済み」と「本番推奨」を混同しないためのメモ。
 
+## Audit Origin Evidence (261104; Production Pending)
+
+- `audit-origin.ts`: non-overlapping initial20/recent40 Competitive samples,
+  80% dominance in each20, different normalized servers and7+ recent days.
+- Adds30 server points, or15 with a30+ day recording gap. Local10/20 and origin
+  use max(), not sum(). Matching-direction boundaries require40+ following
+  matches,80% at the destination. Unrelated events compete rather than add.
+- Missing/alias clusters, short visits and insufficient/unassessable histories
+  cannot bypass safeguards. UI explains origin sample dates and scored status;
+  gradual-origin-only results do not invent a K/D boundary/date.
+- Stored-history location only, not residence/account creation/identity evidence.
+  Existing smurf verdict hashes remain unchanged. No new upstream calls.
+
 ## Durable Profiles (261104, Local Only)
 
 - Existing memory/edge snapshots now fall back to compressed D1 `ProfileSnapshot`

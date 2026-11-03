@@ -3051,6 +3051,9 @@ body::before {
 .trn-mini-row__expand { color: rgb(var(--color-rgb-text-primary) / .5); flex-shrink: 0; }
 .trn-mini-row__expand svg { height: 1rem; width: 1rem; }
 .v3-card__filters { overflow-x: auto; }
+/* Short card controls are not scroll strips; their dropdowns must remain visible. */
+.v3-card__filters--static { overflow: visible; }
+.profile-card-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; font-weight: 500; }
 .st-content__item-value--sm { font-size: 0.875rem; }
 
 /* table tabs (agents/maps/encounters) render full-width with no sidebar */

@@ -6,6 +6,7 @@
 
 import type { AuditChangePoint, AuditTimeline } from "./audit-timeline";
 import type { AuditCoverage } from "./audit-coverage";
+import type { AuditOriginShift } from "./audit-origin";
 
 export type Severity = "normal" | "info" | "warn" | "alert";
 
@@ -101,8 +102,10 @@ export interface AuditCountry {
 /** Descriptive history-change report; never an ownership probability. */
 export interface AuditReport {
   status: "insufficient" | "unassessable" | "assessed";
-  /** The single boundary used for every scored contribution. */
+  /** The scored local boundary; null when only independent origin evidence wins. */
   boundary: AuditChangePoint | null;
+  originShift?: AuditOriginShift;
+  originScored?: boolean;
   /** Heuristic change index, NOT an ownership probability. */
   score: number | null;
   grade: "S" | "A" | "B" | "C" | null;

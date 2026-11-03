@@ -120,9 +120,9 @@ test("server migration adds bounded evidence but no high-grade verdict by itself
   });
   assert.equal(r.lifetimeGenealogy.hasClusterFlip, true);
   assert.equal(r.lifetimeGenealogy.earliestCluster, "Singapore");
-  assert.equal(r.audit.breakdown.serverScore, 10);
-  assert.equal(r.audit.score, 10);
-  assert.equal(r.audit.grade, "C");
+  assert.equal(r.audit.breakdown.serverScore, 30);
+  assert.equal(r.audit.score, 30);
+  assert.equal(r.audit.grade, "B");
   assert.ok(r.audit.signals.some((s) => s.category === "server" && s.severity === "warn"));
 });
 
@@ -330,10 +330,10 @@ test("correlated performance, server and agent changes are scored and explained"
     kills: 30, deaths: 12, score: 9000, head: 22, body: 15, agent: "Jett",
   }).map((r) => ({ ...r, id: `${r.id}-new`, startedAt: r.startedAt + 40 * DAY }));
   const r = report({ storedAll: [...early, ...recent] });
-  assert.equal(r.audit.score, 35);
-  assert.equal(r.audit.grade, "B");
+  assert.equal(r.audit.score, 45);
+  assert.equal(r.audit.grade, "A");
   assert.ok(r.audit.breakdown.performanceScore > 0);
-  assert.equal(r.audit.breakdown.serverScore, 20);
+  assert.equal(r.audit.breakdown.serverScore, 30);
   assert.equal(r.audit.breakdown.activityScore, 0);
   assert.ok(r.audit.signals.some((s) => s.category === "role"));
   assert.ok(r.audit.signals.some((s) => s.category === "performance" && s.severity === "warn"));

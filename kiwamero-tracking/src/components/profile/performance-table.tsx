@@ -68,8 +68,8 @@ export function PerformanceTable({
       <header className="v3-card__header">
         <h2 className="v3-card__title">Performance</h2>
       </header>
-      <div className="v3-card__filters">
-        <div className="filters -mb-6 -ml-4 flex select-none items-center gap-4 overflow-auto pb-6 pl-4 font-medium no-scrollbar tl:overflow-hidden">
+      <div className="v3-card__filters v3-card__filters--static">
+        <div className="profile-card-filters">
           <ActMenu variant="filter" label="Act" items={actItems} />
         </div>
       </div>

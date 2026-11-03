@@ -11,6 +11,7 @@
     "test": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON \"tests/*.test.ts\"",
     "check:watch-worker": "node tools/check-watch-worker.cjs",
     "check:profile-worker": "node tools/check-profile-worker.cjs",
+    "check:profile-layout": "node tools/check-profile-layout.cjs",
     "check": "npm run lint && npm run typecheck && npm run test && npm run check:watch-worker && npm run check:profile-worker && npm run build",
     "build:worker": "node -r ./tools/fs-symlink-fallback.cjs tools/build-worker.cjs build",
     "preview:worker": "node -r ./tools/fs-symlink-fallback.cjs node_modules/@opennextjs/cloudflare/dist/cli/index.js preview",

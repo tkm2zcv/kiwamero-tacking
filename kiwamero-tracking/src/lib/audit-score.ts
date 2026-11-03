@@ -9,6 +9,7 @@ import { normalizeCluster } from "./henrik-shared.ts";
 import { MIN_AUDIT_MATCHES } from "./report-evidence.ts";
 import type { AuditChangePoint, AuditTimeline } from "./audit-timeline";
 import type { AuditBreakdown } from "./report-model";
+import { auditOriginShift, originSupportsBoundary } from "./audit-origin.ts";
 
 const total = (points: AuditBreakdown) => Object.values(points).reduce((sum, n) => sum + n, 0);
 const empty = (): AuditBreakdown => ({ rankScore: 0, serverScore: 0, performanceScore: 0, activityScore: 0 });
@@ -45,14 +46,24 @@ export function scoreAudit(input: {
   const L = (ja: string, en: string) => locale === "ja" ? ja : en;
   const signals: ReportSignal[] = [];
   const matchedCountry = auditCountryByCode(input.auditCountry);
-  // Select one event by its complete evidence. Never combine unrelated dates.
-  const events = timeline.candidates.map((boundary) => ({ boundary, points: boundaryPoints(boundary) }))
+  const originShift = auditOriginShift(rows);
+  // Select one assessment. Long-term and local server evidence share one cap.
+  const events = timeline.candidates.map((boundary) => {
+    const points = boundaryPoints(boundary);
+    const origin = !!originShift && originSupportsBoundary(originShift, boundary, rows) &&
+      originShift.points > points.serverScore;
+    if (origin) points.serverScore = originShift!.points;
+    return { boundary, points, origin };
+  })
     .sort((a, b) => total(b.points) - total(a.points) || b.boundary.strength - a.boundary.strength);
-  const boundary = events[0]?.boundary ?? null;
+  const originOnly = !!originShift && originShift.points > total(events[0]?.points ?? empty());
+  const boundary = originOnly ? null : events[0]?.boundary ?? null;
   const comparison = boundary?.comparison ?? { ...input.comparison, hasTransition: false };
   const status = rows.length < MIN_AUDIT_MATCHES ? "insufficient"
     : timeline.comparableWindows === 0 ? "unassessable" : "assessed";
-  const breakdown = status === "assessed" ? events[0]?.points ?? empty() : empty();
+  const breakdown = status === "assessed"
+    ? originOnly ? { ...empty(), serverScore: originShift!.points } : events[0]?.points ?? empty() : empty();
+  const originScored = status === "assessed" && (originOnly || !!events[0]?.origin);
   const actualCluster = genealogy.recentCluster || cluster.home;
   const originMismatch = Boolean(matchedCountry && actualCluster &&
     normalizeCluster(actualCluster) !== normalizeCluster(matchedCountry.nativeServer));
@@ -77,6 +88,15 @@ export function scoreAudit(input: {
       L(`比較期間に${Math.floor(boundary.gapDays)}日の空白。休止か履歴欠落かは不明なため、各加点を半減します。`,
         `${Math.floor(boundary.gapDays)} days without records within the comparison window. Inactivity vs missing history is unknown; each contribution is halved.`)));
   }
+  if (originShift) signals.push(signal("server", originScored ? "warn" : "info",
+    L("初期と直近で主な利用拠点が変化", "Stable initial-to-recent server change"),
+    L(`${originShift.from} → ${originShift.to}。初期20試合中${originShift.earlyMatches}試合、直近40試合中${originShift.recentMatches}試合。`,
+      `${originShift.from} → ${originShift.to}: ${originShift.earlyMatches}/20 initial and ${originShift.recentMatches}/40 recent matches.`) +
+    " " + (originScored
+      ? L(`サーバー項目は${breakdown.serverScore}点。局所移行とは重複加点しません。`, `Server contribution: ${breakdown.serverScore}. Not added twice for the local switch.`)
+      : L("参考表示のみ。評価保留、または別の時期の採点対象には合算しません。", "Context only: withheld or not combined with an unrelated scored event.")) +
+    (originShift.gapDays >= 30 ? L(" 30日以上の記録間隔があるため長期拠点の加点は半減します。", " A 30+ day recording gap halves the origin contribution.") : "") +
+    L(" 居住国の変更や本人交代を証明するものではありません。", " This does not establish residence or identity changes.")));
   if (matchedCountry) signals.push(signal("country", "info", L("出品国籍は参考情報のみ", "Listed country is context only"),
     L("選択値とサーバーの一致・不一致は、実際の移動を観測していないため加点しません。", "Country/server agreement or mismatch adds no points: it is not an observed migration.")));
   if (genealogy.isRenamed) {
@@ -100,6 +120,7 @@ export function scoreAudit(input: {
 
   return {
     score, grade, status, boundary, title: L("履歴変化指数", "History-change index"),
+    ...(originShift ? { originShift, originScored } : {}),
     confidenceLabel: score === null ? L("評価保留", "Not assessed") : `${score} / 100 pt · Grade ${grade}`,
     verdictLabel, recommendation, signals,
     breakdown,

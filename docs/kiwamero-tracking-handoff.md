@@ -1,5 +1,19 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 261103 - Persistent K/D Account Audit (Deployed)
+
+- Latest source `ca817d6`, Worker `a1c8a3da-ad13-4c41-b9d5-f4206c437a99`.
+- Adjacent20/20 K/D discontinuities, two10-match persistence checks, low K/D at
+  lower observed owner ranks. Single-boundary scoring; no half-history fallback.
+- Concurrent server switches reinforce evidence; selected countries/Act peaks
+  do not score. Role changes and >=30-day recording gaps weaken contributions.
+- Missing comparable windows withhold assessment, not grade C. No new API calls.
+- Full286 tests, lint/typecheck, native workerd, Next/OpenNext, compat/scrub pass.
+- Root/login HTTP200; served BUILD_ID matches deploy artifact; startup17ms,
+  gzip3313.67KiB. Authenticated report visual checks and real-world calibration
+  remain unperformed. No manual Cron, notifications or database migrations.
+- Rules/limits: `reports/20261103-audit-persistent-kd.md`.
+
 ## 261102 - PNG Watch Card Correction (Deployed; One Image Delivered)
 
 - User expects the previously built image-card notification. Prior five messages

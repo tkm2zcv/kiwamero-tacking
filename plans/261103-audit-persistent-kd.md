@@ -4,7 +4,8 @@
 
 - Reframe the audit as change-point evidence, not identity verification.
 - Keep stored Competitive self-history as the only required data source.
-- No additional foreground APIs, schema migration, push or deploy.
+- No additional foreground APIs or schema migration. Subsequent user approval
+  covered push/deploy: `ca817d6`, Worker `a1c8a3da-ad13-4c41-b9d5-f4206c437a99`.
 
 ## Contract
 
@@ -33,7 +34,7 @@
 - [x] Update timeline, score contract and visible explanations.
 - [x] Preserve smurf diagnosis output and optional enrichment behavior.
 - [x] Run regression suite, lint, typecheck, native workerd and builds/scrub.
-- [x] Document limitations and local verification; production approval pending.
+- [x] Document limitations, local verification and approved production deployment.
 
 ## Unresolved
 

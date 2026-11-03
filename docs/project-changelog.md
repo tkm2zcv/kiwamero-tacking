@@ -1,6 +1,6 @@
 # Project Changelog
 
-## 261103 - Persistent K/D Account Audit (Local; Not Deployed)
+## 261103 - Persistent K/D Account Audit (Deployed)
 
 - Prioritize sustained low K/D relative to observed prior performance, including
   declines across lower owner ranks, without requiring ACS/HS changes.
@@ -13,6 +13,10 @@
   ahead of the breakdown. No new API calls or schema changes.
 - Full286 tests, lint/typecheck and native workerd pass; build verification is
   recorded in the implementation report.
+- Source `ca817d6` deployed as `a1c8a3da-ad13-4c41-b9d5-f4206c437a99`.
+  Next/Worker build, compatibility and scrub pass; startup17ms, gzip3313.67KiB.
+  Root/login return200; production BUILD_ID matches the local deploy artifact.
+  No manual watch/notification/history-enrichment run or database migration.
 
 ## 261103 - Legacy-style Smurf Diagnosis Layout (Deployed)
 

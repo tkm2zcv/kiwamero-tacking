@@ -46,7 +46,13 @@ no new upstream reads, schema changes or automatic enrichment.
 
 ## Status And Limits
 
-- Local implementation only. Push/deploy require separate approval.
+- User approved push/deploy. Source `ca817d6` is deployed as Worker
+  `a1c8a3da-ad13-4c41-b9d5-f4206c437a99`.
+- Deploy wrapper reran native workerd, Next/OpenNext, compatibility and scrub.
+  Upload12374.52KiB, gzip3313.67KiB, startup17ms.
+- Production root/login HTTP200; served BUILD_ID matches the local artifact.
+  Authenticated profile rendering was not verified.
+- No manual watch cycle, notifications, history-enrichment job or DB migration.
 - K/D thresholds and point weights are explicit uncalibrated policy, not
   probabilities, confidence levels or measured detection accuracy.
 - Map, opponent and party effects remain unverified. Recording gaps cannot

@@ -3,8 +3,8 @@
 対象: `kiwamero-tracking/` → Cloudflare Workers + D1、`tracking.kiwamero.dev`。
 DB 層は 2026-10-29 に Prisma から生 SQL + Kysely へ移行済み (workerd 動作確認済み)。
 
-**状態: 本番反映済み (261102更新)。** Worker
-`91352c68-a2bb-4adf-a5bd-257d4b3f1e91`、D1 `a8f05616-…` (APAC)、
+**状態: 本番反映済み (261103更新)。** Worker
+`a1c8a3da-ad13-4c41-b9d5-f4206c437a99`、D1 `a8f05616-…` (APAC)、
 `tracking.kiwamero.dev`、必要なシークレットとDiscord callbackは設定済み。
 Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 承認された監視1回で5件のDiscord送信成功と通知済み記録を確認しています。
@@ -15,6 +15,10 @@ Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 変更する際もこの検証が必要です。
 `redirect:"error"` はWorkers未対応のため、Webhook送信には使用しません。
 詳細な検証範囲・制約は [引き継ぎ](kiwamero-tracking-handoff.md) を参照してください。
+
+最新の査定改善は `ca817d6`。286テスト・lint・型検査・workerd・Next/Workerビルド・
+scrub通過後に反映し、トップ/ログイン200と配信BUILD_IDの一致を確認しました。
+今回の反映ではDB移行・手動Cron・Discord送信は実行していません。
 
 ## 2026-10-30 履歴補完版の追加移行（本番適用済み）
 

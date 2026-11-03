@@ -237,7 +237,7 @@
   hidden ACT/playlist query. The report carries its locale for consistent copy.
 - Audit: >=40 valid stored rows; unavailable data cannot increase suspicion.
   Historical changes are descriptive indices, not ownership probabilities.
-- Audit revision (local, not deployed): adjacent 20-match K/D windows with
+- Audit revision (261103 deployed): adjacent 20-match K/D windows with
   10-match persistence/trend checks. Lower recorded owner ranks no longer veto
   declining performance. Score a single boundary: combat cap55, observed
   rank-drop context20, concurrent server migration20, UTC-hours5.

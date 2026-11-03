@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createActFilter, filterProfileMatches, profileFilterHref, selectUncoveredMatchIds } from "../src/lib/profile-filters.ts";
+import { createActFilter, filterProfileMatches, profileFilterHref, recentEncounterIds } from "../src/lib/profile-filters.ts";
+import { matchId } from "./history-fixtures.ts";
 import { buildEncounters, aggregate, storedRowToMatch, type StoredRow } from "../src/lib/stored-stats.ts";
 import { deriveMatchRows } from "../src/lib/profile-stats.ts";
 import type { Match } from "../src/lib/types.ts";
@@ -104,18 +105,43 @@ test("played and act selectors preserve each other's URL state", () => {
   assert.equal(new URL(withHref, "https://example.test").searchParams.get("played"), null);
 });
 
-test("uncovered encounter ids skip recent matches, prefer newest, and honor the cap", () => {
-  const stored = [
-    { id: "a", startedAt: 100 },
-    { id: "b", startedAt: 300 },
-    { id: "dup", startedAt: 400 }, // also in the recent v3 set
-    { id: "c", startedAt: 200 },
-    { id: "", startedAt: 500 },   // no match id — cannot be fetched
-    { id: undefined, startedAt: 600 },
-  ] as StoredRow[];
-  const recent = new Set(["dup"]);
-  assert.deepEqual(selectUncoveredMatchIds(stored, recent, 10), ["b", "c", "a"]);
-  assert.deepEqual(selectUncoveredMatchIds(stored, recent, 2), ["b", "c"]);
-  assert.deepEqual(selectUncoveredMatchIds(stored, recent, 0), []);
-  assert.deepEqual(selectUncoveredMatchIds([], recent, 10), []);
+test("all acts remain included and encounters deduplicate PUUIDs and match IDs across renames", () => {
+  const first = roster("old", "uuid-old", "Other");
+  first.players[0].name = "PreviousName";
+  const latest = roster("latest", "uuid-current", "Other");
+  latest.metadata.game_start = 200;
+  latest.players[1].name = "Renamed";
+  const entries = buildEncounters([latest, first, first], "Player", "TAG", "self");
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].name, "Renamed");
+  assert.equal(entries[0].playedAgainst, 2);
+  assert.equal(entries[0].encounters, 2);
+  assert.deepEqual(entries, buildEncounters([first, latest], "Player", "TAG", "self"));
+  assert.deepEqual(buildEncounters([first], "Player", "TAG", "not-in-roster"), []);
+});
+
+test("recent encounter acquisition is globally newest50, dedupes IDs before limiting and leaves input intact", () => {
+  const rows = Array.from({ length: 703 }, (_, i) => ({
+    id: matchId(i + 1), startedAt: i, mode: i % 2 ? "competitive" : "unrated",
+  }));
+  const input = [rows[702], ...rows, rows[702]];
+  const before = [...input];
+  const ids = recentEncounterIds(input);
+  assert.equal(ids.length, 50);
+  assert.equal(ids[0], matchId(703));
+  assert.equal(ids.at(-1), matchId(654));
+  assert.deepEqual(input, before);
+  assert.deepEqual(recentEncounterIds([]), []);
+});
+
+test("ALL playlists keep the encounter tab, selected Act and opponent filter", () => {
+  const href = profileFilterHref("/profile/Player", "encounters", "all", "e11a5", "against");
+  const url = new URL(href, "https://example.test");
+  assert.equal(url.pathname, "/profile/Player/encounters");
+  assert.equal(url.searchParams.get("playlist"), "all");
+  assert.equal(url.searchParams.get("season"), "e11a5");
+  assert.equal(url.searchParams.get("played"), "against");
+  const all = filterProfileMatches(matches, "all", createActFilter("all", ids, shorts, ""), shorts);
+  assert.equal(all.length, 3);
+  assert.equal(buildEncounters(all, "Player", "TAG").length, 3);
 });

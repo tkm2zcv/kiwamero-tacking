@@ -2,6 +2,10 @@ import { beforeDeadline } from "./deadline.ts";
 import type { ProfileBundle } from "./types";
 import type { HDStoredMatch } from "./henrik-model";
 import type { ProfileLoadOptions } from "./profile-source";
+import {
+  readDurableProfile, writeDurableProfile, invalidateDurableProfile,
+  claimProfileRefresh, releaseProfileRefresh,
+} from "./profile-db.ts";
 
 export const PROFILE_FRESH_MS = 60_000;
 const RETAIN_MS = 24 * 60 * 60 * 1000;
@@ -27,7 +31,7 @@ function edge(): Cache | undefined {
 function request(key: string): Request {
   return new Request(`https://profile-cache.internal/v2/${encodeURIComponent(key)}`);
 }
-async function decode(packed?: ArrayBuffer): Promise<ProfileSnapshot | null> {
+async function decode(packed?: ArrayBuffer, durable = false): Promise<ProfileSnapshot | null> {
   if (!packed || packed.byteLength > MAX_BYTES) return null;
   try {
     let expanded = 0;
@@ -41,7 +45,7 @@ async function decode(packed?: ArrayBuffer): Promise<ProfileSnapshot | null> {
     const stream = new Blob([packed]).stream().pipeThrough(new DecompressionStream("gzip")).pipeThrough(limit);
     const data = await new Response(stream).json() as ProfileSnapshot;
     const age = Date.now() - Date.parse(data.bundle.capturedAt);
-    return data.bundle.source === "henrikdev" && age >= 0 && age < RETAIN_MS &&
+    return data.bundle.source === "henrikdev" && age >= 0 && (durable || age < RETAIN_MS) &&
       Array.isArray(data.storedMatches) ? data : null;
   } catch { return null; }
 }
@@ -49,7 +53,7 @@ async function decode(packed?: ArrayBuffer): Promise<ProfileSnapshot | null> {
 export async function readProfileSnapshot(key: string, deadline: number): Promise<ProfileSnapshot | null> {
   try {
     // A degraded cache must not consume the page's upstream budget.
-    return await beforeDeadline((async () => {
+    const cached = await beforeDeadline((async () => {
       const local = await decode(memory.get(key));
       if (local) return local;
       forget(key);
@@ -59,6 +63,13 @@ export async function readProfileSnapshot(key: string, deadline: number): Promis
       if (data && packed) remember(key, packed);
       return data;
     })(), Math.min(deadline, Date.now() + 300));
+    if (cached) return cached;
+  } catch { /* A degraded edge cache must not hide the durable copy. */ }
+  try {
+    return await beforeDeadline((async () => {
+      const packed = await readDurableProfile(key);
+      return packed ? decode(packed, true) : null;
+    })(), Math.min(deadline, Date.now() + 500));
   } catch { return null; }
 }
 function forget(key: string) {
@@ -74,19 +85,24 @@ function remember(key: string, packed: ArrayBuffer) {
   memoryBytes += packed.byteLength;
 }
 export async function writeProfileSnapshot(key: string, data: ProfileSnapshot): Promise<void> {
+  const capturedAt = Date.parse(data.bundle.capturedAt);
+  if (data.bundle.source !== "henrikdev" || !Number.isFinite(capturedAt) || capturedAt > Date.now()) return;
   const json = JSON.stringify(data);
   if (json.length > MAX_RAW_BYTES || new TextEncoder().encode(json).byteLength > MAX_RAW_BYTES) {
     // A growing profile must not remain stuck on an older, smaller snapshot.
-    await deleteProfileSnapshot(key);
+    await evictProfileSnapshot(key);
     return;
   }
   // Keep every match; raw histories often exceed 1.8MB but compress very well.
   const packed = await new Response(new Blob([json]).stream()
     .pipeThrough(new CompressionStream("gzip"))).arrayBuffer();
   if (packed.byteLength > MAX_BYTES) {
-    await deleteProfileSnapshot(key);
+    await evictProfileSnapshot(key);
     return;
   }
+  try {
+    if (!await writeDurableProfile(key, data.bundle.profile.puuid, packed, capturedAt)) return;
+  } catch { /* Continue with cache-only operation if storage is unavailable. */ }
   remember(key, packed);
   try {
     await edge()?.put(request(key), new Response(packed, {
@@ -94,9 +110,13 @@ export async function writeProfileSnapshot(key: string, data: ProfileSnapshot): 
     }));
   } catch { /* Best-effort cache; never fail the profile. */ }
 }
-export async function deleteProfileSnapshot(key: string): Promise<void> {
+async function evictProfileSnapshot(key: string): Promise<void> {
   forget(key);
   try { await edge()?.delete(request(key)); } catch { /* Best effort. */ }
+}
+export async function deleteProfileSnapshot(key: string): Promise<void> {
+  try { await invalidateDurableProfile(key); } catch { /* Still invalidate cache-only installations. */ }
+  await evictProfileSnapshot(key);
 }
 /** Coalesce refreshes in an isolate; HTTP reads also dedupe across page variants. */
 export function refreshProfileSnapshot(key: string, defer: (task: () => Promise<void>) => void, task: () => Promise<void>) {
@@ -107,7 +127,15 @@ export function refreshProfileSnapshot(key: string, defer: (task: () => Promise<
   refreshing.set(key, lease);
   defer(async () => {
     if (refreshing.get(key) !== lease) return;
-    try { await task(); } finally {
+    let token: string | null | undefined;
+    try {
+      try { token = await claimProfileRefresh(key); } catch { /* Per-isolate fallback without DB. */ }
+      if (token === null) return;
+      await task();
+    } finally {
+      if (token) {
+        try { await releaseProfileRefresh(key, token); } catch { /* Lease expires on its own. */ }
+      }
       if (refreshing.get(key) === lease) refreshing.delete(key);
     }
   });

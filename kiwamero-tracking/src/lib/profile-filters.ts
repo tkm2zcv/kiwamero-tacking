@@ -1,4 +1,14 @@
 import type { Match } from "./types";
+import { MATCH_ID } from "./henrik-model.ts";
+
+export const ENCOUNTER_RECENT_LIMIT = 50;
+
+/** Acquisition is account-wide; changing an Act/playlist must not queue old games. */
+export function recentEncounterIds(rows: ReadonlyArray<{ id: string; startedAt: number }>): string[] {
+  return [...new Set(rows.filter((r) => MATCH_ID.test(r.id) && Number.isFinite(r.startedAt) && r.startedAt > 0)
+    .sort((a, b) => b.startedAt - a.startedAt || a.id.localeCompare(b.id))
+    .map((r) => r.id))].slice(0, ENCOUNTER_RECENT_LIMIT);
+}
 
 export function createActFilter(
   act: string,
@@ -27,23 +37,6 @@ export function filterProfileMatches(
     (playlist === "all" || m.metadata.mode_id.toLowerCase().replace(/[^a-z]/g, "") === playlist) &&
     inAct(m.metadata.season_id, uuidToShort.get(m.metadata.season_id?.toLowerCase() ?? "")),
   );
-}
-
-/**
- * Pick stored match ids whose rosters still need a /v2/match/{id} detail fetch
- * for encounters — newest first, skipping matches already covered by the recent
- * v3 response, capped so one render stays within upstream rate limits.
- */
-export function selectUncoveredMatchIds(
-  rows: ReadonlyArray<{ id?: string; startedAt: number }>,
-  coveredIds: ReadonlySet<string>,
-  cap: number,
-): string[] {
-  return rows
-    .filter((r) => r.id && !coveredIds.has(r.id))
-    .sort((a, b) => b.startedAt - a.startedAt)
-    .slice(0, Math.max(0, cap))
-    .map((r) => r.id!);
 }
 
 export function profileFilterHref(

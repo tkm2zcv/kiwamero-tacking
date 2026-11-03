@@ -66,14 +66,19 @@ export function FiltersBar({
 
       <div className="kt-col-3">
         <div className="kt-seg">
+          {tab === "encounters" ? (
+            <Link href={url("all", act)} className="kt-seg-btn" data-active={playlist === "all"}>
+              ALL
+            </Link>
+          ) : null}
           {MODES.map(([value, label]) => (
             <Link key={value} href={url(value, act)} className="kt-seg-btn" data-active={playlist === value}>
               {label}
             </Link>
           ))}
-          <Link href={url("all", act)} className="kt-seg-btn kt-seg-more" data-active={playlist === "all"} aria-label="All playlists" title="All playlists">
+          {tab !== "encounters" ? <Link href={url("all", act)} className="kt-seg-btn kt-seg-more" data-active={playlist === "all"} aria-label="All playlists" title="All playlists">
             ⋮
-          </Link>
+          </Link> : null}
         </div>
       </div>
 

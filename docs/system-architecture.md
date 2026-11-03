@@ -2,6 +2,21 @@
 
 対象は `kiwamero-tracking/`。これは「実装済み」と「本番推奨」を混同しないためのメモ。
 
+## Durable Profiles (261104, Local Only)
+
+- Existing memory/edge snapshots now fall back to compressed D1 `ProfileSnapshot`
+  BLOBs. Keys still isolate player lookup, mode and included sources. Capture
+  times remain unchanged; DB retention is not the edge's24h TTL.
+- Only complete live results persist. Partial/seed results cannot replace a good
+  snapshot. Temporary/oversize failures preserve the last valid durable copy.
+- Stale-first refresh keeps current account/MMR reads. Self-history checks the
+  latest50 stored rows, merges by match ID and retains previous rows. Missing
+  checkpoint overlap triggers one full-list repair, retaining probe rows too.
+- Background refreshes use D1 leases with cooldown. Monotonic writes and
+  invalidation timestamps fence off old/revoked late responses.
+- Additive migration: `upgrade-2026-11-04-profiles.sql`, separate from roster
+  migration. Native `check:profile-worker` tests the real D1 BLOB/codec path.
+
 ## Watch PNG Runtime (261102)
 
 - src/worker.js imports compiled resvg and Yoga WASM; rendering never downloads
@@ -221,9 +236,29 @@
 - Match-list rows are converted to the v3 shape only for the requested page or
   Overview slice. `normalizeStoredMatches()` memoizes normalization per cached
   upstream payload array.
-- Encounters no longer performs foreground bulk detail fills. It renders recent
-  v3 rosters plus payload rows already in `MatchArchive`, queues uncovered IDs
-  via `queueMatchDetails()`, and exposes partial coverage honestly.
+- Encounters renders recent v3 rosters and every archived match in the selected
+  scope. Local261104 revision replaces direct per-ID admission with a persistent
+  v4 page queue; All no longer limits history to two Acts or150 archived matches.
+- Revised user scope: acquire only the globally newest50 matches across modes.
+  Encounter source requests are unfiltered; displayed playlist/Act filters are
+  applied locally. An explicit ALL playlist link preserves Act/opponent state.
+- `RosterHistory` stores the bounded newest-first target snapshot, observation
+  time, offset, leases, retry/block state and last-page fingerprint.
+  `RosterHistoryMatch` retains archive references even after targets age out.
+  Actual archived IDs, never page positions alone, determine completion.
+- The minute runner fetches up to10 bulk pages before individual audit work.
+  Current standard-key size20/100/1000 probes all returned10. Cursor increments
+  by actual wire rows, including unavailable slots, capped at50 positions.
+  Empty/repeated pages also end the scan; only remaining recent gaps enter the
+  shared per-ID queue. Old Acts never expand the acquisition window.
+- Each request rechecks shared archived IDs, skips cached/terminal positions and
+  requests at most10 contiguous missing rows. A wholly cold50 takes5 list calls,
+  a one-game delta takes1 size1 call, and revisits need0 roster-list calls.
+  A global bulk lease serializes overlapping Cron workers so other players can
+  reuse each completed page. Existing key rotation/quota handling is unchanged.
+- Existing v3 archive contracts remain unchanged behind a validated v4 adapter.
+  PUUID-based encounter aggregation deduplicates IDs and merges renames.
+  Requires additive `upgrade-2026-11-04.sql` before Worker rollout; not deployed.
 - The shared `/api/cron/audit` runner now drains pending `MatchArchive` jobs even
   when no `AuditMatch` link exists; audit-linked rows retain priority ordering.
   Generic encounter jobs therefore reuse the same D1 quota, leases and retries.

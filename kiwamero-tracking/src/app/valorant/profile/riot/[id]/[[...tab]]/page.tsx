@@ -4,16 +4,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { loadProfile } from "@/lib/data";
 import { formatAct } from "@/lib/profile-stats";
-import { createActFilter, filterProfileMatches, profileFilterHref, selectUncoveredMatchIds } from "@/lib/profile-filters";
+import { createActFilter, filterProfileMatches, profileFilterHref, recentEncounterIds } from "@/lib/profile-filters";
 import { getMatch, playerCardArt, tierIcon, tierName } from "@/lib/henrikdev";
-import { normalizeHDMatch, normalizeHDMatches } from "@/lib/match-normalize";
-import { queueMatchDetails, readArchivedMatches } from "@/lib/match-archive";
+import { normalizeHDMatch } from "@/lib/match-normalize";
 import type { Match, Profile, SeasonRank } from "@/lib/types";
 import {
   activityByDay,
   aggregate,
   bestMatchesByKills,
-  buildEncounters,
   groupByAgent,
   groupByMap,
   groupBySeason,
@@ -38,7 +36,7 @@ import { BestMatchesCard } from "@/components/profile/best-matches-card";
 import { AgentsTable } from "@/components/profile/agents-table";
 import { MapsTable } from "@/components/profile/maps-table";
 import { PerformanceTable } from "@/components/profile/performance-table";
-import { EncountersTable } from "@/components/profile/encounters-table";
+import { EncountersSection } from "@/components/profile/encounters-section";
 import { AccountAudit } from "@/components/profile/account-audit";
 import { EmptyTab } from "@/components/profile/empty-tab";
 import { DiagnosisPanel } from "@/components/profile/diagnosis-panel";
@@ -55,9 +53,6 @@ import { beforeDeadline, deadlineAfter, hasTimeRemaining } from "@/lib/deadline"
 import { PROFILE_LOAD_BUDGET_MS } from "@/lib/profile-source";
 import { RefreshProfileButton } from "@/components/profile/refresh-profile-button";
 import { parsePlayerSearch, playerProfilePath } from "@/lib/player-search";
-
-/** Max historical rows queued for one encounters render (details are immutable). */
-const ENCOUNTER_DETAIL_CAP = 150;
 
 const VALID_TABS = new Set([
   "overview", "matches", "performance", "agents", "maps",
@@ -163,7 +158,7 @@ async function ProfileContent({
   deadline: number;
 }) {
   const isReport = activeTab === "assessment" || activeTab === "diagnosis";
-  const mode = isReport ? "competitive" : playlist === "all" ? undefined : playlist;
+  const mode = isReport ? "competitive" : playlist === "all" || activeTab === "encounters" ? undefined : playlist;
   const needsRecent = !["agents", "maps", "performance", "weapons", "customs", "crosshairs", "lineups"].includes(activeTab);
   const needsStored = !Object.hasOwn(EMPTY_TABS, activeTab);
   const [t, result] = await Promise.all([
@@ -292,7 +287,8 @@ async function ProfileContent({
         ? actParam
         : uuidToShort.get(actParam);
   const inSelectedAct = createActFilter(act, seasonUuid, uuidToShort, latestStoredSeason);
-  const storedScoped = storedAll.filter((r) => inSelectedAct(r.seasonId, r.seasonShort));
+  const storedScoped = storedAll.filter((r) => inSelectedAct(r.seasonId, r.seasonShort) &&
+    (playlist === "all" || r.mode.toLowerCase().replace(/[^a-z]/g, "") === playlist));
   const usesMatchList = activeTab === "overview" || activeTab === "matches";
   const usesRecentRoster = usesMatchList || activeTab === "encounters";
   const visibleMatches = usesRecentRoster
@@ -462,7 +458,12 @@ async function ProfileContent({
             <EncountersSection
               visibleMatches={visibleMatches}
               storedScoped={storedScoped}
-              recentIds={recentIds}
+              recentIds={recentEncounterIds([
+                ...storedAll, ...matches.map((m) => ({ id: m.metadata.matchid, startedAt: m.metadata.game_start })),
+              ])}
+              observedAt={Date.parse(capturedAt)}
+              puuid={profile.puuid}
+              region={profile.region}
               name={name}
               tag={tag}
               act={act}
@@ -605,78 +606,6 @@ async function ProfileContent({
         <div className="kt-maincol">{main}</div>
       </div>
     </div>
-  );
-}
-
-async function EncountersSection({
-  visibleMatches,
-  storedScoped,
-  recentIds,
-  name,
-  tag,
-  act,
-  played,
-  basePath,
-  playlist,
-  deadline,
-}: {
-  visibleMatches: Match[];
-  storedScoped: StoredRow[];
-  recentIds: Set<string>;
-  name: string;
-  tag: string;
-  act: string;
-  played: "with" | "against";
-  basePath: string;
-  playlist: string;
-  deadline: number;
-}) {
-  let encounterRows = storedScoped;
-  if (act === "all") {
-    const latestByAct = new Map<string, number>();
-    for (const r of storedScoped) {
-      if (r.seasonId) latestByAct.set(r.seasonId, Math.max(latestByAct.get(r.seasonId) ?? 0, r.startedAt));
-    }
-    const keep = new Set(
-      [...latestByAct.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([seasonId]) => seasonId),
-    );
-    encounterRows = storedScoped.filter((r) => r.seasonId && keep.has(r.seasonId));
-  }
-
-  // HenrikDev's stored endpoint carries no rosters. Render recent and archived
-  // details immediately, then let the shared background queue fill the rest.
-  const uncovered = selectUncoveredMatchIds(encounterRows, recentIds, ENCOUNTER_DETAIL_CAP);
-  const archived = await beforeDeadline(readArchivedMatches(uncovered), deadline).catch(() => new Map());
-  const queuedIds = uncovered.filter((id) => !archived.has(id));
-  if (queuedIds.length) after(async () => { await queueMatchDetails(queuedIds); });
-  const coveredIds = new Set([...recentIds, ...archived.keys()]);
-  const covered = encounterRows.filter((r) => r.id && coveredIds.has(r.id)).length;
-  // Archived payloads written before the stricter guard can be unreadable;
-  // skip them per-match instead of failing the whole encounters section.
-  const encounterMatches = [...visibleMatches, ...normalizeHDMatches([...archived.values()]).matches];
-  const playedHref = (p: "with" | "against") => profileFilterHref(basePath, "encounters", playlist, act, p);
-
-  return (
-    <>
-      <QueuedRefresh active={queuedIds.length > 0} />
-      {act === "all" || covered < encounterRows.length ? (
-        <p className="text-secondary text-13" style={{ padding: "4px 2px" }}>
-          Encounters computed from {covered} of {encounterRows.length} matches
-          {act === "all"
-            ? " in the two latest acts — pick a specific act for older encounters"
-            : " in this act"}
-          {queuedIds.length ? "; additional match details are queued for background enrichment" : ""}.
-        </p>
-      ) : null}
-      <EncountersTable
-        encounters={buildEncounters(encounterMatches, name, tag)}
-        mode={played}
-        filterItems={[
-          { label: "Played With", href: playedHref("with"), active: played === "with" },
-          { label: "Played Against", href: playedHref("against"), active: played === "against" },
-        ]}
-      />
-    </>
   );
 }
 

@@ -18,8 +18,10 @@ process.env.DATABASE_URL = "file::memory:";
 // Lets dynamic imports of server-only modules (e.g. watch-run) load in Node.
 register("./route-hooks.mjs", import.meta.url);
 const realFetch = globalThis.fetch;
+const idleRosters = { pages: 0, rosters: 0, unavailable: 0, failed: 0, deferred: 0 };
 test.before(async () => {
   for (const s of fs.readFileSync("db/upgrade-2026-10-30.sql", "utf8").split(";").filter((s) => s.trim())) await execute(s);
+  for (const s of fs.readFileSync("db/upgrade-2026-11-04.sql", "utf8").split(";").filter((s) => s.trim())) await execute(s);
 });
 test.afterEach(async () => {
   for (const table of ["AuditMatch", "AuditHistory", "MatchArchive", "HenrikQuota"]) await execute(`DELETE FROM ${table}`);
@@ -113,7 +115,7 @@ test("queued encounter details use the shared archive without an audit manifest"
   assert.equal((await readArchivedMatches([matchId(1)])).size, 0);
   process.env.HENRIK_API_KEYS = "encounter-runner";
   globalThis.fetch = async () => Response.json({ status: 200, data: rawMatch(1) });
-  assert.deepEqual(await runAuditQueue({ maxMatches: 1, maxMs: 2000 }), { completed: 1, failed: 0, deferred: 0 });
+  assert.deepEqual(await runAuditQueue({ maxMatches: 1, maxMs: 2000 }), { completed: 1, failed: 0, deferred: 0, rosters: idleRosters });
   assert.equal((await readArchivedMatches([matchId(1)])).size, 1);
   assert.equal((await queryAll("SELECT * FROM AuditMatch")).length, 0);
 });
@@ -180,7 +182,7 @@ test("the bounded runner prioritizes change windows through the real archive/quo
     return Response.json({ status: 200, data: rawMatch(i) });
   };
   const summary = await runAuditQueue({ maxMatches: 2, maxMs: 2000 });
-  assert.deepEqual(summary, { completed: 2, failed: 0, deferred: 0 });
+  assert.deepEqual(summary, { completed: 2, failed: 0, deferred: 0, rosters: idleRosters });
   assert.equal(fetched.length, 2);
   assert.ok(fetched.every((i) => i >= 20 && i < 100), "candidate context comes before oldest history");
   const coverage = await auditCoverage(selfId);
@@ -269,7 +271,7 @@ test("a broken manifest cannot starve the queue drain", async () => {
   console.error = (...args: unknown[]) => { errors.push(args); };
   try {
     assert.deepEqual(await runAuditQueue({ maxMatches: 1, maxMs: 2000 }),
-      { completed: 1, failed: 0, deferred: 0 });
+      { completed: 1, failed: 0, deferred: 0, rosters: idleRosters });
   } finally {
     console.error = realError;
   }

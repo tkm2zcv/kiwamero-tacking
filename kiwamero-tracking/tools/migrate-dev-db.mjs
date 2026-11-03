@@ -32,4 +32,6 @@ for (const [table, column, sql] of statements) {
 }
 db.exec('CREATE INDEX IF NOT EXISTS "WatchlistEntry_riotName_riotTag_idx" ON "WatchlistEntry"("riotName","riotTag")');
 db.exec(fs.readFileSync("db/upgrade-2026-10-30.sql", "utf8"));
+db.exec(fs.readFileSync("db/upgrade-2026-11-04.sql", "utf8"));
+db.exec(fs.readFileSync("db/upgrade-2026-11-04-profiles.sql", "utf8"));
 console.log("done", sqlPath);

@@ -314,6 +314,7 @@ export function bestMatchesByKills(rows: StoredRow[], limit = 5): StoredRow[] {
 
 /** One other player met in ranked/competitive matches, for the Encounters tab. */
 export interface EncounterStat {
+  puuid?: string;
   name: string;
   tag: string;
   agent: string;
@@ -334,8 +335,9 @@ export interface EncounterStat {
   lastDay: string;
 }
 
-export function buildEncounters(matches: Match[], selfName: string, selfTag: string): EncounterStat[] {
+export function buildEncounters(matches: Match[], selfName: string, selfTag: string, selfPuuid?: string): EncounterStat[] {
   const acc = new Map<string, {
+    puuid: string;
     name: string; tag: string; agent: string; tier: number; tierPatched: string;
     with_: number; against_: number; all: number;
     winsWith: number; winsAgainst: number;
@@ -343,17 +345,23 @@ export function buildEncounters(matches: Match[], selfName: string, selfTag: str
     last: number; lastDay: string;
   }>();
   const selfKey = `${selfName}#${selfTag}`.toLowerCase();
+  const seen = new Set<string>();
   for (const m of matches) {
-    const self = m.players.find((p) => `${p.name}#${p.tag}`.toLowerCase() === selfKey);
+    if (seen.has(m.metadata.matchid)) continue;
+    seen.add(m.metadata.matchid);
+    const self = m.players.find((p) => selfPuuid ? p.puuid === selfPuuid
+      : `${p.name}#${p.tag}`.toLowerCase() === selfKey);
+    if (!self) continue;
     const started = m.metadata.game_start ?? 0;
     const day = new Date(started * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" });
     const selfWon = self
       ? m.teams[self.team_id?.toLowerCase() === "red" ? "red" : "blue"]?.has_won ?? false
       : false;
     for (const p of m.players) {
-      if (!p.name || `${p.name}#${p.tag}`.toLowerCase() === selfKey) continue;
-      const key = `${p.name}#${p.tag}`.toLowerCase();
+      if (!p.name || p === self) continue;
+      const key = p.puuid ? `puuid:${p.puuid}` : `riot:${p.name}#${p.tag}`.toLowerCase();
       const e = acc.get(key) ?? {
+        puuid: p.puuid,
         name: p.name, tag: p.tag, agent: p.character, tier: 0, tierPatched: "",
         with_: 0, against_: 0, all: 0,
         winsWith: 0, winsAgainst: 0,
@@ -362,10 +370,10 @@ export function buildEncounters(matches: Match[], selfName: string, selfTag: str
       };
       e.all++;
       const selfParty = self?.party_id;
-      const sameParty = Boolean(selfParty) && p.party_id === selfParty;
       const sameTeam = Boolean(
         self && self.team_id && p.team_id?.toLowerCase() === self.team_id.toLowerCase(),
       );
+      const sameParty = sameTeam && Boolean(selfParty) && p.party_id === selfParty;
       if (sameParty) {
         // "Played With" means premade (duo/trio/stack) — same party_id.
         e.with_++;
@@ -383,6 +391,8 @@ export function buildEncounters(matches: Match[], selfName: string, selfTag: str
         e.deathsAgainst += p.stats?.deaths ?? 0;
       }
       if (started >= e.last) {
+        e.name = p.name;
+        e.tag = p.tag;
         e.last = started;
         e.lastDay = day;
         e.agent = p.character;
@@ -394,6 +404,7 @@ export function buildEncounters(matches: Match[], selfName: string, selfTag: str
   }
   return [...acc.values()]
     .map((e) => ({
+      puuid: e.puuid,
       name: e.name,
       tag: e.tag,
       agent: e.agent,

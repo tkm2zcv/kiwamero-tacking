@@ -4,6 +4,7 @@
 import { HenrikDevError, henrikCall } from "./henrik-client.ts";
 import { archivedMatch, rememberMatch } from "./match-archive.ts";
 import { isPuuid } from "./player-search.ts";
+import { normalizeV4Page } from "./henrik-v4.ts";
 import type { HDAccount, HDMatch, HDMmrData, HDMmrHistoryEntry, HDStoredMatch } from "./henrik-model";
 
 export { tierIcon, tierName, playerCardArt, normalizeCluster } from "./henrik-shared.ts";
@@ -63,14 +64,32 @@ export async function getMatches(region: string, puuid: string, opts?: { mode?: 
   return matches;
 }
 
-export async function getStoredMatches(region: string, puuid: string, opts?: { mode?: string; fresh?: boolean; priority?: "interactive" | "background" }) {
+export async function getStoredMatches(region: string, puuid: string, opts?: { mode?: string; size?: number; page?: number; fresh?: boolean; priority?: "interactive" | "background" }) {
   const params = new URLSearchParams();
   if (opts?.mode) params.set("mode", opts.mode);
+  if (opts?.size) params.set("size", String(opts.size));
+  if (opts?.page) params.set("page", String(opts.page));
   const q = params.toString();
   return call<HDStoredMatch[]>(
     `/valorant/v1/by-puuid/stored-matches/${region}/${puuid}${q ? `?${q}` : ""}`,
     { ttl: TTL_STORED_MATCHES, fresh: opts?.fresh, priority: opts?.priority }
   );
+}
+
+/** Full stored rosters, paginated in the background rather than fetched per ID. */
+export async function getRosterPage(region: string, puuid: string, start: number, size = 10) {
+  if (!isPuuid(puuid) || !/^[a-z]{2,8}$/i.test(region) || !Number.isSafeInteger(start) || start < 0 ||
+    !Number.isInteger(size) || size < 1 || size > 10) {
+    throw new HenrikDevError(400, "Invalid roster cursor");
+  }
+  const raw = await call<unknown>(
+    // Standard-key probes with size20/100/1000 all returned10; do not assume larger pages.
+    `/valorant/v4/by-puuid/matches/${region}/pc/${puuid}?size=${size}&start=${start}`,
+    // Full v4 pages contain megabytes of round events. Persist slim rosters,
+    // not raw pages in an isolate's unbounded-by-bytes response cache.
+    { ttl: 0, priority: "background" },
+  );
+  return normalizeV4Page(raw, puuid);
 }
 
 export async function getMmrHistory(region: string, puuid: string, opts?: { fresh?: boolean }) {

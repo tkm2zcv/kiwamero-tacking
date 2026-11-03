@@ -29,17 +29,27 @@ export async function readArchivedMatch(id: string): Promise<HDMatch | null> {
 
 /** Batched archive reads keep progressive views off the upstream request path. */
 export async function readArchivedMatches(ids: readonly string[]): Promise<Map<string, HDMatch>> {
+  return (await readArchivedCoverage(ids)).archived;
+}
+
+export async function readArchivedCoverage(ids: readonly string[]) {
   const archived = new Map<string, HDMatch>();
+  const unavailable = new Set<string>();
   const unique = [...new Set(ids)].filter((id) => MATCH_ID.test(id));
   for (let i = 0; i < unique.length; i += 100) {
-    const rows = await queryAll<{ matchId: string; payload: string }>(
-      `SELECT matchId, payload FROM MatchArchive WHERE payload IS NOT NULL
-       AND matchId IN (SELECT value FROM json_each(?))`,
+    const rows = await queryAll<{ matchId: string; payload: string | null; terminal: number }>(
+      `SELECT matchId, payload, terminal FROM MatchArchive
+       WHERE matchId IN (SELECT value FROM json_each(?))`,
       [JSON.stringify(unique.slice(i, i + 100))],
     );
-    for (const row of rows) archived.set(row.matchId, JSON.parse(row.payload) as HDMatch);
+    for (const row of rows) {
+      if (row.payload) {
+        try { archived.set(row.matchId, JSON.parse(row.payload) as HDMatch); }
+        catch { unavailable.add(row.matchId); }
+      } else if (row.terminal) unavailable.add(row.matchId);
+    }
   }
-  return archived;
+  return { archived, unavailable };
 }
 
 /** Queue immutable match details for the shared background fetcher. */
@@ -122,15 +132,15 @@ export function archivedMatch(id: string, fetcher: () => Promise<HDMatch>, fresh
 
 /**
  * Drop unlinked dead ends: rows nobody queued cannot produce evidence (nav- or
- * encounter-enqueued rows carry no AuditMatch row, so the left join in
- * runAuditQueue alone cannot tell them apart from audit work). Terminal or
- * stale-pending unlinked rows are deleted; linked rows are never touched.
+ * legacy encounter rows carry no AuditMatch row). Full-roster manifests also
+ * retain their pending/unavailable details. Only unlinked dead ends are removed.
  */
 export async function gcMatchArchive(now = Date.now(), staleMs = 24 * 60 * 60 * 1000) {
   await execute(
     `DELETE FROM MatchArchive WHERE payload IS NULL
        AND attempts > 0 AND leaseUntil <= ?
        AND matchId NOT IN (SELECT matchId FROM AuditMatch)
+       AND matchId NOT IN (SELECT matchId FROM RosterHistoryMatch)
        AND (terminal = 1 OR retryAt < ?)`,
     [now, now - staleMs],
   );

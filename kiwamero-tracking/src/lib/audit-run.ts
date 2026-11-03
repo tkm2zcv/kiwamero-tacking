@@ -4,10 +4,13 @@ import { HenrikDevError } from "./henrik-errors.ts";
 import { apiKeys } from "./henrik-client.ts";
 import { releaseCompletedAudits, repairAuditManifest } from "./audit-history.ts";
 import { gcMatchArchive } from "./match-archive.ts";
+import { runRosterQueue } from "./roster-run.ts";
+import { releaseCompletedRosterHistories } from "./roster-history.ts";
 
 export async function runAuditQueue(options: { maxMatches?: number; maxMs?: number } = {}) {
   if (!apiKeys().length) throw new HenrikDevError(503, "No HenrikDev keys configured");
   const until = Date.now() + Math.min(options.maxMs ?? 40_000, 40_000);
+  const rosters = await runRosterQueue({ until });
   // A broken manifest must not starve the drain loop or later repairs.
   try {
     await repairAuditManifest();
@@ -20,7 +23,7 @@ export async function runAuditQueue(options: { maxMatches?: number; maxMs?: numb
     console.error("Match archive GC failed", e);
   }
   const cap = Math.max(1, Math.min(options.maxMatches ?? 100, 100));
-  const summary = { completed: 0, failed: 0, deferred: 0 };
+  const summary = { completed: 0, failed: 0, deferred: 0, rosters };
   // Leases are acquired by getMatch; concurrent cron invocations share that path.
   const candidates = await queryAll<{ matchId: string }>(
     `SELECT m.matchId FROM MatchArchive m LEFT JOIN AuditMatch a ON a.matchId = m.matchId
@@ -53,5 +56,6 @@ export async function runAuditQueue(options: { maxMatches?: number; maxMs?: numb
     if (limited) break;
   }
   await releaseCompletedAudits();
+  await releaseCompletedRosterHistories();
   return summary;
 }

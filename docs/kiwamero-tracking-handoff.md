@@ -1,5 +1,42 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 261104 - Profile DB Persistence (Local; Not Deployed)
+
+- Latest user preference: profiles/self history should persist in DB, not just
+  caches. `profile-cache.ts` now falls back to compressed D1 `ProfileSnapshot`.
+- Real capture times retained. Latest50 self-list checks merge by ID; loss of
+  overlap repairs with one full stored-list request. Rank/MMR still refresh.
+- D1 refresh leases/cooldowns, monotonic writes and invalidation fences added.
+  Old valid copies survive transient/size failures; private/not-found invalidates.
+- Requires `db/upgrade-2026-11-04-profiles.sql` before Worker rollout, in addition
+  to the pending roster migration. Neither is applied remotely.
+- `npm run check:profile-worker` exercises native workerd/D1 BLOB/codec behavior
+  without external calls. Plan: `plans/261104-persistent-profiles.md`.
+- No push/deploy, real game API calls or authenticated browser testing.
+- Verification:313 tests, lint/typecheck, native workerd/D1 profile BLOB,
+  native PNG/watch, Next/OpenNext Worker compatibility and bundle scrub pass.
+
+## 261104 - Recent50 Encounters (Local; Not Deployed)
+
+- Latest user scope supersedes full-history retrieval: add ALL playlist and
+  acquire only latest50 matches across all modes. Keep older archived evidence.
+- `ashrielle#4sh`:703 stored matches; first and oldest10 each have10-player
+  rosters. Additional size20/100/1000 probes all returned10. Total live HTTP
+  calls7; no full703-roster retrieval, source-site login or production writes.
+- Local implementation removes latest-two-Act and150-cached-match caps.
+  Minute Cron bulk-fetches up to50 recent positions with persistent snapshots/
+  cursors/leases; only recent holes use per-ID details. Raw pages do not enter the
+  generic response cache; slim validated rosters share `MatchArchive`.
+- Before each request skip cached positions; cold50 takes5 calls, warm50 zero,
+  a one-game delta one size1 call in offline tests. Serialize bulk claims across
+  Cron workers and share archives across players. Four-key rotation is unchanged.
+- New `db/upgrade-2026-11-04.sql` MUST precede Worker rollout. Not applied
+  remotely. No push/deploy approval yet; production remains the261103 version.
+- Recent50 verification:305 tests, lint/typecheck, native workerd PNG/watch,
+  Next/OpenNext Worker compatibility and bundle scrub pass. Self-reviewed.
+- Real bulk import, independent review and authenticated browser checks remain
+  unperformed. Read `research/20261104-encounter-full-history.md`.
+
 ## 261103 - Persistent K/D Account Audit (Deployed)
 
 - Latest source `ca817d6`, Worker `a1c8a3da-ad13-4c41-b9d5-f4206c437a99`.

@@ -2,12 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
 import { randomBytes } from "node:crypto";
+import { execute } from "../src/lib/db.ts";
 import { matchId, selfId } from "./history-fixtures.ts";
 import {
   deleteProfileSnapshot, profileCacheKey, readProfileSnapshot, refreshProfileSnapshot,
   resetProfileCache, writeProfileSnapshot, type ProfileSnapshot,
 } from "../src/lib/profile-cache.ts";
 
+process.env.DATABASE_URL = "file::memory:";
+test.before(async () => {
+  for (const sql of fs.readFileSync("db/upgrade-2026-11-04-profiles.sql", "utf8").split(";").filter((s) => s.trim())) {
+    await execute(sql);
+  }
+});
 const seed = JSON.parse(fs.readFileSync("src/data/profile.json", "utf8"));
 const snapshot = (age = 0): ProfileSnapshot => ({
   bundle: { ...seed, profile: { ...seed.profile }, matches: [], source: "henrikdev", capturedAt: new Date(Date.now() - age).toISOString() },
@@ -25,7 +32,8 @@ function edgeStore() {
   } };
   return store;
 }
-test.afterEach(() => {
+test.afterEach(async () => {
+  await execute("DELETE FROM ProfileSnapshot");
   resetProfileCache();
   delete (globalThis as { caches?: unknown }).caches;
 });
@@ -49,10 +57,11 @@ test("a saved profile survives a cold isolate and retains the real capture time"
   assert.equal(await readProfileSnapshot("player", Date.now() + 1000), null);
 });
 
-test("expired, malformed, and seed snapshots never become live data", async () => {
+test("durable snapshots outlive edge TTL without becoming fresh; malformed and seed data remain invalid", async () => {
   const store = edgeStore();
-  await writeProfileSnapshot("expired", snapshot(25 * 3600_000));
-  assert.equal(await readProfileSnapshot("expired", Date.now() + 1000), null);
+  const old = snapshot(25 * 3600_000);
+  await writeProfileSnapshot("expired", old);
+  assert.deepEqual(await readProfileSnapshot("expired", Date.now() + 1000), old);
   await writeProfileSnapshot("bad-source", { ...snapshot(), bundle: { ...snapshot().bundle, source: "seed" } });
   assert.equal(await readProfileSnapshot("bad-source", Date.now() + 1000), null);
   store.set("https://profile-cache.internal/v2/corrupt", new Response("{"));
@@ -72,17 +81,18 @@ test("cached profiles are detached and memory entries have a fixed cap", async (
   data.bundle.profile.name = "mutated";
   assert.notEqual((await readProfileSnapshot("first", Date.now() + 1000))?.bundle.profile.name, "mutated");
   for (let i = 0; i < 16; i++) await writeProfileSnapshot(`key-${i}`, snapshot());
-  assert.equal(await readProfileSnapshot("first", Date.now() + 1000), null);
+  assert.ok(await readProfileSnapshot("first", Date.now() + 1000), "memory eviction must retain the durable copy");
 });
 
-test("oversized profiles are not retained in memory or edge cache", async () => {
+test("oversized refreshes evict fast cache but retain the last good durable snapshot", async () => {
   const store = edgeStore();
-  await writeProfileSnapshot("large", snapshot());
+  const good = snapshot();
+  await writeProfileSnapshot("large", good);
   const data = snapshot();
   data.bundle.profile.name = "x".repeat(8_000_001);
   await writeProfileSnapshot("large", data);
   assert.equal(store.size, 0);
-  assert.equal(await readProfileSnapshot("large", Date.now() + 1000), null);
+  assert.deepEqual(await readProfileSnapshot("large", Date.now() + 1000), good);
 });
 
 test("large complete histories survive compression and cold-isolate reads without losing matches", async (t) => {
@@ -105,6 +115,7 @@ test("large complete histories survive compression and cold-isolate reads withou
   const response = [...store.values()][0];
   assert.ok((await response.clone().arrayBuffer()).byteLength < 1_800_000);
   resetProfileCache();
+  delete (globalThis as { caches?: unknown }).caches;
   const restored = await readProfileSnapshot("long-history", Date.now() + 1000);
   assert.ok(restored, "large snapshot did not survive the codec round trip");
   assert.deepEqual(restored, data);
@@ -127,7 +138,8 @@ test("inflation is bounded even when encoded bytes are small", async () => {
   assert.equal(await readProfileSnapshot("expansion", Date.now() + 1000), null);
 });
 
-test("SWR refresh is deferred, coalesced, and released after failure", async () => {
+test("SWR refresh is deferred, coalesced, and released after failure", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 1_800_000_000_000 });
   const tasks: (() => Promise<void>)[] = [];
   let calls = 0;
   const defer = (task: () => Promise<void>) => { tasks.push(task); };
@@ -137,8 +149,10 @@ test("SWR refresh is deferred, coalesced, and released after failure", async () 
   assert.equal(calls, 0);
   assert.equal(tasks.length, 1);
   await tasks.shift()!();
+  t.mock.timers.tick(60_000);
   refreshProfileSnapshot("player", defer, async () => { throw new Error("refresh failure"); });
   await assert.rejects(tasks.shift()!());
+  t.mock.timers.tick(60_000);
   refreshProfileSnapshot("player", defer, work);
   await tasks.shift()!();
   assert.equal(calls, 2);

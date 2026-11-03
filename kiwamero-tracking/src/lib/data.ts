@@ -8,6 +8,7 @@ import { normalizeHDMatches } from "./match-normalize";
 import { loadProfileSource, PROFILE_LOAD_BUDGET_MS, type ProfileFailure, type ProfileIssue, type ProfileLoadOptions, type ProfileSourceData, type ProfileSourceResult } from "./profile-source";
 import { deleteProfileSnapshot, profileCacheKey, PROFILE_FRESH_MS, readProfileSnapshot, refreshProfileSnapshot, writeProfileSnapshot } from "./profile-cache";
 import { summarize } from "./profile-stats";
+import { incrementalProfileHistory } from "./profile-history";
 import seedProfile from "@/data/profile.json";
 import seedMatches from "@/data/matches.json";
 
@@ -187,9 +188,11 @@ export async function loadProfile(
   // Empty tag is reserved for a validated PUUID search; resolve identity once.
   const accountSource = tag ? getAccount : (id: string) => getAccountByPuuid(id);
   const key = profileCacheKey(name, tag, opts);
-  const save = async (completed: ProfileSourceResult) => {
+  const startedAt = Date.now();
+  const save = async (completed: ProfileSourceResult, capturedAt = startedAt) => {
     if (completed.ok && !completed.issues.length) {
       const bundle = buildLiveBundle(completed.data);
+      bundle.capturedAt = new Date(capturedAt).toISOString();
       await writeProfileSnapshot(key, { bundle, storedMatches: completed.data.storedMatches });
     } else if (completed.ok ? completed.issues.some((issue) => issue.reason === "private") :
       completed.reason === "not_found" || completed.reason === "private") {
@@ -201,13 +204,18 @@ export async function loadProfile(
   if (snapshot) {
     const cached = Date.now() - Date.parse(snapshot.bundle.capturedAt) >= PROFILE_FRESH_MS;
     if (cached) refreshProfileSnapshot(key, opts!.defer!, async () => {
+      const refreshedAt = Date.now();
       let completion: Promise<ProfileSourceResult> | undefined;
       await loadProfileSource(
-        { getAccount: accountSource, getMatches, getMmr, getMmrHistory, getStoredMatches },
+        { getAccount: accountSource, getMatches, getMmr, getMmrHistory,
+          getStoredMatches: (region, puuid, query) => incrementalProfileHistory(
+            getStoredMatches, region, puuid, query?.mode,
+            snapshot.bundle.profile.puuid === puuid ? snapshot.storedMatches : [],
+          ) },
         name, tag, { ...opts, deadline: Date.now() + PROFILE_LOAD_BUDGET_MS,
           background: (task) => { completion = task; } },
       );
-      if (completion) await save(await completion);
+      if (completion) await save(await completion, refreshedAt);
     });
     return { ok: true, ...snapshot, cached };
   }
@@ -219,7 +227,9 @@ export async function loadProfile(
     }) : undefined },
   );
   if (result.ok) {
+    if (!opts?.defer && !result.issues.length) await save(result);
     const bundle = buildLiveBundle(result.data);
+    bundle.capturedAt = new Date(startedAt).toISOString();
     if (result.issues.some((issue) => issue.resource === "rating")) {
       bundle.profile.currentRank = "Unknown";
       bundle.profile.peakRank = "Unknown";

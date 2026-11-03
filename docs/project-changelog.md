@@ -1,5 +1,53 @@
 # Project Changelog
 
+## 261104 - Durable Profile Snapshots (Local; Not Deployed)
+
+- Persist complete compressed profiles/self history to D1 with real capture
+  times, behind the existing memory/edge cache. Recovery survives cold caches.
+- Merge latest50 self-history checks into saved rows; full-list repair only
+  when checkpoint overlap is lost. Old rows survive empty/404 responses.
+- Add cross-isolate refresh leases/cooldowns, monotonic writes and invalidation
+  fences. Keep last good snapshots on transient/size failures; reject seed data.
+- New additive `upgrade-2026-11-04-profiles.sql`; real workerd/D1 codec probe.
+- 313 tests, lint/typecheck, native D1 profile codec and PNG/watch checks,
+  Next/OpenNext Worker compatibility and scrub pass. Self-reviewed.
+- No live API calls, production writes, commits, push or deployment.
+
+## 261104 - Recent50 Encounters and ALL Playlist (Local; Not Deployed)
+
+- Supersedes the full-history acquisition draft below: user now requests only
+  newest50 rosters across all modes. Older saved history remains included.
+- Expose ALL as a named playlist category on Encounters, preserving Act/played
+  filters. Load unfiltered history there; filter display locally, not acquisition.
+- Persist a bounded target snapshot and observation time. Skip cached positions
+  before every call, fetch only missing runs, and stop at the recent boundary.
+- Global bulk leases prevent overlapping Cron scans; match-ID archives are shared
+  across players. Four-key rotation and quota/cooldown enforcement are preserved.
+- Offline tests: cold50 ->5 calls; revisit ->0; one new match ->1 size1 call;
+  overlapping players/workers share fetches; old saved200 remain readable.
+- Final305 tests, lint/typecheck, native workerd PNG/watch, Next/OpenNext Worker,
+  compatibility and bundle scrub pass. Authenticated browser check not performed.
+- No live game API requests, production migration, push or deployment.
+
+## 261104 - Full-History Encounter Paging (Local; Not Deployed)
+
+- Remove latest-two-Act scope and150-match cached-read cap. The old capped
+  selector repeatedly chose already-cached rows and never reached older history.
+- Background v4 pages now seed the shared immutable archive; persistent targets,
+  offsets, leases, retry state and duplicate-page detection survive page closes.
+  Per-ID reads are reserved for gaps after the bulk scan.
+- Key-based foreground/background budgets remain shared with search/watch.
+  Actual quota includes provider Riot reads; larger requested size20/100/1000
+  returned10 in three approved probes, rather than increasing batch size.
+- Encounter identity and row keys use PUUID; duplicate matches and renames do
+  not inflate counts. UI distinguishes pending/unavailable records.
+- Additive migration `upgrade-2026-11-04.sql` is prepared, not applied remotely.
+- Offline703-match regression completes in71 page calls, reads all703 cached
+  rows, and revisits make zero additional provider calls. Live trial verified
+  only first/oldest20 rosters, not all703.
+- Final297 tests, lint/typecheck, native workerd PNG/watch, Next/OpenNext Worker,
+  compatibility and bundle scrub pass. No production migration/deployment yet.
+
 ## 261103 - Persistent K/D Account Audit (Deployed)
 
 - Prioritize sustained low K/D relative to observed prior performance, including

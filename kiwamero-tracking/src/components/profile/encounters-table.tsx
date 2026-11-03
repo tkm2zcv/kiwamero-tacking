@@ -117,9 +117,9 @@ export function EncountersTable({
               <tbody className="col-span-full grid grid-cols-subgrid gap-[inherit]">
                 {rows.map((e) => (
                   <tr
-                    key={`${e.name}#${e.tag}`}
+                    key={e.puuid || `${e.name}#${e.tag}`}
                     className="row group/row relative col-span-full grid grid-cols-subgrid min-h-14 bg-[--row-color]"
-                    data-key={`${e.name}#${e.tag}`}
+                    data-key={e.puuid || `${e.name}#${e.tag}`}
                   >
                     <td className="relative flex items-center px-4 bg-inherit sticky left-0 z-5">
                       <Link href={`/valorant/profile/riot/${encodeURIComponent(`${e.name}#${e.tag}`)}`} className="font-bold">

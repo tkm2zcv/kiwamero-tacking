@@ -215,6 +215,8 @@ npm run build:worker # OpenNext (Workers) バンドル
   査定指数はサーバー移管40・戦闘変容35・ランク推移35・役割変化15点を上限に
   0〜100で集計し、S/A/B/C表示します。任意の`?country=`はサーバー文脈の
   参考項目だけを追加します。確率・実測P95・90%信頼区間・不正の断定は行いません。
+  診断画面は旧サイト構成に合わせ、総合判定・3指数・表示ランク/対戦ロビー/
+  参考推定ランクの3点照合・ロビー帯別成績・対戦相手分布・直接照合を表示します。
   計算式と制約: [再検査レポート](../docs/reports/20261030-account-report-review.md)。
 - Encounters は選択Act/モードで直近ロスターと `MatchArchive` 済み詳細を先に集計し、
   未取得分は共有バックグラウンドキューで補完します。画面には詳細取得の上限と
@@ -237,5 +239,8 @@ npm run build:worker # OpenNext (Workers) バンドル
 - Windows で `wrangler dev` / `wrangler d1` が `miniflare-email-store` の
   `CreateDirectory: Access denied` で落ちる場合は `%TEMP%` 書込みブロックが原因。
   `TMP`/`TEMP` をプロジェクト内ディレクトリに向けて実行してください。
+- `next.config.ts` は静的生成ワーカーを `experimental.cpus: 4` に制限しています。
+  Windowsの低メモリ環境で `next build` 中のワーカー異常終了/仮想メモリ不足を
+  避けるためです。CIで高速化したい場合のみ環境に応じて見直してください。
 
 デプロイ手順は [docs/deployment-guide.md](../docs/deployment-guide.md)。

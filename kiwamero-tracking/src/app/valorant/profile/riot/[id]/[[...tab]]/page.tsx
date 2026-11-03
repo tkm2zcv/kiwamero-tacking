@@ -732,7 +732,7 @@ async function DiagnosisReport({ profile, seasons, storedAll, matches, capturedA
     locale,
     generatedAt: capturedAt,
   });
-  return <DiagnosisPanel report={report} />;
+  return <DiagnosisPanel profile={profile} report={report} />;
 }
 
 async function origin() {

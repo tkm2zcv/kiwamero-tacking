@@ -97,6 +97,8 @@ export function ReportMethod({ locale, diagnosis = false }: { locale: Locale; di
               "Model deviation = (observed - assumed mean) / max((assumed upper marker - mean) / 1.645, floor). WR deviation = (WR - 50) / 25. Draws are excluded from WR; role is derived from the same sample.")}</p>
             <p>{L("各ロビー帯の参考ティア = 平均ロビー + [-1.5, 1.5]に制限した平均偏差 / 0.3。これを試合数で加重平均。モデル幅 = 2 + 3 / √試合数。参考ランクは3〜27に制限。確率・信頼区間ではありません。",
               "Each lobby band's reference tier = mean lobby tier + mean deviation capped to [-1.5, 1.5] / 0.3, then weighted by match count. Model spread = 2 + 3 / sqrt(matches). Tiers are bounded to 3-27. Not a probability or confidence interval.")}</p>
+            <p>{L("モデル信頼度は標本数だけの表示です。有効ロスター15試合以上で「高」、決着5試合以上で「中」、それ未満は「低」。測定精度や的中率ではありません。",
+              "Model confidence is a sample-size label only: high with 15+ valid rosters, moderate with 5+ decided matches, otherwise low. It is not measured accuracy or correctness.")}</p>
             <p>{L("ランク差指数は3ティア以上の差かつ戦闘偏差0.5以上で加点。サブ垢参考値は既知のLv.80未満かつ3ティア差・戦闘偏差0.75以上が必要。外れ値指数は2指標以上の偏差2以上で計算します。不正を検出する機能ではありません。",
               "Rank-gap scoring requires a 3+ tier gap and combat deviation >=0.5. Alt indicators also require a known level below 80 and combat deviation >=0.75. Outlier scoring requires 2+ metrics at deviation >=2. This is not cheat detection.")}</p>
             <p>{L("採点条件を満たす場合、ランク差指数 = 12×(ティア差−2) + 25×max(0, 総合偏差) + (勝率60%以上なら15)。サブ垢参考値 = ランク差指数×0.6 + 20。外れ値指数 = Σ max(0, 各指標偏差−1.5)×20。各指数は0〜100に制限します。",

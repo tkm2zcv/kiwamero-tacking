@@ -255,6 +255,11 @@
 - `rank-benchmarks.ts` uses assumed constants. No empirical P95, calibrated
   probabilities, MLE, 90% CI or cheating verdicts are exposed. Unknown roles
   explicitly withhold scoring; role metadata is shared with `profile-stats.ts`.
+- The diagnosis view mirrors the legacy observable structure safely: overall
+  verdict, rank-mismatch/alt/outlier indices, a three-way displayed-vs-lobby-
+  vs-reference rank comparison, lobby-band performance, opponent rank
+  distribution and direct model comparison. Labels remain heuristic and do not
+  claim population benchmarks, cheat detection or verified skill.
 - Report views share `report-ui.tsx` and scoped `report.css`: existing v3-card
   surfaces, tracker tokens, Saira headings, 300px rail and local table scrolling.
 - Formula/review/verification record: `reports/20261030-account-report-review.md`.

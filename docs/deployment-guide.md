@@ -125,6 +125,8 @@ npm run build:worker
 npx wrangler deploy
 ```
 
+- `next.config.ts` は `experimental.cpus: 4` で静的生成ワーカーを制限する。
+  Windowsの低メモリ環境で `next build` が仮想メモリ不足で落ちる事例への対策。
 - Worker サイズ: 移行後は gzip 約 1.7 MB (無料枠 3 MiB 内。Prisma 時代は超過していた)。
 - Cron は `triggers.crons = ["0 * * * *"]` で自動登録される。初回から毎時実行されるので、
   CRON_SECRET を入れてからデプロイすること。

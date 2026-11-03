@@ -1,5 +1,24 @@
 # Project Changelog
 
+## 261103 - Legacy-style Smurf Diagnosis Layout (Deployed)
+
+- Restructured the diagnosis tab around the observed legacy layout: overall
+  reference verdict, rank-mismatch/alt-account/outlier index cards, a
+  displayed-vs-lobby-vs-model rank comparison, lobby-band performance,
+  opponent-rank distribution, direct model comparison, signals and methodology.
+- Preserved the existing bounded report model: Competitive-only latest 25 rosters
+  within 90 days, 10 valid rosters and 5 decided games before scoring. No
+  probabilities, empirical P95, confidence intervals or cheating/identity
+  conclusions are exposed.
+- Added a sample-size-only model confidence label and explicit assumed means /
+  upper markers / model-width wording.
+- `next.config.ts` caps static generation at `experimental.cpus: 4` to avoid
+  local Windows worker memory exhaustion; output and route contract unchanged.
+- Final 270 tests, lint/typecheck, native workerd watch check, Next/Worker
+  build, bundle compatibility and scrub pass.
+- `aae05f1` deployed as `d9a259a1-828f-4dc2-9e0f-00b52ecd4e58`; the Worker
+  reports 17ms startup and 3311.81KiB gzip upload. Root and login return 200.
+
 ## 261103 - Legacy-style Account Audit Parity (Deployed)
 
 - Rebuilt Account Audit around the observed legacy structure while retaining the

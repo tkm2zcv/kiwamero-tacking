@@ -56,6 +56,13 @@
 - `next.config.ts` now caps static generation at `experimental.cpus: 4`; the
   default 15 workers exhausted Windows virtual memory during local builds.
 
+## Deployment
+
+- Code commit: `aae05f1 feat: restructure smurf diagnosis report`
+- Production Worker version: `d9a259a1-828f-4dc2-9e0f-00b52ecd4e58`
+- Deploy output: 17ms startup, 12,368.61KiB upload / 3,311.81KiB gzip.
+- `https://tracking.kiwamero.dev` and `/login`: HTTP 200 after deployment.
+
 ## Unresolved questions
 
 - Whether to add fixture-driven visual snapshots for the report; current tests

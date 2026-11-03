@@ -3,8 +3,8 @@
 対象: `kiwamero-tracking/` → Cloudflare Workers + D1、`tracking.kiwamero.dev`。
 DB 層は 2026-10-29 に Prisma から生 SQL + Kysely へ移行済み (workerd 動作確認済み)。
 
-**状態: 本番反映済み (261103更新)。** Worker
-`a1c8a3da-ad13-4c41-b9d5-f4206c437a99`、D1 `a8f05616-…` (APAC)、
+**状態: 本番反映済み (261104更新)。** code `38263a4`、Worker
+`6db46680-49d1-49dd-944e-80fd6d5e275b`、D1 `a8f05616-…` (APAC)、
 `tracking.kiwamero.dev`、必要なシークレットとDiscord callbackは設定済み。
 Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 承認された監視1回で5件のDiscord送信成功と通知済み記録を確認しています。
@@ -16,19 +16,23 @@ Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 `redirect:"error"` はWorkers未対応のため、Webhook送信には使用しません。
 詳細な検証範囲・制約は [引き継ぎ](kiwamero-tracking-handoff.md) を参照してください。
 
-最新の査定改善は `ca817d6`。286テスト・lint・型検査・workerd・Next/Workerビルド・
-scrub通過後に反映し、トップ/ログイン200と配信BUILD_IDの一致を確認しました。
-今回の反映ではDB移行・手動Cron・Discord送信は実行していません。
+最新の査定改善は `38263a4`。初期・直近サーバーの定着加点、日本語説明、
+不要スクロール修正と、`6d25a63`の遭遇ALL/直近50・プロフィール永続化を反映。
+326テスト・lint・型検査・実workerd/D1・PNG検証、Next/Workerビルド・scrub通過。
+トップ/ログイン200、配信BUILD_ID `0y1kQw9pMhWiZ4m6XwEYP`一致、
+本番version100%、未認証API403・プロフィールAccessGateを確認済み。
+下記追加DB移行2本を先に適用。手動Cron・Discord送信・実ユーザー大量取得は未実行。
+ログイン後の実プロフィール目視、実アカウント差分取得の本番検証は未実施です。
 
-## 2026-11-04 遭遇ALL・直近50試合版の追加移行（未適用・未デプロイ）
+## 2026-11-04 遭遇ALL・直近50試合版の追加移行（本番適用済み）
 
-同じ未反映版にはプロフィール永続化も含まれます。下記をWorker更新前に追加適用：
+プロフィール永続化も含め、下記をWorker更新前に本番適用済み：
 
 ```bash
 npx wrangler d1 execute kiwamero-tracking --remote --file=db/upgrade-2026-11-04-profiles.sql
 ```
 
-- `ProfileSnapshot`を追加するだけで既存データを削除しません。これも未適用です。
+- `ProfileSnapshot`を追加するだけで既存データを削除しません。本番適用済みです。
 - ローカルD1は`--local`、SQLiteは`node tools/migrate-dev-db.mjs`で適用できます。
 - メモリ/edgeキャッシュを失ってもプロフィールが元の取得時刻で復元されること、
   更新時の本人履歴が最新50件チェックからマージされることを確認します。
@@ -36,7 +40,7 @@ npx wrangler d1 execute kiwamero-tracking --remote --file=db/upgrade-2026-11-04-
 - 本番/実APIを呼ばない`npm run check:profile-worker`で圧縮BLOBと失効フェンスを検証。
 
 この版は`RosterHistory`と`RosterHistoryMatch`を追加します。既存の認証・監視・
-保存済み試合は変更しません。本番反映の承認後、必ずWorker更新より先に実行します。
+保存済み試合は変更しません。承認後、Worker更新より先に本番適用しました。
 
 ```bash
 npx wrangler d1 execute kiwamero-tracking --remote --file=db/upgrade-2026-11-04.sql
@@ -50,7 +54,7 @@ npx wrangler d1 execute kiwamero-tracking --remote --file=db/upgrade-2026-11-04.
   全50件未保存・欠落なしなら5回。保存済み分と新しい1試合だけの差分を確認します。
 - `ALL`は全試合カテゴリー、All Actsは全期間の保存済み分。古いActを開いても
   過去全件の取得は開始しません。画面には直近対象と過去の未保存分を分けて表示。
-- このSQLは未デプロイ案のため`targetsJson`/`observedAt`も同じ追加SQLへ含めています。
+- このSQLには`targetsJson`/`observedAt`も同じ追加SQLへ含めています。
   以前の未確定SQLを手動適用した開発DBには、この2列の追加が別途必要です。
 - 反映確認は取得済み/対象/取得不能の件数と、2回目表示で既存分を再取得しないこと。
   実アカウントの大量取得は別途承認された範囲で行ってください。

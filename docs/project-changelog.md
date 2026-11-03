@@ -1,5 +1,14 @@
 # Project Changelog
 
+## 261104 - Production Deployment
+
+- User-approved additive D1 migrations applied: three tables/two indexes,
+  existing data retained. Verified required production columns.
+- Released code `38263a4`, Worker `6db46680-49d1-49dd-944e-80fd6d5e275b` at100%.
+- Fresh326 tests/lint/types, native profile/PNG gates and Worker build/scrub pass.
+- Home/login200, BUILD_ID match and unauthenticated access protection verified.
+  No manual cron/notifications/real-player ingestion or authenticated UI check.
+
 ## 261104 - Stable Origin-Server Scoring (Production Pending)
 
 - User authorized score addition and commit/push, including pending profile UI.

@@ -1,5 +1,22 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 261104 - Production Rollout Complete
+
+- User approved production additive migrations and deployment after `38263a4`.
+  This supersedes pending-production notes in the historical entries below.
+- Applied both `upgrade-2026-11-04*.sql` files before Worker update; verified
+  RosterHistory/RosterHistoryMatch/ProfileSnapshot, two indexes and required columns.
+- Deployed code `38263a4`; active100% Worker
+  `6db46680-49d1-49dd-944e-80fd6d5e275b`, build `0y1kQw9pMhWiZ4m6XwEYP`.
+- Fresh326 tests, lint/types, profile D1 restore, watch PNG, Next/Worker build
+  and scrub pass. Home/login200 and BUILD_ID match; unauthenticated APIs403 and
+  profile AccessGate verified. Authenticated profile UI not exercised.
+- Initial Cloudflare query7403 resolved after whoami/auth-state refresh.
+  Smoke expectations corrected to existing contracts:403 APIs and200 AccessGate,
+  not401/redirect. No product code changes were required.
+- No manual cron, Discord sends, real-player ingestion or destructive DB work.
+  Existing automatic every-minute cron remains enabled.
+
 ## 261104 - Stable Origin-Server Scoring (Production Pending)
 
 - Latest user approved scoring plus commit/push of this and pending UI fixes.

@@ -2,6 +2,7 @@ import { buildGenealogy, earlyRecentComparison } from "./report-evidence.ts";
 import type { EarlyRecentComparison } from "./report-model";
 import type { StoredRow } from "./stored-stats";
 import type { Match } from "./types";
+import { agentRole } from "./rank-benchmarks.ts";
 
 export interface AuditChangePoint {
   at: number; from: number; to: number; strength: number;
@@ -11,6 +12,10 @@ export interface AuditChangePoint {
   rosterBefore: number; rosterAfter: number;
   partyOverlap: number | null;
   matchIds: string[];
+  kind: "performance" | "server";
+  persistentLowKd: boolean;
+  roleChanged: boolean;
+  gapDays: number;
 }
 export interface AuditTimeline {
   windowSize: number; windowsScanned: number; comparableWindows: number;
@@ -36,6 +41,41 @@ function hours(rows: StoredRow[]) {
   return bins;
 }
 
+function rankCoverage(rows: StoredRow[]) {
+  const tiers = rows.filter((r) => Number.isInteger(r.tier) && r.tier >= 3 && r.tier <= 27)
+    .map((r) => r.tier);
+  return tiers.length >= rows.length * 0.8 && Math.max(...tiers) - Math.min(...tiers) <= 4;
+}
+
+function kd(rows: StoredRow[]) {
+  const deaths = rows.reduce((sum, r) => sum + r.deaths, 0);
+  return deaths ? rows.reduce((sum, r) => sum + r.kills, 0) / deaths : null;
+}
+
+function kdChange(before: StoredRow[], after: StoredRow[]) {
+  const c = earlyRecentComparison([...before, ...after]);
+  const oldKd = kd(before), newKd = kd(after);
+  c.comparable = oldKd !== null && newKd !== null && rankCoverage(before) && rankCoverage(after) &&
+    c.after.meanTier <= c.before.meanTier + 2;
+  const halves = [before.slice(0, 10), before.slice(10), after.slice(0, 10), after.slice(10)].map(kd);
+  let changed = false, low = false;
+  if (c.comparable && halves.every((value) => value !== null)) {
+    const [b1, b2, a1, a2] = halves as number[];
+    const delta = newKd! - oldKd!, direction = Math.sign(delta);
+    const drift = Math.max(Math.abs(b2 - b1), Math.abs(a2 - a1), 0.05);
+    const persistent = after.filter((r) => r.deaths > 0 &&
+      direction * (r.kills / r.deaths - oldKd!) >= 0.2).length >= 14 &&
+      before.filter((r) => r.deaths > 0 && direction * (newKd! - r.kills / r.deaths) >= 0.2).length >= 14;
+    // A step must dominate within-window trends; a linear ramp is not a boundary.
+    changed = Math.abs(delta) >= 0.4 && Math.abs(delta) > 2.5 * drift && persistent &&
+      direction * (a1 - oldKd!) >= 0.3 && direction * (a2 - oldKd!) >= 0.3 &&
+      (direction < 0 || Math.abs(c.after.meanTier - c.before.meanTier) <= 2);
+    low = changed && oldKd! >= 0.9 && newKd! <= 0.8 && a1 <= 0.85 && a2 <= 0.85;
+  }
+  c.hasTransition = changed;
+  return { comparison: c, changed, low };
+}
+
 /** Adjacent windows at every boundary, not just the oldest/newest halves. */
 export function auditTimeline(rows: StoredRow[], rosters: Match[] = [], puuid = ""): AuditTimeline {
   const size = 20;
@@ -43,28 +83,35 @@ export function auditTimeline(rows: StoredRow[], rosters: Match[] = [], puuid = 
   const possible: AuditChangePoint[] = [];
   for (let i = size; i <= rows.length - size; i++) {
     const before = rows.slice(i - size, i), after = rows.slice(i, i + size);
-    const comparison = earlyRecentComparison([...before, ...after]);
-    if (!comparison.comparable) continue;
-    comparableWindows++;
-    const c = comparison;
-    const strength = [Math.abs(c.kdDiff) / 0.4, Math.abs(c.acsDiff) / 60, Math.abs(c.hsDiff) / 8];
-    if (strength.filter((n) => n >= 1).length < 2) continue;
+    if (after[0].startedAt <= before[size - 1].startedAt) continue;
+    const { comparison, changed, low } = kdChange(before, after);
+    if (comparison.comparable) comparableWindows++;
     const gen = buildGenealogy([...before, ...after], { name: "", tag: "" });
+    if (!changed && !gen.hasClusterFlip) continue;
+    const roles = [comparison.before, comparison.after].map((b) =>
+      b.topAgents[0] ? agentRole(b.topAgents[0][0]) : "unknown");
     const hb = hours(before), ha = hours(after);
     possible.push({
       at: after[0].startedAt, from: before[0].startedAt, to: after[size - 1].startedAt,
-      comparison, strength: strength.reduce((sum, n) => sum + Math.min(3, n), 0),
+      comparison, strength: (changed ? 10 : 0) + (low ? 10 : 0) +
+        (changed ? Math.min(5, Math.abs(comparison.kdDiff)) : 0) + (gen.hasClusterFlip ? 1 : 0),
       server: { before: gen.earliestCluster, after: gen.recentCluster, changed: gen.hasClusterFlip },
-      agentChanged: !c.before.topAgents.some(([a]) => c.after.topAgents.some(([b]) => a === b)),
+      agentChanged: !comparison.before.topAgents.some(([a]) => comparison.after.topAgents.some(([b]) => a === b)),
       hoursChanged: hb.reduce((sum, n, j) => sum + Math.abs(n - ha[j]), 0) / 2 >= 0.6,
       rosterBefore: 0, rosterAfter: 0, partyOverlap: null,
       matchIds: [...before, ...after].map((r) => r.id),
+      kind: changed ? "performance" : "server", persistentLowKd: low,
+      roleChanged: roles.every((r) => r !== "unknown") && roles[0] !== roles[1],
+      // Include nearby gaps so shifting a candidate a few matches cannot evade the penalty.
+      gapDays: Math.max(...[...before, ...after].slice(1).map((r, j) =>
+        (r.startedAt - [...before, ...after][j].startedAt) / 86400)),
     });
   }
   const selected: AuditChangePoint[] = [];
-  const positions = new Map(rows.map((r, i) => [r.startedAt, i]));
+  const positions = new Map(rows.map((r, i) => [r.id, i]));
   for (const c of possible.sort((a, b) => b.strength - a.strength || a.at - b.at)) {
-    if (selected.some((p) => Math.abs((positions.get(p.at) ?? 0) - (positions.get(c.at) ?? 0)) < size)) continue;
+    if (selected.some((p) => Math.abs((positions.get(p.matchIds[size]) ?? 0) -
+      (positions.get(c.matchIds[size]) ?? 0)) < size)) continue;
     selected.push(c);
     if (selected.length === 5) break;
   }

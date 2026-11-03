@@ -37,20 +37,14 @@ export function buildAccountReport(input: {
   const self = { name: profile.name, tag: profile.tag };
 
   const timeline = auditTimeline(storedAll, input.auditRosters, profile.puuid);
-  const strongest = timeline.candidates[0];
-  const comparison = strongest?.comparison ?? earlyRecentComparison(storedAll);
   const genealogy = buildGenealogy(storedAll, self);
   const cluster = buildClusterEvidence(storedAll);
   cluster.hasClusterFlip = genealogy.hasClusterFlip;
   const history = buildHistory(seasons, storedAll);
 
   const audit = scoreAudit({
-    locale, history, cluster, comparison, genealogy,
+    locale, cluster, comparison: earlyRecentComparison(storedAll), genealogy, timeline,
     rows: storedAll,
-    currentTier: profile.currentTier,
-    transition: strongest?.server.changed
-      ? { from: strongest.server.before, to: strongest.server.after }
-      : undefined,
     auditCountry: input.auditCountry,
   });
 
@@ -91,7 +85,7 @@ export function buildAccountReport(input: {
     },
     clusterStats: cluster.clusters,
     lifetimeGenealogy: genealogy,
-    comparison,
+    comparison: audit.comparison,
     audit,
     verdict,
     auditTimeline: timeline,

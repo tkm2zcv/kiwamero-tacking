@@ -5,6 +5,7 @@ import { AUDIT_COUNTRIES } from "@/lib/audit-countries";
 import { AuditProgress } from "./audit-progress";
 import { AuditTimeline } from "./audit-timeline";
 import { AuditCountrySelect } from "./audit-country-select";
+import { AuditBoundary } from "./audit-boundary";
 import {
   ReportCard, ReportMeter, ReportMethod, ReportRing, ReportScope, ReportSignals,
   reportNumber as n, reportText,
@@ -13,27 +14,17 @@ import {
 export function AccountAudit({ profile, report }: { profile: Profile; report: AccountReport }) {
   const { locale } = report;
   const L = reportText(locale);
-  const { audit, comparison: cmp, lifetimeGenealogy: gen, serverStats } = report;
+  const { audit, lifetimeGenealogy: gen, serverStats } = report;
   const complete = report.auditCoverage?.state === "complete";
   const provisional = !complete && audit.score !== null;
   const tone = audit.score === null ? "neutral" : audit.score >= 70 ? "danger" : audit.score >= 25 ? "warn" : "good";
-  const boundary = report.auditTimeline.candidates[0];
   const first = report.history[report.history.length - 1];
   const selectedCountry = audit.matchedCountry;
-  const metrics = [
-    ["K/D", n(cmp.before.kd, 2), n(cmp.after.kd, 2), n(cmp.kdDiff, 2)],
-    ["ACS", n(cmp.before.acs), n(cmp.after.acs), n(cmp.acsDiff)],
-    ["HS%",
-      cmp.before.accuracyCount ? `${n(cmp.before.hsRate, 1)}%` : "-",
-      cmp.after.accuracyCount ? `${n(cmp.after.hsRate, 1)}%` : "-",
-      cmp.before.accuracyCount && cmp.after.accuracyCount ? `${n(cmp.hsDiff, 1)}pt` : "-"],
-    [L("勝率", "Win rate"), `${n(cmp.before.winRate, 1)}%`, `${n(cmp.after.winRate, 1)}%`, "-"],
-  ];
   const breakdown = [
-    [L("① 拠点・サーバー移管度", "① Base/server migration"), audit.breakdown.serverScore, 40, L("海外↔東京・国籍照合", "Overseas/Tokyo + optional country context")],
-    [L("② フィジカル・戦闘変容度", "② Combat transformation"), audit.breakdown.performanceScore, 35, L("K/D・ACS・HS%の急変", "Abrupt K/D, ACS and HS% changes")],
-    [L("③ ランク推移・デランク度", "③ Rank trajectory/derank"), audit.breakdown.rankScore, 35, L("ACT間の急上昇・急落", "Abrupt rises or drops between acts")],
-    [L("④ 役割・行動変化", "④ Role/activity shift"), audit.breakdown.activityScore, 15, L("デュエリスト集中など", "Duelist concentration or role changes")],
+    [L("① 持続的なK/D変化", "① Sustained K/D change"), audit.breakdown.performanceScore, 55, L("低K/Dの持続を主軸に評価", "Persistent low K/D is the primary evidence")],
+    [L("② 過去実績との食い違い", "② Prior-performance mismatch"), audit.breakdown.rankScore, 20, L("本人ランク低下でも低K/D", "Low K/D despite lower owner ranks")],
+    [L("③ 同期間のサーバー移行", "③ Concurrent server migration"), audit.breakdown.serverScore, 20, L("単独10点・K/D変化と同時20点", "10 alone; 20 at a K/D boundary")],
+    [L("④ 同期間の活動時間変化", "④ Concurrent play-hours shift"), audit.breakdown.activityScore, 5, L("UTC分布の変化・所在地ではない", "UTC distribution, not physical location")],
   ] as const;
   return (
     <div className="kt-report">
@@ -41,10 +32,10 @@ export function AccountAudit({ profile, report }: { profile: Profile; report: Ac
         <div>
           <span className="v3-chip kt-report-badge">REFERENCE AUDIT</span>
           <h2>{L("アカウント査定・履歴変化判定", "Account audit / history-change assessment")}</h2>
-          <p>{L("過去ランク・サーバー移行・戦闘成績の変化を組み合わせた参考評価です。", "Reference assessment combining rank history, server migration and combat-stat changes.")}</p>
+          <p>{L("過去の実績に対する継続的な低K/Dを中心に、同じ時期の利用傾向を照合します。", "Focuses on persistent low K/D relative to prior performance, with context from the same period.")}</p>
         </div>
         <AuditCountrySelect
-          label={L("出品国籍（任意）", "Listed country (optional)")}
+          label={L("出品国籍（参考・加点なし）", "Listed country (context, no points)")}
           noneLabel={L("未選択", "Not selected")}
           options={AUDIT_COUNTRIES}
           selected={selectedCountry?.code ?? ""}
@@ -94,6 +85,7 @@ export function AccountAudit({ profile, report }: { profile: Profile; report: Ac
             name={profile.name} tag={profile.tag} locale={locale} availableMatches={report.sample.storedMatches} />
         </aside>
         <div className="kt-report-content">
+          <AuditBoundary report={report} />
           <ReportCard title={L("スコア内訳", "Score breakdown")}
             description={L("100点満点の参考指数です。確率・本人性・譲渡の断定ではありません。", "A 0-100 heuristic index, not a probability or a determination of identity/transfer.")}>
             <div className="kt-report-table-wrap" tabIndex={0} role="region" aria-label={L("スコア内訳", "Score breakdown")}>
@@ -146,32 +138,13 @@ export function AccountAudit({ profile, report }: { profile: Profile; report: Ac
               ) : <p className="kt-report-empty">{L("比較できるサーバー移行がありません。", "No comparable server boundary available.")}</p>}
             </ReportCard>
           </div>
-          <AuditTimeline timeline={report.auditTimeline} locale={locale} />
-          <ReportCard title={boundary ? L("変化点の前後比較", "Before / after boundary") : L("前期 / 後期の比較", "Early / recent comparison")}
-            description={L(`${cmp.before.count} / ${cmp.after.count}試合・${boundary ? "最大変化点の隣接窓" : "時系列で二分"}`,
-              `${cmp.before.count} / ${cmp.after.count} matches, ${boundary ? "strongest adjacent-window change" : "split chronologically"}`)}>
-            {cmp.before.count && cmp.after.count ? (
-              <div className="kt-report-table-wrap" tabIndex={0} role="region" aria-label={L("期間比較", "Period comparison")}>
-                <table className="kt-report-table">
-                  <thead><tr><th>{L("指標", "Metric")}</th><th>{L("前期", "Early")}</th><th>{L("後期", "Recent")}</th><th>{L("差", "Delta")}</th></tr></thead>
-                  <tbody>{metrics.map(([label, before, after, diff]) => (
-                    <tr key={label}><th scope="row">{label}</th><td>{before}</td><td>{after}</td><td>{diff}</td></tr>
-                  ))}</tbody>
-                </table>
-              </div>
-            ) : <p className="kt-report-empty">{L("比較できる履歴がありません。", "No comparable history available.")}</p>}
-            <p className="kt-report-footnote">{cmp.comparable
-              ? L("同程度の記録ランク帯で比較。役割変更や成長は区別できません。", "Similar recorded rank environments. Role changes and improvement cannot be isolated.")
-              : L("標本数・ランク帯・欠損の条件を満たさず、戦闘変化の採点は保留します。", "Sample, rank or completeness requirements are not met; combat-change scoring is withheld.")}
-              <br />{L("射撃データ取得済み", "Shot data available")}: {cmp.before.accuracyCount} / {cmp.before.count} + {cmp.after.accuracyCount} / {cmp.after.count}
-            </p>
-          </ReportCard>
+          <AuditTimeline timeline={report.auditTimeline} locale={locale} scoredAt={audit.score === null ? undefined : audit.boundary?.at} />
           <ReportCard title={L("ACT・ランク履歴", "Act / rank history")}
-            description={L("査定に使った年代調整後の履歴", "Era-adjusted history used by the audit")}>
+            description={L("ACTピークは参考情報です。ピークだけでは加点しません。", "Act peaks are context only and do not independently add points.")}>
             {report.history.length ? (
               <div className="kt-report-table-wrap" tabIndex={0} role="region" aria-label={L("ACT履歴", "Act history")}>
                 <table className="kt-report-table">
-                  <thead><tr><th>ACT</th><th>{L("最終ランク", "Final rank")}</th><th>{L("勝敗", "W/L")}</th><th>{L("主サーバー", "Primary server")}</th></tr></thead>
+                  <thead><tr><th>ACT</th><th>{L("ピークランク", "Peak rank")}</th><th>{L("勝敗", "W/L")}</th><th>{L("主サーバー", "Primary server")}</th></tr></thead>
                   <tbody>{report.history.slice(0, 12).map((row) => (
                     <tr key={row.act}>
                       <th scope="row">{formatAct(row.act)}</th>

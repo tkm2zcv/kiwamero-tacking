@@ -1,5 +1,19 @@
 # Project Changelog
 
+## 261103 - Persistent K/D Account Audit (Local; Not Deployed)
+
+- Prioritize sustained low K/D relative to observed prior performance, including
+  declines across lower owner ranks, without requiring ACS/HS changes.
+- Scan adjacent20/20 and half10/10 samples; require broad per-match support and
+  a step larger than within-period drift. No scored half-history fallback.
+- Score one boundary only. Server changes add10 alone or20 concurrently, never
+  accumulate unrelated periods. Country selections and Act peaks add no points.
+- Role changes and long recording gaps reduce points. Unassessable is not C.
+- Show the selected boundary, K/D, owner-rank context, sample counts and limits
+  ahead of the breakdown. No new API calls or schema changes.
+- Full286 tests, lint/typecheck and native workerd pass; build verification is
+  recorded in the implementation report.
+
 ## 261103 - Legacy-style Smurf Diagnosis Layout (Deployed)
 
 - Restructured the diagnosis tab around the observed legacy layout: overall

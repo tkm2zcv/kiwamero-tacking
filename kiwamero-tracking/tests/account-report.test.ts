@@ -120,13 +120,13 @@ test("server migration adds bounded evidence but no high-grade verdict by itself
   });
   assert.equal(r.lifetimeGenealogy.hasClusterFlip, true);
   assert.equal(r.lifetimeGenealogy.earliestCluster, "Singapore");
-  assert.equal(r.audit.breakdown.serverScore, 25);
-  assert.equal(r.audit.score, 25);
-  assert.equal(r.audit.grade, "B");
+  assert.equal(r.audit.breakdown.serverScore, 10);
+  assert.equal(r.audit.score, 10);
+  assert.equal(r.audit.grade, "C");
   assert.ok(r.audit.signals.some((s) => s.category === "server" && s.severity === "warn"));
 });
 
-test("listed-country context adds bounded server evidence only", () => {
+test("listed-country context is informational, not observed migration evidence", () => {
   const stored = history(80, 200, "Tokyo", { tier: 22 });
   const matching = report({ storedAll: stored, auditCountry: "Jpn" });
   const mismatched = report({ storedAll: stored, auditCountry: "Vnm" });
@@ -134,7 +134,8 @@ test("listed-country context adds bounded server evidence only", () => {
   assert.equal(matching.audit.originMismatch, false);
   assert.equal(matching.audit.breakdown.serverScore, 0);
   assert.equal(mismatched.audit.originMismatch, true);
-  assert.equal(mismatched.audit.breakdown.serverScore, 15);
+  assert.equal(mismatched.audit.breakdown.serverScore, 0);
+  assert.equal(mismatched.audit.score, matching.audit.score);
   assert.equal(mismatched.audit.grade, "C");
 });
 
@@ -314,13 +315,13 @@ test("an unknown agent does not silently select a Duelist benchmark", () => {
   assert.equal(r.verdict.verdict.type, "INSUFFICIENT_DATA");
 });
 
-test("adjacent-act rank jumps score but wide drops do not", () => {
+test("act peaks alone do not score a player-change boundary", () => {
   const r = report({
     storedAll: history(80, 250, "Tokyo"),
     seasons: seasons([["e9a3", 10, "Silver 2", 50], ["e10a1", 26, "Immortal 3", 50], ["e10a5", 10, "Silver 2", 50]]),
   });
-  assert.equal(r.audit.breakdown.rankScore, 18);
-  assert.ok(r.audit.signals.some((s) => s.category === "rank" && s.title === "Rapid rank jump"));
+  assert.equal(r.audit.breakdown.rankScore, 0);
+  assert.equal(r.audit.score, 0);
 });
 
 test("correlated performance, server and agent changes are scored and explained", () => {
@@ -329,11 +330,12 @@ test("correlated performance, server and agent changes are scored and explained"
     kills: 30, deaths: 12, score: 9000, head: 22, body: 15, agent: "Jett",
   }).map((r) => ({ ...r, id: `${r.id}-new`, startedAt: r.startedAt + 40 * DAY }));
   const r = report({ storedAll: [...early, ...recent] });
-  assert.ok(r.audit.score !== null && r.audit.score >= 70);
-  assert.equal(r.audit.grade, "S");
+  assert.equal(r.audit.score, 35);
+  assert.equal(r.audit.grade, "B");
   assert.ok(r.audit.breakdown.performanceScore > 0);
-  assert.equal(r.audit.breakdown.serverScore, 25);
-  assert.equal(r.audit.breakdown.activityScore, 15);
+  assert.equal(r.audit.breakdown.serverScore, 20);
+  assert.equal(r.audit.breakdown.activityScore, 0);
+  assert.ok(r.audit.signals.some((s) => s.category === "role"));
   assert.ok(r.audit.signals.some((s) => s.category === "performance" && s.severity === "warn"));
 });
 

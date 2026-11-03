@@ -2,7 +2,7 @@ import type { AuditTimeline as Timeline } from "@/lib/audit-timeline";
 import type { Locale } from "@/lib/i18n/dict";
 import { ReportCard, reportNumber as n, reportText } from "./report-ui";
 
-export function AuditTimeline({ timeline, locale }: { timeline: Timeline; locale: Locale }) {
+export function AuditTimeline({ timeline, locale, scoredAt }: { timeline: Timeline; locale: Locale; scoredAt?: number }) {
   const L = reportText(locale);
   const date = (at: number) => new Date(at * 1000).toISOString().slice(0, 10);
   return (
@@ -15,9 +15,11 @@ export function AuditTimeline({ timeline, locale }: { timeline: Timeline; locale
           <thead><tr><th>{L("変化点 / 対象期間", "Boundary / window")}</th><th>K/D Δ</th><th>ACS Δ</th><th>HS Δ</th>
             <th>{L("併発する変化", "Context")}</th><th>{L("前 / 後のロスター", "Rosters before / after")}</th></tr></thead>
           <tbody>{timeline.candidates.map((c) => <tr key={`${c.at}-${c.from}`}>
-            <th scope="row">{date(c.at)}<small>{date(c.from)} - {date(c.to)}</small></th>
+            <th scope="row">{date(c.at)}{c.at === scoredAt ? <small>{L("採点対象", "Scored boundary")}</small> : null}<small>{date(c.from)} - {date(c.to)}</small></th>
             <td>{n(c.comparison.kdDiff, 2)}</td><td>{n(c.comparison.acsDiff)}</td><td>{n(c.comparison.hsDiff, 1)}pt</td>
             <td className="kt-report-cell-note">
+              <strong>{c.persistentLowKd ? L("継続低K/D", "Persistent low K/D")
+                : c.kind === "performance" ? L("K/D変化", "K/D change") : L("サーバーのみ", "Server only")}</strong>{" "}
               {[c.server.changed && L("サーバー", "Server"), c.agentChanged && L("エージェント", "Agent"),
                 c.hoursChanged && L("活動時間帯（UTC）", "Play hours (UTC)")].filter(Boolean).join(" / ") || "-"}
               <small>{c.partyOverlap === null ? L("パーティー継続性: データ不足", "Party continuity: insufficient data")
@@ -27,8 +29,8 @@ export function AuditTimeline({ timeline, locale }: { timeline: Timeline; locale
           </tr>)}</tbody>
         </table>
       </div> : <p className="kt-report-empty">{timeline.comparableWindows
-        ? L("比較できた窓では複数指標が同時に変わる候補は未検出。未補完の情報は未評価です。",
-          "No multi-metric change candidates in comparable windows. Unenriched information remains unexamined.")
+        ? L("比較できた窓では持続的なK/D急変・主サーバー移行は未検出。未評価期間は正常とみなしません。",
+          "No sustained K/D discontinuity or primary-server switch in assessed windows. Unexamined periods are not classified as normal.")
         : L("比較可能な窓がありません。標本不足や異なるランク帯を正常と判定しません。",
           "No comparable windows. Sparse or different-rank periods are not classified as normal.")}</p>}
       <p className="kt-report-footnote">{L("近接する候補をまとめ、最大5件を表示。活動時間帯はサーバー所在地を意味しません。変化点やパートナーの変化は所有者変更の証拠ではありません。",

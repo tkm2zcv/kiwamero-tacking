@@ -21,11 +21,11 @@ test("a short middle-period change survives identical oldest/newest period avera
     profile: { name: "Player", tag: "TAG", puuid: selfId, level: 100, region: "ap", currentRank: "Gold 1", currentTier: 12 },
     seasons: [], storedAll: rows, rosterMatches: [], locale: "en", generatedAt: "2026-10-30T00:00:00Z",
   });
-  assert.ok(report.audit.breakdown.performanceScore >= 25);
+  assert.equal(report.audit.breakdown.performanceScore, 15);
   assert.equal(report.comparison.before.count, 20);
 });
 
-test("rank-environment, missing-shots and insufficient-window periods remain unexamined", () => {
+test("harder-rank and insufficient windows are unexamined, but shots do not gate KD", () => {
   const rows = Array.from({ length: 40 }, (_, i) => stored(i, i < 20 ? {} : {
     tier: 25, kills: 40, deaths: 10, score: 12000, head: 22, body: 2,
   }));
@@ -33,15 +33,19 @@ test("rank-environment, missing-shots and insufficient-window periods remain une
   assert.equal(auditTimeline(rows).candidates.length, 0);
   assert.equal(auditTimeline(rows.slice(0, 39)).windowsScanned, 0);
   const incomplete = rows.map((r) => ({ ...r, tier: 12, accuracyAvailable: false }));
-  assert.equal(auditTimeline(incomplete).comparableWindows, 0);
+  assert.equal(auditTimeline(incomplete).comparableWindows, 1);
+  assert.equal(auditTimeline(incomplete).candidates[0].kind, "performance");
 });
 
-test("server choice, time of day and renames alone never create a change candidate", () => {
+test("server shifts have a separate small event, not a fabricated KD change", () => {
   const rows = Array.from({ length: 60 }, (_, i) => stored(i, {
     cluster: i < 30 ? "Tokyo" : "Singapore", selfName: i < 30 ? "Old" : "New",
     startedAt: stored(i).startedAt + (i < 30 ? 0 : 12 * 3600),
   }));
-  assert.equal(auditTimeline(validAuditRows(rows)).candidates.length, 0);
+  const candidates = auditTimeline(validAuditRows(rows)).candidates;
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].kind, "server");
+  assert.equal(candidates[0].comparison.hasTransition, false);
 });
 
 test("party evidence is unavailable without enough known rosters and repeating partners", () => {

@@ -4,7 +4,7 @@
  * tracker so both tabs can share one computed AccountReport.
  */
 
-import type { AuditTimeline } from "./audit-timeline";
+import type { AuditChangePoint, AuditTimeline } from "./audit-timeline";
 import type { AuditCoverage } from "./audit-coverage";
 
 export type Severity = "normal" | "info" | "warn" | "alert";
@@ -100,6 +100,9 @@ export interface AuditCountry {
 
 /** Descriptive history-change report; never an ownership probability. */
 export interface AuditReport {
+  status: "insufficient" | "unassessable" | "assessed";
+  /** The single boundary used for every scored contribution. */
+  boundary: AuditChangePoint | null;
   /** Heuristic change index, NOT an ownership probability. */
   score: number | null;
   grade: "S" | "A" | "B" | "C" | null;

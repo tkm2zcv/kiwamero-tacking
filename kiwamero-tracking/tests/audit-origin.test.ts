@@ -44,19 +44,21 @@ test("aligned low-KD/server changes use max30, never30+20, and score remains cap
   assert.equal(r.audit.originScored, true);
   assert.equal(r.audit.score, 100);
 });
-test("origin change and a later KD event are not added across unrelated dates", () => {
+test("current-period capability plus origin is a separate assessment, not a sum of local event totals", () => {
   const r = report(rows(160).map((r, i) => ({ ...r, tier: i < 120 ? 26 : 12,
     kills: i < 120 ? 18 : 9, deaths: 15 })));
   assert.ok(r.audit.originShift);
-  assert.equal(r.audit.originScored, false);
-  assert.equal(r.audit.breakdown.serverScore, 0);
-  assert.equal(r.audit.score, 75);
+  assert.equal(r.audit.originScored, true);
+  assert.equal(r.audit.capabilityScored, true);
+  assert.equal(r.audit.boundary, null);
+  assert.equal(r.audit.breakdown.serverScore, 30);
+  assert.equal(r.audit.score, 100);
 });
-test("a30-day recording gap halves stable origin points, including gradual moves", () => {
+test("historical gaps preserve endpoint evidence while warning that migration timing is unknown", () => {
   const r = report(rows().map((r, i) => ({ ...r, startedAt: r.startedAt + (i < 40 ? 0 : 35 * 86400) })));
-  assert.equal(r.audit.originShift?.points, 15);
-  assert.equal(r.audit.breakdown.serverScore, 15);
-  assert.equal(r.audit.score, 15);
+  assert.equal(r.audit.originShift?.points, 30);
+  assert.equal(r.audit.breakdown.serverScore, 30);
+  assert.equal(r.audit.score, 30);
 });
 test("short visits, fewer than60 matches, unknown origins and equivalent shards never add origin points", () => {
   const cases = [
@@ -64,7 +66,6 @@ test("short visits, fewer than60 matches, unknown origins and equivalent shards 
     rows(100).map((r, i) => ({ ...r, cluster: i < 40 ? "Tokyo 1" : "Tokyo" })),
     rows(100).map((r, i) => ({ ...r, cluster: i < 20 ? "Unknown" : "Tokyo" })),
     rows(100).map((r, i) => ({ ...r, cluster: i < 40 ? "Tokyo 1 " : "Tokyo" })),
-    rows(80).map((r, i) => ({ ...r, startedAt: Date.parse("2026-06-01") / 1000 + i * 3600 })),
   ];
   for (const sample of cases) assert.equal(report(sample).audit.originShift, undefined);
 });

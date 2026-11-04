@@ -16,6 +16,17 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
       import {stored} from "./tests/history-fixtures";
       import {aggregate,groupBySeason} from "./src/lib/stored-stats";
       import {encounterCoverageText} from "./src/lib/encounter-coverage";
+      import {AuditBoundary} from "./src/components/profile/audit-boundary";
+      import {ReportMethod} from "./src/components/profile/report-ui";
+      import {buildAccountReport} from "./src/lib/account-report";
+      const baselineRows=Array.from({length:80},(_,i)=>stored(i,{
+        startedAt:Date.parse(i<40?"2023-10-01":"2026-10-23")/1000+(i%40)*8640,
+        seasonShort:i<40?"e7a3":"e11a6",tier:i<40?18:10,
+        kills:i<40?20:17,deaths:18,cluster:i<40?"Hong Kong":"Tokyo"}));
+      const baseline=(locale)=>buildAccountReport({profile:{puuid:"fixture",name:"Fixture",tag:"TAG",
+        level:300,region:"ap",currentTier:10,currentRank:"Silver 2"},storedAll:baselineRows,
+        seasons:[{actCode:"e7a3",peakTier:24,games:126,wins:73}],rosterMatches:[],
+        locale,generatedAt:"2026-10-30T00:00:00Z"});
       const rows=Array.from({length:24},(_,i)=>stored(i+1,{seasonId:"act"+i,seasonShort:"e11a"+(i+1)}));
       const acts=rows.map((r,i)=>({label:"V26: A"+(i+1),href:"#act"+i}));
       createRoot(document.getElementById("root")).render(
@@ -27,9 +38,13 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
             <section className="kt-maincol"><PerformanceTable seasons={groupBySeason(rows)}
               lifetime={{stats:aggregate(rows)}} ranks={[]} actItems={acts}/></section>
           </div>
+          {["ja","en"].map(locale=><section className="kt-report" data-baseline={locale} key={locale}>
+            <AuditBoundary report={baseline(locale)}/><ReportMethod locale={locale}/>
+          </section>)}
         </main>);
     ` },
-    bundle: true, write: false, platform: "browser", jsx: "automatic",
+    // CSS is served from the real compiled styles below, not from the JS probe.
+    bundle: true, write: false, platform: "browser", jsx: "automatic", loader: { ".css": "empty" },
     plugins: [{ name: "offline-next-elements", setup(build) {
       build.onResolve({ filter: /^next\/(image|link)$/ }, ({ path }) => ({ path, namespace: "fixture" }));
       build.onLoad({ filter: /.*/, namespace: "fixture" }, ({ path }) => ({
@@ -42,6 +57,7 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
   const chunks = path.join(root, ".next/static/chunks");
   const utilities = fs.readdirSync(chunks).filter(f => f.endsWith(".css")).map(f =>
     fs.readFileSync(path.join(chunks, f), "utf8")).join("\n");
+  assert.match(utilities, /\.kt-report-card[\s,{:]/, "compiled audit CSS must be present");
   // Reapply local rules so the probe can reproduce a CSS fix before a new build.
   const css = utilities + (process.env.PROFILE_LAYOUT_BUILT ? "" : "\n" +
     ["globals.css", "tracker-ui.css", "trn-v3.css"].map(f =>
@@ -65,6 +81,15 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
       await page.goto(`http://127.0.0.1:${server.address().port}`);
       await page.waitForSelector(".performance");
       assert.match(await page.$eval('[role="status"]', e => e.textContent), /54試合中.*48試合/);
+      const ja = await page.$eval('[data-baseline="ja"]', e => e.textContent);
+      const en = await page.$eval('[data-baseline="en"]', e => e.textContent);
+      assert.match(ja, /ACT全体126試合/);
+      assert.match(ja, /現在40試合/);
+      assert.match(ja, /変化した日時/);
+      assert.match(en, /126 total ACT games, not games all played at that peak/);
+      assert.match(en, /Change dates and coincidence are not established/);
+      assert.equal(await page.$$eval("[data-baseline]", els =>
+        els.every(e => e.scrollWidth <= e.clientWidth + 1)), true, `audit overflow at ${width}px`);
       const bars = await page.$$eval(".performance > .v3-card__filters, .best-matches > .v3-card__filters",
         els => els.map(e => {
           e.scrollTop = 20; e.scrollLeft = 20;
@@ -89,7 +114,7 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
       }
     }
     assert.deepEqual(errors, []);
-    console.log("PASS: Japanese encounter coverage; no card/filter scroll traps at1440/1024/375px; ACT dropdown remains visible and dismissible; no external calls");
+    console.log("PASS: JA/EN longitudinal evidence and honest ACT/timing copy; no overflow at1440/1024/375px; Japanese encounter coverage, filter scrolling and ACT menus; no external calls");
   } finally {
     await browser?.close();
     await new Promise(resolve => server.close(resolve));

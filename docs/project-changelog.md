@@ -1,5 +1,25 @@
 # Project Changelog
 
+## 261104 - Historical/Current Audit Comparison (Rollout Approved)
+
+- Re-inspected current public legacy tracker code for the reported account.
+  Its live result remains login-gated; did not bypass authentication.
+- Saved284-row snapshot reproduces5/C: historical Immortal ACT ignored,
+  recent40 Tokyo games fail7-day gate, historical gaps halve local server points.
+- Add historical/current capability mismatch (20 rank+35/55 combat) with strict
+  prior-rank evidence, two current20-game consistency checks and role moderation.
+- Keep origin80%/non-overlap rules; remove7-day gate and endpoint gap discounts.
+  Gaps remain explicit uncertainty about timing, inactivity and environment.
+- Choose the stronger complete current-period or local-event assessment; never
+  sum their totals, duplicate server/combat points or assert coincident changes.
+- Same saved data now85/S (20+35+30), not a probability/identity conclusion.
+  Smurf verdict unchanged; no new Henrik requests or production writes.
+- 335 tests/lint/types, offline saved-data replay, native D1/PNG checks, Worker
+  build/scrub and JA/EN compiled-CSS browser checks pass.
+- User approved commit/push and production rollout. Production results are
+  recorded separately after deployment; no database migration is required.
+- Details: `reports/20261104-audit-longitudinal-parity.md`.
+
 ## 261104 - Production Deployment
 
 - User-approved additive D1 migrations applied: three tables/two indexes,

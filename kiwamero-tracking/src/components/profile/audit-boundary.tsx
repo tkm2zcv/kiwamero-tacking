@@ -7,7 +7,8 @@ export function AuditBoundary({ report }: { report: AccountReport }) {
   const { audit, comparison: cmp } = report;
   const boundary = audit.boundary;
   const origin = audit.originShift;
-  const originOnly = !!origin && audit.originScored && !boundary;
+  const capability = audit.capability;
+  const originOnly = !boundary && (!!audit.originScored || !!audit.capabilityScored);
   const date = (ts: number) => new Date(ts * 1000).toISOString().slice(0, 10);
   const metrics = [
     ["K/D", n(cmp.before.kd, 2), n(cmp.after.kd, 2), n(cmp.kdDiff, 2)],
@@ -23,7 +24,7 @@ export function AuditBoundary({ report }: { report: AccountReport }) {
       description={boundary
         ? `${date(boundary.at)} · ${date(boundary.from)} - ${date(boundary.to)}`
         : originOnly
-          ? L("初期と直近の利用拠点を採点。急変の日時は特定していません。", "Initial/recent server evidence is scored; no abrupt-change date is assigned.")
+          ? L("過去・初期の実績と直近40試合を比較。変化した日時や、各変化の同時発生は特定していません。", "Historical evidence is compared with current40. Change dates and coincidence are not established.")
           : L("採点対象の変化点は未検出。前後半の数値は参考表示のみです。", "No scored boundary. Half-history values are descriptive only.")}>
       {origin ? <p className="kt-report-description">
         {origin.from} → {origin.to}。{" "}
@@ -32,8 +33,22 @@ export function AuditBoundary({ report }: { report: AccountReport }) {
         {" "}{audit.originScored
           ? L("長期的な拠点変化をサーバー項目へ反映。局所移行と二重加点しません。", "Stable origin evidence contributes once to the server score, not twice with the local switch.")
           : L("参考表示です。評価保留、または別時期の採点対象には合算しません。", "Context only: withheld or not combined with another scored event.")}
-        {origin.gapDays >= 30 ? L(" 30日以上の記録間隔があるため長期拠点の加点は半減します。", " A 30+ day recording gap halves the origin contribution.") : ""}
+        {origin.gapDays >= 30 ? L(" 長い履歴欠落があり、移行時期や休止の影響は不明です。", " Recording gaps leave migration timing and inactivity effects unknown.") : ""}
         {" "}{L("保存履歴の最初であり、作成時の居住地ではありません。", "This is the start of stored history, not residence at account creation.")}
+      </p> : null}
+      {capability ? <p className="kt-report-description">
+        {L("過去の確認実績", "Historical reference")}: {tierName(capability.priorTier)}。{" "}
+        {capability.source === "act"
+          ? L(`${capability.priorAct?.toUpperCase()}の到達ランクです（ACT全体${capability.priorGames}試合。全試合をそのランクで戦った意味ではありません）。`,
+            `Peak in ${capability.priorAct?.toUpperCase()} (${capability.priorGames} total ACT games, not games all played at that peak).`)
+          : L(`同ランク以上の本人記録${capability.priorGames}試合。`, `${capability.priorGames} observed owner-rank matches at or above this tier.`)}
+        {" "}{L(`直近40試合（${date(capability.recentFrom)}〜${date(capability.recentTo)}）のK/Dは${n(capability.recentKd, 2)}、各20試合も${capability.halfKd.map((v) => n(v, 2)).join(" / ")}。平均本人ランクは${tierName(Math.round(capability.recentMeanTier))}です。`,
+          `Current40 (${date(capability.recentFrom)} to ${date(capability.recentTo)}): K/D${n(capability.recentKd, 2)}, ${capability.halfKd.map((v) => n(v, 2)).join(" / ")} per20; mean owner rank ${tierName(Math.round(capability.recentMeanTier))}.`)}
+        {" "}{audit.capabilityScored
+          ? L("同じ現在期間の拠点差と評価します。局所変化の点数は重ねません。", "Assessed with origin evidence on the same current sample; local-event scores are not added.")
+          : L("より強い局所評価を採用し、重複加点しません。", "A stronger local assessment is selected without duplicate points.")}
+        {capability.roleChanged ? L(" 観測された主ロール変更により戦闘項目を10点減らします。", " An observed primary-role change reduces combat points by10.") : ""}
+        {capability.gapDays >= 30 ? L(" 履歴欠落があり、休止・加齢・環境変化の影響は未確認です。", " Historical gaps leave inactivity, ageing and environment effects unverified.") : ""}
       </p> : null}
       {boundary ? <p className="kt-report-description">
         {boundary.persistentLowKd
@@ -45,8 +60,8 @@ export function AuditBoundary({ report }: { report: AccountReport }) {
               : L("局所的なサーバー移行の参考材料です。K/Dの急変は未検出です。", "Local server-switch evidence without a K/D discontinuity.")}
         {" "}{L(`前後${cmp.before.count}/${cmp.after.count}試合。同じ境界の情報だけを採点します。`,
           `${cmp.before.count}/${cmp.after.count} matches before/after. Only evidence from this boundary contributes.`)}
-        {boundary.gapDays >= 30 ? L(" 境界に30日以上の記録欠落があり、加点を半減しています。", " A 30+ day recording gap halves contributions.") : ""}
-        {boundary.roleChanged ? L(" ロール変更を考慮して戦闘項目を減点します。", " A role change reduces the combat contribution.") : ""}
+        {boundary.gapDays >= 30 ? L(" 境界に30日以上の記録欠落があり、局所項目の加点を半減しています。初期・直近の拠点差は別評価です。", " A30+ day gap halves local contributions; initial/current origin evidence is assessed separately.") : ""}
+        {boundary.kind === "performance" && boundary.roleChanged ? L(" ロール変更を考慮して戦闘項目を減点します。", " A role change reduces the combat contribution.") : ""}
         {audit.score === null ? L(" 総合評価は保留です。", " Overall assessment is withheld.") : ""}
       </p> : null}
       {originOnly ? null : cmp.before.count && cmp.after.count ? (

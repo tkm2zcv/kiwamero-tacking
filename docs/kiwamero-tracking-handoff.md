@@ -1,5 +1,28 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 261104 - Historical/Current Audit Improvement (Rollout Approved; Production Pending)
+
+- Current request: re-examine legacy scoring for the same PUUID, especially
+  former Immortal struggling in low ranks and initial/current server changes.
+- Current public legacy scoring inspected. Saved legacy browser login expired;
+  actual authenticated legacy result and server-side genealogy remain unverified.
+- Read only this account's D1 snapshot, replayed locally:284 rows,5/C ->85/S
+  (20 rank+35 combat+30 origin). Smurf verdict unchanged. No Henrik requests.
+- New `audit-capability.ts` checks historical Immortal proof plus current40
+  low-rank/underperformance consistency, not an inferred historical KD/change date.
+- Initial20 vs current40 server difference no longer needs7 days or loses points
+  from gaps elsewhere in history. Gaps warn that migration/inactivity are unknown.
+- Current-period capability/origin evidence and local-event totals compete;
+  never stack their totals or claim simultaneous migration/performance changes.
+- JA/EN UI/methodology, reproduction tool and positive/negative tests updated.
+- Verified335 tests, lint/types, native profile/PNG gates, Worker build/scrub and
+  offline compiled-CSS browser check at1440/1024/375px.
+- User approved commit/push and production rollout after verification.
+  Existing deployed version below remains unchanged until the rollout is recorded.
+  No migrations needed for this scoring-only work.
+- Read `reports/20261104-audit-longitudinal-parity.md` and plan
+  `../plans/261104-audit-longitudinal.md` before continuing.
+
 ## 261104 - Production Rollout Complete
 
 - User approved production additive migrations and deployment after `38263a4`.

@@ -10,6 +10,8 @@ import { MIN_AUDIT_MATCHES } from "./report-evidence.ts";
 import type { AuditChangePoint, AuditTimeline } from "./audit-timeline";
 import type { AuditBreakdown } from "./report-model";
 import { auditOriginShift, originSupportsBoundary } from "./audit-origin.ts";
+import { auditCapabilityMismatch } from "./audit-capability.ts";
+import type { SeasonRank } from "./types";
 
 const total = (points: AuditBreakdown) => Object.values(points).reduce((sum, n) => sum + n, 0);
 const empty = (): AuditBreakdown => ({ rankScore: 0, serverScore: 0, performanceScore: 0, activityScore: 0 });
@@ -41,12 +43,16 @@ export function scoreAudit(input: {
   rows: StoredRow[];
   auditCountry?: string;
   timeline: AuditTimeline;
+  seasons?: SeasonRank[];
 }): AuditReport {
   const { locale, cluster, genealogy, rows, timeline } = input;
   const L = (ja: string, en: string) => locale === "ja" ? ja : en;
   const signals: ReportSignal[] = [];
   const matchedCountry = auditCountryByCode(input.auditCountry);
   const originShift = auditOriginShift(rows);
+  const capability = auditCapabilityMismatch(rows, input.seasons ?? []);
+  const endpointPoints = { ...empty(), serverScore: originShift?.points ?? 0,
+    rankScore: capability?.rankPoints ?? 0, performanceScore: capability?.performancePoints ?? 0 };
   // Select one assessment. Long-term and local server evidence share one cap.
   const events = timeline.candidates.map((boundary) => {
     const points = boundaryPoints(boundary);
@@ -56,14 +62,16 @@ export function scoreAudit(input: {
     return { boundary, points, origin };
   })
     .sort((a, b) => total(b.points) - total(a.points) || b.boundary.strength - a.boundary.strength);
-  const originOnly = !!originShift && originShift.points > total(events[0]?.points ?? empty());
-  const boundary = originOnly ? null : events[0]?.boundary ?? null;
+  // Both endpoint signals describe the same current40 sample, not coincident migration dates.
+  const endpointsWin = total(endpointPoints) > total(events[0]?.points ?? empty());
+  const boundary = endpointsWin ? null : events[0]?.boundary ?? null;
   const comparison = boundary?.comparison ?? { ...input.comparison, hasTransition: false };
   const status = rows.length < MIN_AUDIT_MATCHES ? "insufficient"
-    : timeline.comparableWindows === 0 ? "unassessable" : "assessed";
+    : timeline.comparableWindows === 0 && !capability ? "unassessable" : "assessed";
   const breakdown = status === "assessed"
-    ? originOnly ? { ...empty(), serverScore: originShift!.points } : events[0]?.points ?? empty() : empty();
-  const originScored = status === "assessed" && (originOnly || !!events[0]?.origin);
+    ? endpointsWin ? endpointPoints : events[0]?.points ?? empty() : empty();
+  const originScored = status === "assessed" && !!originShift && (endpointsWin || !!events[0]?.origin);
+  const capabilityScored = status === "assessed" && endpointsWin && !!capability;
   const actualCluster = genealogy.recentCluster || cluster.home;
   const originMismatch = Boolean(matchedCountry && actualCluster &&
     normalizeCluster(actualCluster) !== normalizeCluster(matchedCountry.nativeServer));
@@ -80,13 +88,13 @@ export function scoreAudit(input: {
         "Owner ranks also fell at this boundary. Act peaks alone add no points; opponent ranks are unverified.")));
     if (boundary.server.changed) signals.push(signal("server", "warn", L("同期間の主サーバー移行", "Local primary-server switch"),
       `${boundary.server.before} → ${boundary.server.after}. ${L("居住国の変更を証明しません。", "Does not establish a physical-country change.")}`));
-    if (boundary.roleChanged) signals.push(signal("role", "info", L("ロール変更を考慮して減点", "Role change weakens the evidence"),
+    if (boundary.kind === "performance" && boundary.roleChanged) signals.push(signal("role", "info", L("ロール変更を考慮して減点", "Role change weakens the evidence"),
       L("役割の違いでもK/Dは変わるため、戦闘項目を10点減らします。", "Role differences can affect K/D; the combat contribution is reduced by 10.")));
     if (breakdown.activityScore) signals.push(signal("activity", "info", L("同期間の活動時間帯変化", "Concurrent play-hours shift"),
       L("同じ境界でUTC時間帯の分布も変化。所在地や本人性を示すものではありません。", "UTC play-hour distribution also changed at this boundary; this is not location or identity evidence.")));
     if (boundary.gapDays >= 30) signals.push(signal("gap", "info", L("長い記録間隔を考慮", "Long recording gap"),
-      L(`比較期間に${Math.floor(boundary.gapDays)}日の空白。休止か履歴欠落かは不明なため、各加点を半減します。`,
-        `${Math.floor(boundary.gapDays)} days without records within the comparison window. Inactivity vs missing history is unknown; each contribution is halved.`)));
+      L(`比較期間に${Math.floor(boundary.gapDays)}日の空白。休止か履歴欠落かは不明なため、局所項目の加点を半減します。初期・直近の拠点差は別評価です。`,
+        `${Math.floor(boundary.gapDays)} days without records. Inactivity vs missing history is unknown; local contributions are halved. Initial/current origin evidence is assessed separately.`)));
   }
   if (originShift) signals.push(signal("server", originScored ? "warn" : "info",
     L("初期と直近で主な利用拠点が変化", "Stable initial-to-recent server change"),
@@ -95,8 +103,15 @@ export function scoreAudit(input: {
     " " + (originScored
       ? L(`サーバー項目は${breakdown.serverScore}点。局所移行とは重複加点しません。`, `Server contribution: ${breakdown.serverScore}. Not added twice for the local switch.`)
       : L("参考表示のみ。評価保留、または別の時期の採点対象には合算しません。", "Context only: withheld or not combined with an unrelated scored event.")) +
-    (originShift.gapDays >= 30 ? L(" 30日以上の記録間隔があるため長期拠点の加点は半減します。", " A 30+ day recording gap halves the origin contribution.") : "") +
+    (originShift.gapDays >= 30 ? L(" 長い記録欠落があり、移行時期や休止の影響は不明です。", " Recording gaps leave migration timing and inactivity effects unknown.") : "") +
     L(" 居住国の変更や本人交代を証明するものではありません。", " This does not establish residence or identity changes.")));
+  if (capability) signals.push(signal("performance", capabilityScored ? "warn" : "info",
+    L("過去の高ランク実績と現在の戦闘成績の不一致", "Historical high-rank/current performance mismatch"),
+    L(`過去の記録ティア${capability.priorTier}に対し、直近40試合は低ランク${capability.lowRankMatches}試合・K/D ${capability.recentKd.toFixed(2)}。各20試合でも${capability.halfKd.map((n) => n.toFixed(2)).join(" / ")}です。`,
+      `Prior recorded tier${capability.priorTier}; current40 contain${capability.lowRankMatches} low-rank matches at K/D${capability.recentKd.toFixed(2)} (${capability.halfKd.map((n) => n.toFixed(2)).join(" / ")} per20).`) +
+    (capabilityScored ? L(" 現在の同じ40試合に対する拠点差と評価し、局所変化とは合算しません。", " Assessed with origin evidence on the same current40, never added to local-event scores.")
+      : L(" より強い局所評価を採用したため重複加点しません。", " A stronger local assessment is used; not added twice.")) +
+    L(" 実際の対戦相手・長期休止・本人交代は未確認です。", " Opponents, inactivity and identity changes are unverified.")));
   if (matchedCountry) signals.push(signal("country", "info", L("出品国籍は参考情報のみ", "Listed country is context only"),
     L("選択値とサーバーの一致・不一致は、実際の移動を観測していないため加点しません。", "Country/server agreement or mismatch adds no points: it is not an observed migration.")));
   if (genealogy.isRenamed) {
@@ -121,6 +136,7 @@ export function scoreAudit(input: {
   return {
     score, grade, status, boundary, title: L("履歴変化指数", "History-change index"),
     ...(originShift ? { originShift, originScored } : {}),
+    ...(capability ? { capability, capabilityScored } : {}),
     confidenceLabel: score === null ? L("評価保留", "Not assessed") : `${score} / 100 pt · Grade ${grade}`,
     verdictLabel, recommendation, signals,
     breakdown,

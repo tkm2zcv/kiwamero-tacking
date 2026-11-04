@@ -34,19 +34,21 @@ test("missing shots do not veto a measured KD discontinuity", () => {
   assert.equal(r.audit.boundary?.persistentLowKd, true);
 });
 
-test("a historical peak without observed prior high-rank performance adds no rank evidence", () => {
+test("a verified prior ACT peak can support current low-rank struggle without inventing historical KD", () => {
   const rows = decline().map((row) => ({ ...row, tier: 12 }));
   const extra = { seasons: [{ episode: "e10", act: "a1", actCode: "e10a1",
     peakTier: 26, peakRank: "Immortal 3", rankIcon: "", games: 50, wins: 30 }] };
-  assert.equal(report(rows, extra).audit.breakdown.rankScore, 0);
-  assert.equal(report(rows, extra).audit.score, report(rows).audit.score);
+  assert.equal(report(rows, extra).audit.breakdown.rankScore, 20);
+  assert.equal(report(rows, extra).audit.capability?.source, "act");
+  assert.equal(report(rows, extra).audit.score, 75);
 });
 
-test("rank drop with strong KD or always-low KD is not a player-change discontinuity", () => {
+test("rank drop with strong KD is not struggle; always-low KD is capability evidence, not a sharp boundary", () => {
   const strong = decline().map((row, i) => ({ ...row, kills: i < 40 ? 18 : 27 }));
   const alwaysLow = decline().map((row) => ({ ...row, kills: 9 }));
   assert.equal(report(strong).audit.score, 0);
-  assert.equal(report(alwaysLow).audit.score, 0);
+  assert.equal(report(alwaysLow).audit.score, 75);
+  assert.equal(report(alwaysLow).audit.boundary, null);
 });
 
 test("gradual improvement and gradual decline cannot fall back to a scored half-history delta", () => {
@@ -67,27 +69,28 @@ test("a few extreme bad games and a ten-game slump followed by recovery are not 
   }
 });
 
-test("server migration alone is small and selected-country metadata never changes points", () => {
+test("stable server-origin changes score independently of selected-country metadata", () => {
   const rows = Array.from({ length: 80 }, (_, i) => stored(i,
     { cluster: i < 40 ? "Singapore" : "Tokyo" }));
   const r = report(rows);
-  assert.equal(r.audit.breakdown.serverScore, 10);
-  assert.equal(r.audit.score, 10);
-  assert.equal(r.audit.grade, "C");
+  assert.equal(r.audit.breakdown.serverScore, 30);
+  assert.equal(r.audit.score, 30);
+  assert.equal(r.audit.grade, "B");
   const mismatch = report(rows, { auditCountry: "Vnm" });
   assert.equal(mismatch.audit.originMismatch, true);
   assert.equal(mismatch.audit.score, r.audit.score);
 });
 
-test("only a server switch at the KD boundary reinforces the same event", () => {
+test("local switches are not added twice when a complete current-state assessment wins", () => {
   const together = decline().map((row, i) => ({ ...row, cluster: i < 40 ? "Singapore" : "Tokyo" }));
-  assert.equal(report(together).audit.breakdown.serverScore, 20);
+  assert.equal(report(together).audit.breakdown.serverScore, 30);
   const apart = decline(160, 120).map((row, i) =>
     ({ ...row, cluster: i < 40 ? "Singapore" : "Tokyo" }));
   const r = report(apart);
-  assert.equal(r.audit.boundary?.at, stored(120).startedAt);
-  assert.equal(r.audit.breakdown.serverScore, 0);
-  assert.equal(r.audit.score, report(decline(160, 120)).audit.score);
+  assert.equal(r.audit.boundary, null);
+  assert.equal(r.audit.capabilityScored, true);
+  assert.equal(r.audit.breakdown.serverScore, 30);
+  assert.equal(r.audit.score, 100);
 });
 
 test("a middle-history server switch is visible even when lifetime endpoints match", () => {
@@ -112,9 +115,10 @@ test("role changes and long breaks weaken an otherwise identical KD event", () =
   const role = report(rows.map((row, i) => ({ ...row, agent: i < 40 ? "Jett" : "Sage" })));
   assert.ok(role.audit.score! < baseline.audit.score!);
   assert.ok(role.audit.signals.some((s) => s.category === "role"));
-  const gap = report(rows.map((row, i) =>
+  const localRows = rows.map((row) => ({ ...row, tier: 12 }));
+  const gap = report(localRows.map((row, i) =>
     ({ ...row, startedAt: row.startedAt + (i < 40 ? 0 : 35 * 86400) })));
-  assert.ok(gap.audit.score! < baseline.audit.score!);
+  assert.ok(gap.audit.score! < report(localRows).audit.score!);
   assert.ok(gap.audit.signals.some((s) => s.category === "gap"));
 });
 

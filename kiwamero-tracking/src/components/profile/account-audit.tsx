@@ -21,7 +21,7 @@ export function AccountAudit({ profile, report }: { profile: Profile; report: Ac
   const first = report.history[report.history.length - 1];
   const selectedCountry = audit.matchedCountry;
   const breakdown = [
-    [L("① 持続的なK/D変化", "① Sustained K/D change"), audit.breakdown.performanceScore, 55, L("低K/Dの持続を主軸に評価", "Persistent low K/D is the primary evidence")],
+    [L("① 持続的な戦闘成績の不一致", "① Persistent combat mismatch"), audit.breakdown.performanceScore, 55, L("直近40試合の苦戦、または局所的なK/D変化", "Current40 underperformance or a local K/D change")],
     [L("② 過去実績との食い違い", "② Prior-performance mismatch"), audit.breakdown.rankScore, 20, L("本人ランク低下でも低K/D", "Low K/D despite lower owner ranks")],
     [L("③ 主な利用拠点の変化", "③ Primary-server change"), audit.breakdown.serverScore, 30, L("初期からの定着30点・局所10/20点と重複なし", "Stable origin shift: 30; no double-counting with local 10/20")],
     [L("④ 同期間の活動時間変化", "④ Concurrent play-hours shift"), audit.breakdown.activityScore, 5, L("UTC分布の変化・所在地ではない", "UTC distribution, not physical location")],
@@ -32,7 +32,7 @@ export function AccountAudit({ profile, report }: { profile: Profile; report: Ac
         <div>
           <span className="v3-chip kt-report-badge">REFERENCE AUDIT</span>
           <h2>{L("アカウント査定・履歴変化判定", "Account audit / history-change assessment")}</h2>
-          <p>{L("継続的な低K/Dと、初期からの主な利用拠点の変化を評価します。別々の時期の変化は合算しません。", "Assesses persistent low K/D and stable initial-to-recent server changes without adding unrelated events.")}</p>
+          <p>{L("過去の高ランク実績に対する現在の苦戦と、初期・直近の主サーバー差を評価します。現在期間の総合評価と、局所的な急変の点数は重ねません。", "Assesses current struggle relative to historical high ranks and initial/current server differences. Current-period and local-event totals are never added together.")}</p>
         </div>
         <AuditCountrySelect
           label={L("出品国籍（参考・加点なし）", "Listed country (context, no points)")}

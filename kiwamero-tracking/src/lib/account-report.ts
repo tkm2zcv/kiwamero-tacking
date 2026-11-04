@@ -44,7 +44,7 @@ export function buildAccountReport(input: {
 
   const audit = scoreAudit({
     locale, cluster, comparison: earlyRecentComparison(storedAll), genealogy, timeline,
-    rows: storedAll,
+    rows: storedAll, seasons,
     auditCountry: input.auditCountry,
   });
 

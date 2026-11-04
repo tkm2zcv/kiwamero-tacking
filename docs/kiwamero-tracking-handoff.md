@@ -1,6 +1,6 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
-## 261104 - Direct External Profile Documents (Rollout Approved)
+## 261104 - Direct External Profile Documents (Production Deployed)
 
 - User supplied the deployed confirmation screen and explicitly wants no second click.
 - Authorized, non-speculative external top-level document navigation now loads the
@@ -12,9 +12,14 @@
   actual Chromium direct/302/meta-refresh/delayed-JS/budget regressions pass.
 - Meta/JS relays land on assessment directly with filters intact and no second
   click. Unauthorized/embedded requests remain zero-spend in offline tests.
-- User approved commit/push/deploy. Re-run all gates and record the production
-  result after rollout. No live game calls or DB/auth/allowlist changes.
-  Actual user's Google flow with this revision remains unverified.
+- User-approved code `5ba21cd` committed/pushed/deployed after fresh343 tests/all gates.
+  Worker `62408310-d7a0-41db-b51b-200a90ddbca8` at100%,
+  2026-11-04T05:55:54.203552Z; BUILD_ID `vp38PuP0EOyX3C4b5H2mD`.
+- Smoke05:56UTC: home/login200, BUILD_ID match, protected APIs403, anonymous
+  relay/click/iframe-metadata profiles sign-in gated; old confirmation copy absent.
+- Existing vars/secrets/schedule retained. No migrations/manual DB/auth/allowlist
+  writes/game ingestion/cron/notifications. Actual authenticated Google flow with
+  this revision remains unverified. Older release details below are historical.
 
 ## 261104 - External Redirect Recovery (Production Deployed; Actual Spreadsheet Flow Unverified)
 

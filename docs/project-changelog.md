@@ -1,6 +1,6 @@
 # Project Changelog
 
-## 261104 - Remove External Profile Confirmation (Rollout Approved)
+## 261104 - Remove External Profile Confirmation (Production Deployed)
 
 - User requests direct opening after confirming the previous interstitial appears.
 - Permit authorized normal external document navigation without activation metadata;
@@ -9,8 +9,13 @@
   explicit enrichment/notification operations and their protection are unchanged.
 - 343 tests/lint/types, native D1/PNG, build/scrub, responsive audit UI and real
   browser HTML/JS relay tests pass with no second click and intact tab/filter URL.
-- User approved commit/push/deploy; record results after rollout. No live game
-  requests. Actual user's Google flow remains unverified.
+- User-approved code `5ba21cd` pushed/deployed. Worker
+  `62408310-d7a0-41db-b51b-200a90ddbca8` at100%,2026-11-04T05:55:54.203552Z;
+  BUILD_ID `vp38PuP0EOyX3C4b5H2mD`. All343 tests/native/browser/build gates pass again.
+- Production home/login200, BUILD_ID match, protected APIs403 and anonymous
+  relay/click/iframe-metadata sign-in gates verified05:56UTC; old confirmation absent.
+- No migrations/manual DB/auth/allowlist writes/game ingestion/cron/notifications.
+  Actual authenticated Google flow remains unverified.
 
 ## 261104 - HTML/JS External Redirect Recovery (Production Deployed)
 

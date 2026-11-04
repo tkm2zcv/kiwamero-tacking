@@ -20,10 +20,13 @@
 - Unauthorized/embedded/speculative requests remain zero-spend; APIs stay strict.
 - Local only, no commit/push/deploy. User's actual Google flow remains unverified.
 
-## Approved Rollout
+## Completed Rollout
 
 - User approved commit/push/deploy after the direct-navigation report.
-- Re-run all gates, push the reviewed code, deploy the scrubbed bundle.
-- Verify version100%, BUILD_ID, public routes and unauthorized/API gates.
-- No DB/auth/allowlist writes, migrations, manual game ingestion or notifications.
-- Keep actual authenticated production spreadsheet verification distinct.
+- Fresh343 tests/all native/browser/build gates pass; code `5ba21cd` pushed.
+- Scrubbed Worker `62408310-d7a0-41db-b51b-200a90ddbca8` at100%,
+  2026-11-04T05:55:54.203552Z. BUILD_ID `vp38PuP0EOyX3C4b5H2mD`.
+- Home/login200, BUILD_ID match, APIs403 and anonymous relay/click/iframe-metadata
+  gates verified05:56UTC. Old confirmation copy absent from served HTML.
+- No manual DB/auth/allowlist writes, migrations, game ingestion/cron/notifications.
+- Actual authenticated production Google spreadsheet flow remains unverified.

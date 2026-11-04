@@ -29,10 +29,14 @@
 - Open: user's actual failure screen/Google relay headers not captured;
   do not claim the user's spreadsheet issue is fixed.
 
-## Approved Rollout
+## Completed Rollout
 
 - User approved commit/push/deploy after the local follow-up report.
-- Re-run all gates, deploy only the reviewed scrubbed Worker bundle.
-- Verify active version100%, BUILD_ID, home/login and anonymous/API auth gates.
-- No DB migration, auth/allowlist writes, manual game ingestion/cron/notifications.
-- Record and push results; preserve the actual spreadsheet verification gap.
+- Fresh343 tests/all native/browser/build gates pass; code `c31762f` pushed.
+- Reviewed scrubbed Worker deployed: `11f564b9-1978-4924-936b-21a79be6589d` at100%,
+  2026-11-04T05:28:58.324768Z. BUILD_ID `39GOGC1r4D2eNArou8sZr`.
+- Home/login200, BUILD_ID match, protected APIs403 and anonymous relay/direct/
+  iframe-metadata access gates verified05:29UTC.
+- No DB migration, manual DB/auth/allowlist writes/game ingestion/cron/notifications.
+- Release notes recorded for push. Actual authenticated spreadsheet flow and
+  production confirmation remain unverified; do not claim the user's issue solved.

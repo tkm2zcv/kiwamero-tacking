@@ -1,6 +1,6 @@
 # Project Changelog
 
-## 261104 - HTML/JS External Redirect Recovery (Rollout Approved)
+## 261104 - HTML/JS External Redirect Recovery (Production Deployed)
 
 - User reports spreadsheet failure remains. Previous release verified only
   direct/HTTP302 paths; actual user spreadsheet flow is still unverified.
@@ -12,8 +12,13 @@
   is separate from real account denial in JA/EN.
 - 343 tests/lint/types, native D1/PNG, build/scrub, audit layout and real-browser
   responsive relay/confirmation/profile-budget gates pass.
-- User approved commit/push/deploy; production results are recorded after rollout.
-  Actual authenticated spreadsheet flow remains unverified.
+- User-approved code `c31762f` committed/pushed and deployed. Worker
+  `11f564b9-1978-4924-936b-21a79be6589d` active100%, released
+  2026-11-04T05:28:58.324768Z; BUILD_ID `39GOGC1r4D2eNArou8sZr`.
+- Fresh343 tests/all gates pass. Production home/login200, BUILD_ID match,
+  protected APIs403 and anonymous relay/direct/iframe-metadata access gates verified.
+- No migrations/manual DB/auth/allowlist writes/game ingestion/cron/notifications.
+  Actual authenticated spreadsheet flow and production confirmation remain unverified.
 
 ## 261104 - Profile Links and Audit Icons Production Rollout
 

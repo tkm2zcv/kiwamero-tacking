@@ -1,6 +1,6 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
-## 261104 - External Redirect Recovery (Rollout Approved; Actual Spreadsheet Flow Unverified)
+## 261104 - External Redirect Recovery (Production Deployed; Actual Spreadsheet Flow Unverified)
 
 - User reports spreadsheet links still fail after the previous deployment.
   Prior evidence covered direct clicks/HTTP302, not the actual Google workflow.
@@ -18,10 +18,16 @@
 - Fresh343 tests/lint/types, native D1/PNG, build/scrub, audit layout and full
   profile-budget/browser gates pass without real game calls.
 - Asked user whether the current error is still the same account-denied screen;
-  response/screenshots pending. Actual authenticated spreadsheet flow unverified.
-- User approved commit/push/deploy of this follow-up. Re-run all gates and record
-  the rollout below after verification. No DB/auth/allowlist changes or notifications.
-  Production remains97465b6 until the newly approved deployment completes.
+  user approved rollout instead of providing a capture. Actual spreadsheet flow
+  and authenticated production confirmation remain unverified.
+- Code `c31762f` committed/pushed and deployed after fresh343 tests/all gates.
+  Worker `11f564b9-1978-4924-936b-21a79be6589d` active100%, released
+  2026-11-04T05:28:58.324768Z; BUILD_ID `39GOGC1r4D2eNArou8sZr`.
+- Smoke05:29UTC: home/login200, BUILD_ID match, protected APIs403 and anonymous
+  relay/direct/iframe-metadata profiles remain sign-in gated with no profile data.
+- No migrations/manual DB/auth/allowlist writes/game ingestion/cron/notifications.
+  Existing vars/secrets and automatic schedule retained. Older versions below
+  are historical. Do not claim the actual user's spreadsheet issue is resolved.
 
 ## 261104 - Audit Server/Peak-Rank Icons (Production Deployed)
 

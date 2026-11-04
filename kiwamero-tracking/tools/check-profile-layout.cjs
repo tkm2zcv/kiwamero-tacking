@@ -17,15 +17,18 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
       import {aggregate,groupBySeason} from "./src/lib/stored-stats";
       import {encounterCoverageText} from "./src/lib/encounter-coverage";
       import {AuditBoundary} from "./src/components/profile/audit-boundary";
+      import {AccountAudit} from "./src/components/profile/account-audit";
       import {ReportMethod} from "./src/components/profile/report-ui";
       import {buildAccountReport} from "./src/lib/account-report";
       const baselineRows=Array.from({length:80},(_,i)=>stored(i,{
         startedAt:Date.parse(i<40?"2023-10-01":"2026-10-23")/1000+(i%40)*8640,
         seasonShort:i<40?"e7a3":"e11a6",tier:i<40?18:10,
-        kills:i<40?20:17,deaths:18,cluster:i<40?"Hong Kong":"Tokyo"}));
+        kills:i<40?20:17,deaths:18,cluster:i===0?"Unknown Cluster":i<40?"Hong Kong":"Tokyo"}));
       const baseline=(locale)=>buildAccountReport({profile:{puuid:"fixture",name:"Fixture",tag:"TAG",
         level:300,region:"ap",currentTier:10,currentRank:"Silver 2"},storedAll:baselineRows,
-        seasons:[{actCode:"e7a3",peakTier:24,games:126,wins:73}],rosterMatches:[],
+        seasons:[{actCode:"e7a3",peakTier:24,peakRank:"Immortal 1",games:126,wins:73},
+          {actCode:"e10a1",peakTier:8,peakRank:"Bronze 3",games:20,wins:10},
+          {actCode:"e10a2",peakTier:0,peakRank:"Unrated",games:0,wins:0}],rosterMatches:[],
         locale,generatedAt:"2026-10-30T00:00:00Z"});
       const rows=Array.from({length:24},(_,i)=>stored(i+1,{seasonId:"act"+i,seasonShort:"e11a"+(i+1)}));
       const acts=rows.map((r,i)=>({label:"V26: A"+(i+1),href:"#act"+i}));
@@ -40,16 +43,20 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
           </div>
           {["ja","en"].map(locale=><section className="kt-report" data-baseline={locale} key={locale}>
             <AuditBoundary report={baseline(locale)}/><ReportMethod locale={locale}/>
+            <AccountAudit profile={{puuid:"fixture",name:"Fixture",tag:"TAG",level:300,
+              region:"ap",currentTier:10,currentRank:"Silver 2",rr:0,peakRank:"Immortal 1"}} report={baseline(locale)}/>
           </section>)}
         </main>);
     ` },
     // CSS is served from the real compiled styles below, not from the JS probe.
     bundle: true, write: false, platform: "browser", jsx: "automatic", loader: { ".css": "empty" },
     plugins: [{ name: "offline-next-elements", setup(build) {
-      build.onResolve({ filter: /^next\/(image|link)$/ }, ({ path }) => ({ path, namespace: "fixture" }));
+      build.onResolve({ filter: /^next\/(image|link|navigation)$/ }, ({ path }) => ({ path, namespace: "fixture" }));
       build.onLoad({ filter: /.*/, namespace: "fixture" }, ({ path }) => ({
         loader: "jsx", resolveDir: root, contents: path === "next/image"
-          ? 'import React from "react"; export default function Image({src,...props}){return <img {...props}/>;}'
+          ? 'import React from "react"; export default function Image({unoptimized,priority,fill,...props}){return <img {...props}/>;}'
+          : path === "next/navigation"
+          ? 'export const useRouter=()=>({refresh(){},replace(){}}); export const usePathname=()=>"/fixture"; export const useSearchParams=()=>new URLSearchParams();'
           : 'import React from "react"; export default function Link(p){return <a {...p}/>;}',
       }));
     } }],
@@ -90,6 +97,31 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
       assert.match(en, /Change dates and coincidence are not established/);
       assert.equal(await page.$$eval("[data-baseline]", els =>
         els.every(e => e.scrollWidth <= e.clientWidth + 1)), true, `audit overflow at ${width}px`);
+      for (const locale of ["ja", "en"]) {
+        const base = `[data-baseline="${locale}"]`;
+        const flags = await page.$$eval(`${base} .kt-report-server`, els => els.map(e => ({
+          text: e.textContent, src: e.querySelector("img")?.getAttribute("src"),
+          size: e.querySelector("img") ? [e.querySelector("img").width, e.querySelector("img").height] : null,
+        })));
+        assert.match(flags.find(e => e.text.includes("Tokyo")).src, /\/jp\.png$/);
+        assert.match(flags.find(e => e.text.includes("Hong Kong")).src, /\/hk\.png$/);
+        assert.equal(flags.find(e => e.text.includes("Unknown Cluster")).src, undefined);
+        assert.deepEqual(flags.find(e => e.text.includes("Tokyo")).size, [14, 10]);
+        assert.match(flags.find(e => e.text.includes("Tokyo")).text, /40.*50/);
+        const ranks = await page.$$eval(`${base} .kt-report-rank-cell`, els => els.map(e => ({
+          text: e.textContent, src: e.querySelector("img")?.getAttribute("src"),
+          size: e.querySelector("img") ? [e.querySelector("img").width, e.querySelector("img").height] : null,
+          display: getComputedStyle(e).display,
+        })));
+        assert.match(ranks.find(e => e.text.includes("Bronze 3")).src, /\/8\/largeicon\.png$/);
+        assert.match(ranks.find(e => e.text.includes("Immortal 1")).src, /\/24\/largeicon\.png$/);
+        assert.deepEqual(ranks.find(e => e.text.includes("Bronze 3")).size, [24, 24]);
+        assert.equal(ranks.find(e => e.text.includes("Bronze 3")).display, "inline-flex");
+        assert.equal(ranks.find(e => /未ランク|Unranked/.test(e.text)).src, undefined);
+        const history = locale === "ja" ? "ACT履歴" : "Act history";
+        assert.match(await page.$eval(`${base} [aria-label="${history}"]`, e =>
+          e.querySelector('img[src$="/hk.png"]')?.getAttribute("src")), /\/hk\.png$/);
+      }
       const bars = await page.$$eval(".performance > .v3-card__filters, .best-matches > .v3-card__filters",
         els => els.map(e => {
           e.scrollTop = 20; e.scrollLeft = 20;
@@ -114,7 +146,7 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
       }
     }
     assert.deepEqual(errors, []);
-    console.log("PASS: JA/EN longitudinal evidence and honest ACT/timing copy; no overflow at1440/1024/375px; Japanese encounter coverage, filter scrolling and ACT menus; no external calls");
+    console.log("PASS: JA/EN audit flags and peak-rank icons, unknown/unranked fallbacks and longitudinal evidence; no overflow at1440/1024/375px; encounter copy, filter scrolling and ACT menus; no external calls");
   } finally {
     await browser?.close();
     await new Promise(resolve => server.close(resolve));

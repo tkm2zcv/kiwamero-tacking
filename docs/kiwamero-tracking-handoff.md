@@ -1,5 +1,38 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 261104 - Audit Server/Peak-Rank Icons (Production Pending)
+
+- User requested flags beside audit server names and rank badges beside ACT peaks.
+- Shared `server-country.ts`/`ServerLabel` reuse the match-history mapping for
+  composition, transition and ACT primary-server labels. Match chips reuse it too.
+- Known ranked ACTs use existing tierIcon assets at24px; unranked rows show no
+  badge. Unknown servers remain text, with no inferred flag/nationality.
+- Existing labels, counts/percentages and scoring unchanged. No new game API calls.
+- Fresh342 tests, lint/types, native D1/PNG, Worker build/scrub, JA/EN actual audit
+  markup/icon URL/dimension/fallback and overflow checks at1440/1024/375px pass.
+- Offline full-page budget/browser regressions, including the pending external
+  link fix, pass. Image CDN availability is not queried by offline browser checks.
+- User approved commit/push of this and the external-navigation fix below only.
+  Deployment is not authorized; production remains code08fc5af.
+
+## 261104 - Spreadsheet/External Profile Links (Production Pending)
+
+- User sees an unregistered-account gate after clicking a spreadsheet link.
+- Root cause: after successful authorization, ProfilePage applies the strict
+  paid-API cross-site predicate and returns the same denied-account screen.
+- `profilePageInitiator` permits explicit cross-site top-level navigation only:
+  navigate/document/?1, excluding prefetch/prerender. Allowlisting stays first.
+- APIs retain `sameSiteInitiator`; cross-site API requests, embeds, automatic
+  navigation and speculative requests remain blocked before upstream spend.
+- Real-page regression fails before the fix, then passes. Real browser click
+  through a localhost->127.0.0.1 redirect confirms actual Fetch Metadata.
+- Fresh339 tests/lint/types, offline profile-budget/browser, native D1/PNG,
+  Worker build/scrub and responsive layout checks pass.
+- Refreshed stale harness router exports, snapshot-age fixture setup and unseen
+  identity case to respect persistence. No production cache/auth behavior changed.
+- Source commit/push approved. No deployment, allowlist changes, auth DB writes
+  or live game calls. Production remains code08fc5af until separately authorized.
+
 ## 261104 - Historical/Current Audit Improvement (Production Deployed)
 
 - Current request: re-examine legacy scoring for the same PUUID, especially

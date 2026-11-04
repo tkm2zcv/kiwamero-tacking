@@ -101,9 +101,10 @@
 .kt-report-dist-row strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .kt-report-dist-row > span { color: var(--color-text-secondary); font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
 .kt-report-rank-cell { display: inline-flex; align-items: center; gap: 7px; }
+.kt-report-rank-cell img { flex-shrink: 0; object-fit: contain; }
 .kt-report-servers { display: flex; flex-direction: column; gap: 16px; padding: 20px; }
 .kt-report-server > div:first-child { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 7px; }
-.kt-report-server span { color: var(--color-text-secondary); font-size: 12px; }
+.kt-report-server > div:first-child > span { color: var(--color-text-secondary); font-size: 12px; }
 .kt-report-method { border-top: 1px solid var(--color-surface-2); padding-top: 16px; color: var(--color-text-secondary); font-size: 12px; }
 .kt-report-method summary { cursor: pointer; padding: 8px 0; color: var(--color-text-primary); width: fit-content; }
 .kt-report-method summary:focus-visible, .kt-report-table-wrap:focus-visible { outline: 2px solid var(--color-action); outline-offset: 4px; }

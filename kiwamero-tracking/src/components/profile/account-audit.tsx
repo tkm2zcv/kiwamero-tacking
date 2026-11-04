@@ -1,7 +1,10 @@
+import Image from "next/image";
 import type { Profile } from "@/lib/types";
 import type { AccountReport } from "@/lib/report-model";
 import { formatAct } from "@/lib/profile-stats";
 import { AUDIT_COUNTRIES } from "@/lib/audit-countries";
+import { tierIcon } from "@/lib/henrik-shared";
+import { ServerLabel } from "@/components/server-label";
 import { AuditProgress } from "./audit-progress";
 import { AuditTimeline } from "./audit-timeline";
 import { AuditCountrySelect } from "./audit-country-select";
@@ -107,14 +110,14 @@ export function AccountAudit({ profile, report }: { profile: Profile; report: Ac
               description={L(`判明 ${serverStats.knownMatches} / ${serverStats.total}試合`, `Known in ${serverStats.knownMatches} / ${serverStats.total} matches`)}>
               {gen.clusterTransition ? (
                 <p className="kt-report-transition">
-                  {gen.clusterTransition.from} → {gen.clusterTransition.to}
+                  <ServerLabel cluster={gen.clusterTransition.from} /> → <ServerLabel cluster={gen.clusterTransition.to} />
                   {gen.clusterTransition.date ? ` · ${gen.clusterTransition.date}` : ""}
                 </p>
               ) : null}
               {serverStats.knownMatches ? <div className="kt-report-servers">
                 {Object.entries(serverStats.clusters).sort((a, b) => b[1] - a[1]).map(([name, count]) => (
                   <div className="kt-report-server" key={name}>
-                    <div><strong>{name}</strong><span>{n(count)} / {n(serverStats.percentages[name], 1)}%</span></div>
+                    <div><strong><ServerLabel cluster={name} /></strong><span>{n(count)} / {n(serverStats.percentages[name], 1)}%</span></div>
                     <ReportMeter value={serverStats.percentages[name]} label={name} />
                   </div>
                 ))}
@@ -148,9 +151,13 @@ export function AccountAudit({ profile, report }: { profile: Profile; report: Ac
                   <tbody>{report.history.slice(0, 12).map((row) => (
                     <tr key={row.act}>
                       <th scope="row">{formatAct(row.act)}</th>
-                      <td>{row.tier > 0 ? row.rankName : L("未ランク", "Unranked")}</td>
+                      <td><span className="kt-report-rank-cell">
+                        {Number.isInteger(row.tier) && row.tier >= 3 && row.tier <= 27
+                          ? <Image src={tierIcon(row.tier)} alt="" width={24} height={24} loading="lazy" unoptimized /> : null}
+                        {row.tier > 0 ? row.rankName : L("未ランク", "Unranked")}
+                      </span></td>
                       <td>{n(row.wins)}-{n(Math.max(0, row.games - row.wins))} ({n(row.winRate)}%)</td>
-                      <td>{row.primaryServer || "-"}</td>
+                      <td>{row.primaryServer ? <ServerLabel cluster={row.primaryServer} /> : "-"}</td>
                     </tr>
                   ))}</tbody>
                 </table>

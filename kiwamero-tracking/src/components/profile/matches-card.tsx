@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { ServerLabel } from "@/components/server-label";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { ChevronRight, ExternalLink } from "lucide-react";
 import type { Match, MatchPlayer, Profile } from "@/lib/types";
@@ -552,28 +553,11 @@ function LazyMatchScoreboard({
   );
 }
 
-/** Compact version of tracker.gg's match-report scoreboard. */
-/** VALORANT server cluster (HenrikDev city name) → flag country code; label is the city itself. */
-const SERVER_CC: Record<string, string> = {
-  "Tokyo": "jp", "Hong Kong": "hk", "Singapore": "sg", "Sydney": "au", "Manila": "ph",
-  "Mumbai": "in", "Seoul": "kr", "Bahrain": "bh",
-  "Oregon": "us", "Portland": "us", "Los Angeles": "us", "Salt Lake City": "us", "Denver": "us",
-  "Dallas": "us", "Chicago": "us", "Atlanta": "us", "Ashburn": "us", "Miami": "us",
-  "Sao Paulo": "br", "Mexico City": "mx", "Santiago": "cl", "Bogota": "co",
-  "Frankfurt": "de", "London": "gb", "Paris": "fr", "Madrid": "es", "Stockholm": "se",
-  "Warsaw": "pl", "Istanbul": "tr",
-};
-
 function ServerChip({ cluster }: { cluster: string }) {
   if (!cluster) return null;
-  const cc = SERVER_CC[cluster];
   return (
     <span className="v3-chip v3-chip--sm inline-flex items-center gap-1 text-secondary" title={`Server: ${cluster}`}>
-      {cc ? (
-        // eslint-disable-next-line @next/next/no-img-element -- flagcdn has no config entry; plain img keeps it simple
-        <img src={`https://flagcdn.com/w20/${cc}.png`} alt={cluster} width={14} height={10} className="v3-flag" loading="lazy" />
-      ) : null}
-      {cluster}
+      <ServerLabel cluster={cluster} />
     </span>
   );
 }

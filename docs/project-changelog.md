@@ -1,5 +1,26 @@
 # Project Changelog
 
+## 261104 - Audit Flags and ACT Peak Badges (Production Pending)
+
+- Add image flags to audit server composition, transition and ACT server labels;
+  add24px rank icons beside known ACT peaks, preserving visible rank names.
+- Reuse shared server mapping/labels with match chips; keep unknown servers and
+  unranked ACTs free of misleading icons. Scoring and game API reads unchanged.
+- 342 tests/lint/types, native D1/PNG, Worker build/scrub, offline profile-budget
+  and JA/EN audit icon/layout regressions at1440/1024/375px pass.
+- User approved commit/push with the external-link fix. No production deployment.
+
+## 261104 - External Profile Navigation Fix (Production Pending)
+
+- Fix authorized spreadsheet/external clicks being rejected as cross-site and
+  misleadingly shown as an unregistered Discord account.
+- Allow user-activated top-level profile documents only; preserve Discord checks
+  and strict protection of paid APIs, embeds, prefetch and automatic navigation.
+- Reproduce before fix, verify actual browser link/redirect headers after fix.
+  Unauthorized/embedded/API requests spend no upstream quota.
+- 339 tests/lint/types, profile budget/browser, native D1/PNG, Worker build/scrub
+  and compiled-CSS layout checks pass. Source commit/push approved; no production changes.
+
 ## 261104 - Historical/Current Audit Production Rollout
 
 - User-approved code `08fc5af` committed and pushed to origin/master.

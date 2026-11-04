@@ -1,5 +1,20 @@
 # Project Changelog
 
+## 261104 - HTML/JS External Redirect Recovery (Rollout Approved)
+
+- User reports spreadsheet failure remains. Previous release verified only
+  direct/HTTP302 paths; actual user spreadsheet flow is still unverified.
+- Reproduce activation loss after real-browser meta-refresh/delayed JS relays.
+  Stop presenting authorized navigation failures as unregistered accounts.
+- Offer a native confirmation link only for authorized top-level non-speculative
+  documents; preserve profile/tab/filters without automatic paid work.
+- Keep embeds/speculation/API protection and auth checks. Navigation-blocked copy
+  is separate from real account denial in JA/EN.
+- 343 tests/lint/types, native D1/PNG, build/scrub, audit layout and real-browser
+  responsive relay/confirmation/profile-budget gates pass.
+- User approved commit/push/deploy; production results are recorded after rollout.
+  Actual authenticated spreadsheet flow remains unverified.
+
 ## 261104 - Profile Links and Audit Icons Production Rollout
 
 - User approved deployment after the two source commits7a613e0/97465b6 were pushed.

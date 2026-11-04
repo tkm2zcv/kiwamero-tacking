@@ -11,13 +11,17 @@ export function sameSiteInitiator(headers: Headers): boolean {
   return site === "same-origin" || site === "same-site" || site === "none";
 }
 
-/** Profile documents may be opened by an explicit external link, not embedded or fetched. */
-export function profilePageInitiator(headers: Headers): boolean {
-  if (sameSiteInitiator(headers)) return true;
+/** Non-speculative external documents can offer a same-origin confirmation, not start paid work. */
+export function externalProfileDocument(headers: Headers): boolean {
   const speculative = [headers.get("purpose"), headers.get("sec-purpose")]
     .some((value) => /\b(prefetch|prerender)\b/i.test(value ?? ""));
   return headers.get("sec-fetch-site") === "cross-site" &&
     headers.get("sec-fetch-mode") === "navigate" &&
-    headers.get("sec-fetch-dest") === "document" &&
-    headers.get("sec-fetch-user") === "?1" && !speculative;
+    headers.get("sec-fetch-dest") === "document" && !speculative;
+}
+
+/** Profile data loads only for same-site requests or explicit top-level external clicks. */
+export function profilePageInitiator(headers: Headers): boolean {
+  return sameSiteInitiator(headers) ||
+    (externalProfileDocument(headers) && headers.get("sec-fetch-user") === "?1");
 }

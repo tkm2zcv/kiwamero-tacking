@@ -1,5 +1,28 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 261104 - External Redirect Recovery (Rollout Approved; Actual Spreadsheet Flow Unverified)
+
+- User reports spreadsheet links still fail after the previous deployment.
+  Prior evidence covered direct clicks/HTTP302, not the actual Google workflow.
+- Reproduced in real local Chromium: meta-refresh and delayed location.replace
+  lose Sec-Fetch-User. Existing policy mislabels this as an unregistered account.
+  This is a remaining failure mode, not a confirmed capture of the user's flow.
+- Added authorized-only `ProfileNavigationGate`: non-speculative top-level relays
+  get a normal same-origin confirmation link preserving validated profile/tab and
+  filters. No prefetch/automatic continuation, data reads or queued work before click.
+- Non-document/embedded/speculative loads get a navigation-specific explanation
+  with no continuation link. Actual unauthorized/anonymous users still get auth gates.
+  Paid API policy, allowlisting and activation checks are unchanged.
+- Real-page regression fails before fix. Meta/JS relay+confirmation browser tests
+  pass; confirmation fits1440/1024/375px and preserves assessment/filter URLs.
+- Fresh343 tests/lint/types, native D1/PNG, build/scrub, audit layout and full
+  profile-budget/browser gates pass without real game calls.
+- Asked user whether the current error is still the same account-denied screen;
+  response/screenshots pending. Actual authenticated spreadsheet flow unverified.
+- User approved commit/push/deploy of this follow-up. Re-run all gates and record
+  the rollout below after verification. No DB/auth/allowlist changes or notifications.
+  Production remains97465b6 until the newly approved deployment completes.
+
 ## 261104 - Audit Server/Peak-Rank Icons (Production Deployed)
 
 - User requested flags beside audit server names and rank badges beside ACT peaks.

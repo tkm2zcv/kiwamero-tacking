@@ -3,13 +3,26 @@ import assert from "node:assert/strict";
 import { register } from "node:module";
 
 register("./route-hooks.mjs", import.meta.url);
-const { sameSiteInitiator, profilePageInitiator } = await import("../src/lib/fetch-metadata.ts");
+const { sameSiteInitiator, profilePageInitiator, externalProfileDocument } = await import("../src/lib/fetch-metadata.ts");
 const navigation = { "sec-fetch-site": "cross-site", "sec-fetch-mode": "navigate",
   "sec-fetch-dest": "document", "sec-fetch-user": "?1" };
 
 test("user-activated external document links are allowed only by the profile-page policy", () => {
   assert.equal(profilePageInitiator(new Headers(navigation)), true);
   assert.equal(sameSiteInitiator(new Headers(navigation)), false, "paid API routes stay strict");
+});
+test("HTML/JS relays may offer confirmation, but do not get permission to start profile work", () => {
+  const headers = new Headers(navigation);
+  headers.delete("sec-fetch-user");
+  assert.equal(externalProfileDocument(headers), true);
+  assert.equal(profilePageInitiator(headers), false);
+  assert.equal(sameSiteInitiator(headers), false);
+  for (const overrides of [
+    { "sec-fetch-dest": "iframe" }, { "sec-fetch-mode": "cors" },
+    { "sec-fetch-site": "unexpected" }, { purpose: "prefetch" }, { "sec-purpose": "prerender" },
+  ] as Record<string, string>[]) {
+    assert.equal(externalProfileDocument(new Headers({ ...navigation, ...overrides })), false);
+  }
 });
 test("external fetches, frames, non-activated and speculative loads are rejected", () => {
   const changes: Record<string, string>[] = [

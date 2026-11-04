@@ -25,3 +25,13 @@
   genuinely unseen ID. No weakening of product persistence or auth.
 - User approved commit/push only; production not changed. Actual user's browser
   session is not inspected; normal-navigation policy is reproduced offline.
+
+## Subsequent Approved Deployment
+
+- User approved production rollout after source commits7a613e0/97465b6.
+- Worker `fbf6077b-db34-42fb-a5a3-daaae64eed22` active100%, BUILD_ID
+  `qjqeMZTdUN98Tz752z8Mr`; released2026-11-04T05:07:13.584676Z.
+- Fresh342 tests/all native/browser/build gates pass. Production smoke confirms
+  private APIs403 and anonymous external navigation remains gated, not bypassed.
+- Authenticated production spreadsheet flow remains unverified. No migrations,
+  manual game/DB/cron/notification operations.

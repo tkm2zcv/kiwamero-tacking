@@ -1,6 +1,18 @@
 # Project Changelog
 
-## 261104 - Audit Flags and ACT Peak Badges (Production Pending)
+## 261104 - Profile Links and Audit Icons Production Rollout
+
+- User approved deployment after the two source commits7a613e0/97465b6 were pushed.
+- Worker `fbf6077b-db34-42fb-a5a3-daaae64eed22` active100%, released
+  2026-11-04T05:07:13.584676Z; BUILD_ID `qjqeMZTdUN98Tz752z8Mr`.
+- Fresh342 tests/lint/types, native D1/PNG, Worker build/scrub, responsive audit
+  UI and real-browser external-link/redirect/budget regression gates pass.
+- Production home/login200, BUILD_ID and audit CSS match, private APIs403 and
+  anonymous external profile gate verified. Four representative image URLs200 PNG.
+- No migrations/manual DB writes/game ingestion/cron/notifications. Existing
+  vars/secrets and schedule retained. Authenticated production UI remains unverified.
+
+## 261104 - Audit Flags and ACT Peak Badges (Production Deployed)
 
 - Add image flags to audit server composition, transition and ACT server labels;
   add24px rank icons beside known ACT peaks, preserving visible rank names.
@@ -8,9 +20,9 @@
   unranked ACTs free of misleading icons. Scoring and game API reads unchanged.
 - 342 tests/lint/types, native D1/PNG, Worker build/scrub, offline profile-budget
   and JA/EN audit icon/layout regressions at1440/1024/375px pass.
-- User approved commit/push with the external-link fix. No production deployment.
+- Released in code97465b6; production rollout details are recorded above.
 
-## 261104 - External Profile Navigation Fix (Production Pending)
+## 261104 - External Profile Navigation Fix (Production Deployed)
 
 - Fix authorized spreadsheet/external clicks being rejected as cross-site and
   misleadingly shown as an unregistered Discord account.
@@ -19,7 +31,7 @@
 - Reproduce before fix, verify actual browser link/redirect headers after fix.
   Unauthorized/embedded/API requests spend no upstream quota.
 - 339 tests/lint/types, profile budget/browser, native D1/PNG, Worker build/scrub
-  and compiled-CSS layout checks pass. Source commit/push approved; no production changes.
+  and compiled-CSS layout checks pass. Released in code7a613e0 with the rollout above.
 
 ## 261104 - Historical/Current Audit Production Rollout
 

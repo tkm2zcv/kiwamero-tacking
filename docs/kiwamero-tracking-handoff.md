@@ -1,6 +1,6 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
-## 261104 - Audit Server/Peak-Rank Icons (Production Pending)
+## 261104 - Audit Server/Peak-Rank Icons (Production Deployed)
 
 - User requested flags beside audit server names and rank badges beside ACT peaks.
 - Shared `server-country.ts`/`ServerLabel` reuse the match-history mapping for
@@ -10,12 +10,20 @@
 - Existing labels, counts/percentages and scoring unchanged. No new game API calls.
 - Fresh342 tests, lint/types, native D1/PNG, Worker build/scrub, JA/EN actual audit
   markup/icon URL/dimension/fallback and overflow checks at1440/1024/375px pass.
-- Offline full-page budget/browser regressions, including the pending external
+- Offline full-page budget/browser regressions, including the external
   link fix, pass. Image CDN availability is not queried by offline browser checks.
-- User approved commit/push of this and the external-navigation fix below only.
-  Deployment is not authorized; production remains code08fc5af.
+- User subsequently approved deployment of both source commits7a613e0/97465b6.
+  Worker `fbf6077b-db34-42fb-a5a3-daaae64eed22` active100%, released
+  2026-11-04T05:07:13.584676Z; BUILD_ID `qjqeMZTdUN98Tz752z8Mr`.
+- Fresh342 tests and all gates pass again. Production smoke05:08UTC: home/login200,
+  BUILD_ID and audit CSS match, protected APIs403, anonymous external profile gated.
+- Separate HEAD probes confirm4 representative flag/rank PNG URLs200.
+  Authenticated production UI/spreadsheet flow is not exercised.
+- No migrations, manual DB writes/game ingestion/cron/notifications. Existing
+  secrets/vars and automatic schedule retained. Older production versions below
+  are historical; current release is code97465b6.
 
-## 261104 - Spreadsheet/External Profile Links (Production Pending)
+## 261104 - Spreadsheet/External Profile Links (Production Deployed)
 
 - User sees an unregistered-account gate after clicking a spreadsheet link.
 - Root cause: after successful authorization, ProfilePage applies the strict
@@ -30,8 +38,8 @@
   Worker build/scrub and responsive layout checks pass.
 - Refreshed stale harness router exports, snapshot-age fixture setup and unseen
   identity case to respect persistence. No production cache/auth behavior changed.
-- Source commit/push approved. No deployment, allowlist changes, auth DB writes
-  or live game calls. Production remains code08fc5af until separately authorized.
+- Code7a613e0 deployed with the icon release above after user approval.
+  Allowlist, auth DB and game-read behavior unchanged; no manual live game calls.
 
 ## 261104 - Historical/Current Audit Improvement (Production Deployed)
 

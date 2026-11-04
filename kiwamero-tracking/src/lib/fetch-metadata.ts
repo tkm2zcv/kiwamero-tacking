@@ -11,7 +11,7 @@ export function sameSiteInitiator(headers: Headers): boolean {
   return site === "same-origin" || site === "same-site" || site === "none";
 }
 
-/** Non-speculative external documents can offer a same-origin confirmation, not start paid work. */
+/** Normal top-level documents, including HTML/JS relays; never fetches, frames or speculation. */
 export function externalProfileDocument(headers: Headers): boolean {
   const speculative = [headers.get("purpose"), headers.get("sec-purpose")]
     .some((value) => /\b(prefetch|prerender)\b/i.test(value ?? ""));
@@ -20,8 +20,7 @@ export function externalProfileDocument(headers: Headers): boolean {
     headers.get("sec-fetch-dest") === "document" && !speculative;
 }
 
-/** Profile data loads only for same-site requests or explicit top-level external clicks. */
+/** Authorization is checked separately; normal document loads need no extra confirmation. */
 export function profilePageInitiator(headers: Headers): boolean {
-  return sameSiteInitiator(headers) ||
-    (externalProfileDocument(headers) && headers.get("sec-fetch-user") === "?1");
+  return sameSiteInitiator(headers) || externalProfileDocument(headers);
 }

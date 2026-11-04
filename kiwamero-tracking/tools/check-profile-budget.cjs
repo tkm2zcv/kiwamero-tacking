@@ -138,17 +138,6 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     }
     globalThis.__fetchMetadata = { ...externalNavigation };
     delete globalThis.__fetchMetadata["sec-fetch-user"];
-    const confirmation = await page(selfId, ["assessment"], { playlist: "all", act: "e7a3",
-      played: "against", page: "2", country: "Vnm" });
-    assert.match(confirmation, /kt-profile-navigation/);
-    assert.doesNotMatch(confirmation, /登録されていないアカウント/);
-    assert.match(confirmation, new RegExp(`href="/valorant/profile/riot/${selfId}/assessment\\?`));
-    for (const filter of ["playlist=all", "act=e7a3", "played=against", "page=2", "country=Vnm"]) {
-      assert.ok(confirmation.includes(filter), `confirmation preserves ${filter}`);
-    }
-    assert.equal(calls, 0, "non-activated redirect must wait for confirmation");
-    assert.equal(globalThis.__after.length, 0);
-    globalThis.__fetchMetadata = externalNavigation;
     for (const denied of [false, true]) {
       globalThis.__allowed = false; globalThis.__denied = denied;
       assert.match(await page(), /kt-access-gate/);
@@ -159,6 +148,7 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     await reset("fast");
     const byPuuid = await page(selfId);
     assert.match(byPuuid, /Budget Player/);
+    assert.doesNotMatch(byPuuid, /kt-profile-navigation|data-profile-continue/);
     assert.match(byPuuid, new RegExp(`/valorant/profile/riot/${selfId}/matches`));
     assert.equal(calls, 5, "PUUID resolves once plus four profile reads, not an extra name lookup");
     assert.equal(requested[0], `https://api.henrikdev.xyz/valorant/v1/by-puuid/account/${selfId}`);
@@ -219,37 +209,23 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
       await tab.goto(`http://localhost:${server.address().port}/source`);
       await tab.click(`#${relay}`);
       await tab.waitForFunction(() => location.hostname === "127.0.0.1" &&
-        document.querySelector("[data-profile-continue]"), { timeout: 20_000 });
+        document.body.textContent.includes("Budget Player"), { timeout: 20_000 });
       assert.equal(lastDocumentHeaders["sec-fetch-site"], "cross-site");
       assert.equal(lastDocumentHeaders["sec-fetch-mode"], "navigate");
       assert.equal(lastDocumentHeaders["sec-fetch-dest"], "document");
       assert.equal(lastDocumentHeaders["sec-fetch-user"], undefined, "relay loses the original user gesture");
-      assert.equal(calls, 0, `${relay} must spend zero quota before confirmation`);
-      assert.equal(globalThis.__after.length, 0, `${relay} must enqueue no paid background work`);
-      assert.doesNotMatch(await tab.$eval("body", e => e.textContent), /登録されていないアカウント/);
-      const href = await tab.$eval("[data-profile-continue]", e => e.getAttribute("href"));
-      assert.ok(href.startsWith(`/valorant/profile/riot/${selfId}/assessment?`));
-      assert.ok(href.includes("playlist=all") && href.includes("act=e7a3") && href.includes("page=2") && href.includes("country=Vnm"));
-      const chunks = path.join(root, ".next/static/chunks");
-      const css = fs.readdirSync(chunks).filter(f => f.endsWith(".css"))
-        .map(f => fs.readFileSync(path.join(chunks, f), "utf8")).join("\n");
-      await tab.addStyleTag({ content: css });
-      for (const width of [1440, 1024, 375]) {
-        await tab.setViewport({ width, height: 900 });
-        assert.equal(await tab.$eval(".kt-profile-navigation", e =>
-          e.scrollWidth <= e.clientWidth + 1), true, `confirmation overflow at${width}px`);
-        assert.equal(await tab.$eval("[data-profile-continue]", e => {
-          const r = e.getBoundingClientRect();
-          return r.width > 0 && r.left >= 0 && r.right <= innerWidth + 1 && r.height >= 40;
-        }), true, `confirmation action unavailable at${width}px`);
+      assert.doesNotMatch(await tab.$eval("body", e => e.textContent), /登録されていないアカウント|プロフィールを開きますか/);
+      assert.equal(await tab.$(".kt-profile-navigation"), null, "no confirmation interstitial");
+      const destination = new URL(tab.url());
+      assert.equal(destination.pathname, `/valorant/profile/riot/${selfId}/assessment`);
+      for (const [key, value] of Object.entries({playlist:"all",act:"e7a3",page:"2",country:"Vnm"})) {
+        assert.equal(destination.searchParams.get(key), value);
       }
-      await Promise.all([tab.waitForNavigation({ waitUntil: "domcontentloaded" }), tab.click("[data-profile-continue]")]);
-      assert.equal(lastDocumentHeaders["sec-fetch-site"], "same-origin");
       assert.match(await tab.$eval("body", e => e.textContent), /Budget Player/);
       assert.doesNotMatch(await tab.$eval("body", e => e.textContent), /クリック情報を確認/);
       globalThis.__fetchMetadata = undefined;
       await flush();
-      console.log(`PASS: real browser ${relay} loses activation; zero-work responsive confirmation preserves profile/tab/filters and same-origin click opens profile`);
+      console.log(`PASS: real browser ${relay} loses activation but opens the authorized profile directly, preserving tab/filters without confirmation`);
     }
     const key = app.profileCacheKey(account.name, account.tag, { mode: "competitive" });
     const saved = await app.readProfileSnapshot(key, Date.now() + 1000);

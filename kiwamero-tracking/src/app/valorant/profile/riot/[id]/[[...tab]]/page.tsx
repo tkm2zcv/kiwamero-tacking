@@ -47,7 +47,7 @@ import { QueuedRefresh } from "@/components/profile/queued-refresh";
 import { AccessGate } from "@/components/access-gate";
 import { ProfileNavigationGate } from "@/components/profile/profile-navigation-gate";
 import { getSiteAccess } from "@/lib/site-access";
-import { externalProfileDocument, profilePageInitiator } from "@/lib/fetch-metadata";
+import { profilePageInitiator } from "@/lib/fetch-metadata";
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { beforeDeadline, deadlineAfter, hasTimeRemaining } from "@/lib/deadline";
@@ -104,7 +104,7 @@ export default async function ProfilePage({
     );
   }
   if (access.status !== "allowed") return <AccessGate status={access.status} />;
-  if (!profilePageInitiator(hdrs) && !externalProfileDocument(hdrs)) {
+  if (!profilePageInitiator(hdrs)) {
     return <ProfileNavigationGate />;
   }
   const { id, tab } = await params;
@@ -127,16 +127,6 @@ export default async function ProfilePage({
   const played = query.played === "against" ? "against" : "with";
   const page = Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1);
   const country = query.country;
-
-  if (!profilePageInitiator(hdrs)) {
-    // HTML/JS relays may lose activation. Keep the destination but wait for a local click.
-    const filters = new URLSearchParams({ playlist });
-    if (seasonParam) filters.set(query.season !== undefined ? "season" : "act", act);
-    if (query.played !== undefined) filters.set("played", played);
-    if (query.page !== undefined) filters.set("page", String(page));
-    if (country) filters.set("country", country);
-    return <ProfileNavigationGate href={`${basePath}/${activeTab}?${filters}`} />;
-  }
 
   return (
     <Suspense fallback={<ProfileRouteSkeleton />}>

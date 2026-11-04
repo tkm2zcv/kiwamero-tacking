@@ -11,11 +11,11 @@ test("user-activated external document links are allowed only by the profile-pag
   assert.equal(profilePageInitiator(new Headers(navigation)), true);
   assert.equal(sameSiteInitiator(new Headers(navigation)), false, "paid API routes stay strict");
 });
-test("HTML/JS relays may offer confirmation, but do not get permission to start profile work", () => {
+test("HTML/JS relay documents open directly without user-activation metadata; APIs stay strict", () => {
   const headers = new Headers(navigation);
   headers.delete("sec-fetch-user");
   assert.equal(externalProfileDocument(headers), true);
-  assert.equal(profilePageInitiator(headers), false);
+  assert.equal(profilePageInitiator(headers), true);
   assert.equal(sameSiteInitiator(headers), false);
   for (const overrides of [
     { "sec-fetch-dest": "iframe" }, { "sec-fetch-mode": "cors" },
@@ -24,12 +24,11 @@ test("HTML/JS relays may offer confirmation, but do not get permission to start 
     assert.equal(externalProfileDocument(new Headers({ ...navigation, ...overrides })), false);
   }
 });
-test("external fetches, frames, non-activated and speculative loads are rejected", () => {
+test("external fetches, frames and speculative loads are rejected", () => {
   const changes: Record<string, string>[] = [
     { "sec-fetch-mode": "cors", "sec-fetch-dest": "empty" },
     { "sec-fetch-mode": "no-cors" }, { "sec-fetch-mode": "same-origin" },
     { "sec-fetch-dest": "iframe" }, { "sec-fetch-dest": "frame" }, { "sec-fetch-dest": "empty" },
-    { "sec-fetch-user": "" }, { "sec-fetch-user": "?0" },
     { purpose: "prefetch" }, { "sec-purpose": "prefetch;prerender" },
     { "sec-purpose": "prerender" }, { "sec-fetch-site": "unexpected" },
   ];
@@ -38,7 +37,7 @@ test("external fetches, frames, non-activated and speculative loads are rejected
     assert.equal(profilePageInitiator(headers), false, JSON.stringify(change));
     assert.equal(sameSiteInitiator(headers), false);
   }
-  for (const key of ["sec-fetch-mode", "sec-fetch-dest", "sec-fetch-user"]) {
+  for (const key of ["sec-fetch-mode", "sec-fetch-dest"]) {
     const headers = new Headers(navigation);
     headers.delete(key);
     assert.equal(profilePageInitiator(headers), false, `missing ${key}`);

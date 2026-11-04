@@ -1,5 +1,17 @@
 # Project Changelog
 
+## 261104 - Remove External Profile Confirmation (Rollout Approved)
+
+- User requests direct opening after confirming the previous interstitial appears.
+- Permit authorized normal external document navigation without activation metadata;
+  remove the confirmation link/branch/copy, not the account/API/frame protection.
+- This intentionally allows ordinary profile reads/cache refresh on such navigation;
+  explicit enrichment/notification operations and their protection are unchanged.
+- 343 tests/lint/types, native D1/PNG, build/scrub, responsive audit UI and real
+  browser HTML/JS relay tests pass with no second click and intact tab/filter URL.
+- User approved commit/push/deploy; record results after rollout. No live game
+  requests. Actual user's Google flow remains unverified.
+
 ## 261104 - HTML/JS External Redirect Recovery (Production Deployed)
 
 - User reports spreadsheet failure remains. Previous release verified only

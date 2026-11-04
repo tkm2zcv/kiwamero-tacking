@@ -1,5 +1,21 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
+## 261104 - Direct External Profile Documents (Rollout Approved)
+
+- User supplied the deployed confirmation screen and explicitly wants no second click.
+- Authorized, non-speculative external top-level document navigation now loads the
+  profile directly even without Sec-Fetch-User. Confirmation branch/link/copy removed.
+- Discord authorization still runs first. API policy and cross-site iframe/fetch/
+  speculation rejection remain unchanged. Normal profile reads/cache refresh may
+  now start from relays, intentionally; no explicit enrichment/notification action.
+- Fresh343 tests/lint/types, native D1/PNG, Worker build/scrub, audit layout and
+  actual Chromium direct/302/meta-refresh/delayed-JS/budget regressions pass.
+- Meta/JS relays land on assessment directly with filters intact and no second
+  click. Unauthorized/embedded requests remain zero-spend in offline tests.
+- User approved commit/push/deploy. Re-run all gates and record the production
+  result after rollout. No live game calls or DB/auth/allowlist changes.
+  Actual user's Google flow with this revision remains unverified.
+
 ## 261104 - External Redirect Recovery (Production Deployed; Actual Spreadsheet Flow Unverified)
 
 - User reports spreadsheet links still fail after the previous deployment.

@@ -46,7 +46,7 @@ import { ProfileRouteSkeleton, ReportSkeleton, SectionSkeleton } from "@/compone
 import { QueuedRefresh } from "@/components/profile/queued-refresh";
 import { AccessGate } from "@/components/access-gate";
 import { getSiteAccess } from "@/lib/site-access";
-import { sameSiteInitiator } from "@/lib/fetch-metadata";
+import { profilePageInitiator } from "@/lib/fetch-metadata";
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { beforeDeadline, deadlineAfter, hasTimeRemaining } from "@/lib/deadline";
@@ -103,9 +103,9 @@ export default async function ProfilePage({
     );
   }
   if (access.status !== "allowed") return <AccessGate status={access.status} />;
-  // Cross-site navigations carry the ambient Lax session cookie; the profile
-  // render performs implicit writes and paid upstream calls, so refuse them.
-  if (!sameSiteInitiator(hdrs)) return <AccessGate status="denied" />;
+  // Permit explicit top-level links (e.g. spreadsheets) after authorization,
+  // while refusing cross-site embeds/fetches that could spend upstream quota.
+  if (!profilePageInitiator(hdrs)) return <AccessGate status="denied" />;
   const { id, tab } = await params;
   let decoded = id;
   if (!decoded.includes("#")) {

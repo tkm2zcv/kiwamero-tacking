@@ -18,12 +18,15 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     "server-only": "",
     "@/lib/site-access": `export const getSiteAccess = async () => {
       if(globalThis.__accessDelay) await new Promise(r => setTimeout(r, globalThis.__accessDelay));
-      return {status: globalThis.__allowed ? 'allowed' : 'anonymous'}; };`,
+      return {status: globalThis.__denied ? 'denied' : globalThis.__allowed ? 'allowed' : 'anonymous'}; };`,
     "@/lib/auth-client": "export const useSession = () => ({data:null,isPending:false}); export const signIn = {}; export const signOut = async () => {};",
     "next/server": "export const after = (task) => globalThis.__after.push(task);",
-    "next/headers": `export const headers = async () => new Headers({'sec-fetch-site':'same-origin','accept-language':'ja'});
+    "next/headers": `export const headers = async () => new Headers({
+      ...(globalThis.__fetchMetadata ?? {'sec-fetch-site':'same-origin'}),'accept-language':'ja'});
       export const cookies = async () => ({get:()=>undefined});`,
-    "next/navigation": `export const useRouter = () => ({refresh(){},push(){}});
+    "next/navigation": `export const useRouter = () => ({refresh(){},push(){},replace(){}});
+      export const usePathname = () => '/valorant/profile/riot/Budget%20Player%23TAG';
+      export const useSearchParams = () => new URLSearchParams();
       export const notFound = () => {throw new Error('not found');};`,
     "next/link": `import React from 'react'; export default function Link({prefetch,...props}){return React.createElement('a',props);}`,
     "next/image": `import React from 'react'; export default function Image({fill,priority,unoptimized,...props}){return React.createElement('img',props);}`,
@@ -117,7 +120,28 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     requested.length = 0;
   }
   let browser, server;
+  const externalNavigation = { "sec-fetch-site": "cross-site", "sec-fetch-mode": "navigate",
+    "sec-fetch-dest": "document", "sec-fetch-user": "?1" };
+  let lastDocumentHeaders;
   try {
+    for (const meta of [
+      { ...externalNavigation, "sec-fetch-mode": "cors", "sec-fetch-dest": "empty" },
+      { ...externalNavigation, "sec-fetch-dest": "iframe" },
+      { ...externalNavigation, "sec-fetch-user": "" },
+      { ...externalNavigation, "sec-purpose": "prefetch;prerender" },
+    ]) {
+      await reset("fast"); globalThis.__fetchMetadata = meta;
+      assert.match(await page(), /kt-access-gate/);
+      assert.equal(calls, 0, "cross-site embeds/fetch/speculation must spend no upstream quota");
+      assert.equal(globalThis.__after.length, 0);
+    }
+    globalThis.__fetchMetadata = externalNavigation;
+    for (const denied of [false, true]) {
+      globalThis.__allowed = false; globalThis.__denied = denied;
+      assert.match(await page(), /kt-access-gate/);
+      assert.equal(calls, 0, "external links cannot bypass Discord authorization");
+    }
+    globalThis.__allowed = true; globalThis.__denied = false;
     await reset("fast");
     const byPuuid = await page(selfId);
     assert.match(byPuuid, /Budget Player/);
@@ -126,9 +150,18 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     assert.equal(requested[0], `https://api.henrikdev.xyz/valorant/v1/by-puuid/account/${selfId}`);
     assert.equal(requested.filter(url => url.includes("/v1/account/")).length, 0);
     await flush();
-    console.log("PASS: real PUUID page/data/HTTP pipeline resolves identity once and preserves tab URLs");
+    globalThis.__fetchMetadata = undefined;
+    console.log("PASS: authorized external PUUID navigation works; unauthenticated/denied and embedded requests spend zero quota");
     await reset("optional");
-    server = http.createServer(async (_req, res) => {
+    server = http.createServer(async (req, res) => {
+      const target = `http://127.0.0.1:${server.address().port}`;
+      if (req.url === "/redirect") { res.writeHead(302, { Location: target }); return res.end(); }
+      if (req.headers.host?.startsWith("localhost:")) {
+        res.setHeader("Content-Type", "text/html");
+        return res.end('<a id="profile" href="/redirect">Open tracker</a>');
+      }
+      globalThis.__fetchMetadata = req.headers;
+      lastDocumentHeaders = req.headers;
       try { res.setHeader("Content-Type", "text/html; charset=utf-8"); res.end(await page()); }
       catch (error) { res.statusCode = 500; res.end(String(error)); }
     });
@@ -136,7 +169,8 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     browser = await puppeteer.launch({ headless: true, args: ["--disable-background-networking"] });
     const tab = await browser.newPage();
     await tab.setRequestInterception(true);
-    tab.on("request", (req) => req.url().startsWith("http://127.0.0.1") ? req.continue() : req.abort());
+    tab.on("request", (req) => req.isNavigationRequest() &&
+      ["127.0.0.1", "localhost"].includes(new URL(req.url()).hostname) ? req.continue() : req.abort());
     const started = Date.now();
     await tab.goto(`http://127.0.0.1:${server.address().port}`, { waitUntil: "domcontentloaded" });
     const elapsed = Date.now() - started;
@@ -147,11 +181,21 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     assert.equal(calls, 5, "one account plus four reads; no per-match fanout");
     console.log(`PASS: browser shows real profile + measured stats with one stalled API in ${elapsed}ms`);
     await flush();
+    await tab.goto(`http://localhost:${server.address().port}/source`);
+    await Promise.all([tab.waitForNavigation({ waitUntil: "domcontentloaded" }), tab.click("#profile")]);
+    assert.match(await tab.$eval("body", (el) => el.textContent), /Budget Player/);
+    for (const [key, value] of Object.entries(externalNavigation)) assert.equal(lastDocumentHeaders[key], value, key);
+    globalThis.__fetchMetadata = undefined;
+    await flush();
+    console.log("PASS: real browser external link plus redirect retains user activation and opens the authorized profile");
     const key = app.profileCacheKey(account.name, account.tag, { mode: "competitive" });
     const saved = await app.readProfileSnapshot(key, Date.now() + 1000);
     assert.ok(saved, "late completion saves the full snapshot");
     saved.bundle.capturedAt = new Date(Date.now() - 600_000).toISOString();
+    // Seed age in this isolated memory DB; production writes intentionally reject backdating.
+    await app.execute("UPDATE ProfileSnapshot SET capturedAt = 0 WHERE cacheKey = ?", [key]);
     await app.writeProfileSnapshot(key, saved);
+    assert.equal((await app.readProfileSnapshot(key, Date.now() + 1000)).bundle.capturedAt, saved.bundle.capturedAt);
     scenario = "all"; app.resetHenrikClient(); calls = 0;
     const cacheStart = Date.now();
     const cached = await page();
@@ -176,7 +220,8 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     assert.ok(!empty.includes("K/D Ratio"), "unavailable data must not render as zero stats");
     console.log("PASS: stalled histories show identity and unavailable state, never zero statistics");
     await reset("identity");
-    const identity = await page();
+    // A previously saved identity is intentionally restorable; use a genuinely unseen player.
+    const identity = await page("Unseen%20Player%23TAG");
     assert.match(identity, /取得元の応答に時間/);
     assert.match(identity, /aria-label="再試行"/);
     console.log("PASS: unknown identity times out with retry rather than an endless skeleton");
@@ -190,6 +235,7 @@ const puppeteer = require(process.env.PUPPETEER_MODULE || "puppeteer");
     console.log("PASS: auth deadline is distinct from provider failure and starts zero upstream calls");
   } finally {
     globalThis.__accessDelay = 0;
+    globalThis.__fetchMetadata = undefined; globalThis.__denied = false;
     await browser?.close();
     await new Promise((resolve) => server ? server.close(resolve) : resolve());
     await flush();

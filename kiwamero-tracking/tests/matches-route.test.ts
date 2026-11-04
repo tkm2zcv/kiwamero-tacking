@@ -110,3 +110,12 @@ test("cross-site initiated requests are refused before auth or upstream spend", 
   assert.deepEqual(await res.json(), { error: "forbidden" });
   assert.equal(upstream.length, 0);
 });
+
+test("user-activated document navigation does not relax paid API protection", async () => {
+  globalThis.fetch = async (input) => { upstream.push(String(input)); return account(); };
+  const res = await call("", { "sec-fetch-site": "cross-site", "sec-fetch-mode": "navigate",
+    "sec-fetch-dest": "document", "sec-fetch-user": "?1" });
+  assert.equal(res.status, 403);
+  assert.deepEqual(await res.json(), { error: "forbidden" });
+  assert.equal(upstream.length, 0);
+});

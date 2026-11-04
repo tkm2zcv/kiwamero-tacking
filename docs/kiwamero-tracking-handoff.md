@@ -1,6 +1,6 @@
 # 次セッション引き継ぎ: Kiwamero Tracking
 
-## 261104 - Historical/Current Audit Improvement (Rollout Approved; Production Pending)
+## 261104 - Historical/Current Audit Improvement (Production Deployed)
 
 - Current request: re-examine legacy scoring for the same PUUID, especially
   former Immortal struggling in low ranks and initial/current server changes.
@@ -15,11 +15,16 @@
 - Current-period capability/origin evidence and local-event totals compete;
   never stack their totals or claim simultaneous migration/performance changes.
 - JA/EN UI/methodology, reproduction tool and positive/negative tests updated.
-- Verified335 tests, lint/types, native profile/PNG gates, Worker build/scrub and
+- Fresh335 tests, lint/types, native profile/PNG gates, Worker build/scrub and
   offline compiled-CSS browser check at1440/1024/375px.
-- User approved commit/push and production rollout after verification.
-  Existing deployed version below remains unchanged until the rollout is recorded.
-  No migrations needed for this scoring-only work.
+- User approved commit/push and production rollout. Code `08fc5af` pushed to
+  origin/master; Worker `e491efbc-7c3c-4ed1-8199-af2bc29836ca` deployed at100%
+  on2026-11-04T04:17:59.873351Z. BUILD_ID `79k7N7z7tJnOGvkNLZv6I`.
+- Smoke verified04:19UTC: home/login200, BUILD_ID match, protected APIs403 and
+  anonymous profile AccessGate without report data. Authenticated UI not exercised.
+- No migrations or manual production DB writes, game ingestion, cron or
+  notifications. Existing automatic every-minute schedule unchanged.
+- This supersedes the older production-version notes below. No schema changes.
 - Read `reports/20261104-audit-longitudinal-parity.md` and plan
   `../plans/261104-audit-longitudinal.md` before continuing.
 

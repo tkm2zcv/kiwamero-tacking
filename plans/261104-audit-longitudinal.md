@@ -32,11 +32,13 @@
   not weakened into unconditional high scores.
 - No production changes; authenticated legacy score/calibration remain unknown.
 
-## Approved Rollout
+## Completed Rollout
 
 - User approved commit, push and production rollout after the completed work.
-- Re-run all gates, review the scoped diff, commit and push to origin/master.
-- Deploy the scrubbed Worker bundle; no database migrations are required.
-- Check home/login, BUILD_ID, protected APIs and unauthenticated profile gate.
-- Record active version/build/code commit and push the release notes.
-- Do not manually ingest matches, execute cron or send notifications.
+- Fresh335 tests and all native/browser/build gates pass; scoped18-file commit
+  `08fc5af` pushed to origin/master.
+- Scrubbed Worker deployed: `e491efbc-7c3c-4ed1-8199-af2bc29836ca` at100%.
+  No database migrations or manual ingestion/cron/notifications.
+- Home/login200, BUILD_ID `79k7N7z7tJnOGvkNLZv6I`, protected APIs403 and anonymous
+  profile gate verified. Authenticated UI remains unverified.
+- Active version/build/code commit recorded in release notes for push.

@@ -1,5 +1,17 @@
 # Project Changelog
 
+## 261104 - Historical/Current Audit Production Rollout
+
+- User-approved code `08fc5af` committed and pushed to origin/master.
+- Worker `e491efbc-7c3c-4ed1-8199-af2bc29836ca` at100%, released
+  2026-11-04T04:17:59.873351Z; BUILD_ID `79k7N7z7tJnOGvkNLZv6I`.
+- Fresh335 tests/lint/types, native D1/PNG, Worker build/scrub, JA/EN responsive
+  UI checks and saved-data5/C->85/S replay pass. Smurf diagnosis unchanged.
+- Verified home/login200, deployed BUILD_ID match, protected APIs403 and anonymous
+  profile access gate. Authenticated profile UI and live legacy score unverified.
+- No DB migrations, manual match ingestion, manual cron or notifications.
+  Existing secrets/vars and every-minute cron retained.
+
 ## 261104 - Historical/Current Audit Comparison (Rollout Approved)
 
 - Re-inspected current public legacy tracker code for the reported account.

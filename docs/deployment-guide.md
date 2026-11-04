@@ -3,8 +3,8 @@
 対象: `kiwamero-tracking/` → Cloudflare Workers + D1、`tracking.kiwamero.dev`。
 DB 層は 2026-10-29 に Prisma から生 SQL + Kysely へ移行済み (workerd 動作確認済み)。
 
-**状態: 本番反映済み (261104更新)。** code `38263a4`、Worker
-`6db46680-49d1-49dd-944e-80fd6d5e275b`、D1 `a8f05616-…` (APAC)、
+**状態: 本番反映済み (261104更新)。** code `08fc5af`、Worker
+`e491efbc-7c3c-4ed1-8199-af2bc29836ca`、D1 `a8f05616-…` (APAC)、
 `tracking.kiwamero.dev`、必要なシークレットとDiscord callbackは設定済み。
 Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 承認された監視1回で5件のDiscord送信成功と通知済み記録を確認しています。
@@ -16,12 +16,17 @@ Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 `redirect:"error"` はWorkers未対応のため、Webhook送信には使用しません。
 詳細な検証範囲・制約は [引き継ぎ](kiwamero-tracking-handoff.md) を参照してください。
 
-最新の査定改善は `38263a4`。初期・直近サーバーの定着加点、日本語説明、
-不要スクロール修正と、`6d25a63`の遭遇ALL/直近50・プロフィール永続化を反映。
-326テスト・lint・型検査・実workerd/D1・PNG検証、Next/Workerビルド・scrub通過。
-トップ/ログイン200、配信BUILD_ID `0y1kQw9pMhWiZ4m6XwEYP`一致、
+最新の査定改善は `08fc5af`。過去のImmortal実績に対する現在40試合の苦戦と、
+初期・現在のサーバー差を評価し、局所的な急変の評価とは二重加点しません。
+同じ保存284試合で5/C→85/S、スマーフ診断不変を外部取得なしで再確認。
+以前の遭遇ALL/直近50・プロフィール永続化・日本語/スクロール修正も維持します。
+335テスト・lint・型検査・実workerd/D1・PNG検証、Next/Workerビルド・scrub、
+JA/ENの実コンポーネントとビルド済みCSSによる幅1440/1024/375px検証を通過。
+2026-11-04 04:17:59 UTCに反映し、04:19 UTCに確認。
+トップ/ログイン200、配信BUILD_ID `79k7N7z7tJnOGvkNLZv6I`一致、
 本番version100%、未認証API403・プロフィールAccessGateを確認済み。
-下記追加DB移行2本を先に適用。手動Cron・Discord送信・実ユーザー大量取得は未実行。
+今回の追加DB移行は不要。下記移行2本は以前に適用済みで、再実行していません。
+手動Cron・Discord送信・実ユーザー大量取得は未実行。
 ログイン後の実プロフィール目視、実アカウント差分取得の本番検証は未実施です。
 
 ## 2026-11-04 遭遇ALL・直近50試合版の追加移行（本番適用済み）

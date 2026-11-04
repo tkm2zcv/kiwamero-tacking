@@ -14,8 +14,8 @@
   and initial/current server migration (up to40), separately from an abrupt KD
   change. It also has ACT/population and role-based heuristics. We do not copy
   its proprietary UI text or unsupported identity/ownership/probability claims.
-- Read only this account's production D1 snapshot. No Henrik requests, queue
-  mutation, DB writes, notifications or deployment.
+- Research phase read only this account's production D1 snapshot. No Henrik
+  requests, queue mutation, DB writes, notifications or deployment during research.
 
 ## Reproduced Root Causes
 
@@ -83,3 +83,13 @@
 - Probe initially rejected the component CSS import without an esbuild output
   file. Fixed the harness to use already served compiled CSS and assert audit
   selectors exist; no application CSS workaround.
+
+## User-Approved Production Release
+
+- Code `08fc5af` committed/pushed after fresh verification.
+- Worker `e491efbc-7c3c-4ed1-8199-af2bc29836ca` active100%, deployed
+  2026-11-04T04:17:59.873351Z; BUILD_ID `79k7N7z7tJnOGvkNLZv6I`.
+- Home/login200 and deployed BUILD_ID match; protected APIs403 and anonymous
+  profile access gate verified04:19UTC. Authenticated profile UI not exercised.
+- No migrations or manual production DB writes/ingestion/cron/notifications.
+  Existing automatic schedule and secrets/vars retained.

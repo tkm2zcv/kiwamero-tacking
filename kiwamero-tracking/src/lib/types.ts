@@ -65,6 +65,16 @@ export interface Teammate {
   avgPlace: number;
 }
 
+/** Self stats grouped by premade party size (1 = solo), from shared party_id. */
+export interface PartyBreakdown {
+  size: number;
+  matches: number;
+  wins: number;
+  kd: number;
+  avgPlace: number;
+  winRate: number;
+}
+
 export interface SeasonRank {
   episode: string;
   act: string;

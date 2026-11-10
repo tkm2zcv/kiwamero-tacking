@@ -1,6 +1,6 @@
 import { normalizeCluster } from "./henrik-shared.ts";
 import type { HDStoredMatch } from "./henrik-model";
-import type { Match } from "./types";
+import type { Match, PartyBreakdown } from "./types";
 import { agentRole, ROLE_META } from "./profile-stats.ts";
 
 /** One stored match, normalized for aggregation. */
@@ -425,4 +425,38 @@ export function buildEncounters(matches: Match[], selfName: string, selfTag: str
       lastDay: e.lastDay,
     }))
     .sort((a, b) => b.playedWith - a.playedWith || b.encounters - a.encounters);
+}
+
+/**
+ * tracker.gg's "Party Size Breakdown" — own K/D, scoreboard placement and win
+ * ratio grouped by premade size (players sharing our party_id on our team).
+ * Matches without roster party data are skipped, not counted as solo.
+ */
+export function buildPartyBreakdown(matches: Match[], puuid: string): PartyBreakdown[] {
+  const acc = new Map<number, { n: number; w: number; k: number; d: number; place: number }>();
+  for (const m of matches) {
+    const me = m.players.find((p) => p.puuid === puuid);
+    if (!me?.party_id || !me.team_id) continue;
+    const team = me.team_id.toLowerCase() === "red" ? "red"
+      : me.team_id.toLowerCase() === "blue" ? "blue" : undefined;
+    const size = m.players.filter((p) =>
+      p.party_id === me.party_id && p.team_id === me.team_id).length;
+    if (size < 1 || size > 5) continue;
+    const ranked = [...m.players].sort((a, b) => b.stats.score - a.stats.score);
+    const a = acc.get(size) ?? { n: 0, w: 0, k: 0, d: 0, place: 0 };
+    a.n++;
+    if (team && m.teams[team]?.has_won) a.w++;
+    a.k += me.stats.kills;
+    a.d += me.stats.deaths;
+    a.place += ranked.indexOf(me) + 1;
+    acc.set(size, a);
+  }
+  return [...acc.entries()]
+    .sort((x, y) => x[0] - y[0])
+    .map(([size, s]) => ({
+      size, matches: s.n, wins: s.w,
+      kd: s.d ? s.k / s.d : s.k,
+      avgPlace: s.place / s.n,
+      winRate: (s.w / s.n) * 100,
+    }));
 }

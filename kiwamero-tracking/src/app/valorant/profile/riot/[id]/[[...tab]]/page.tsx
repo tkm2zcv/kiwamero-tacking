@@ -12,6 +12,7 @@ import {
   activityByDay,
   aggregate,
   bestMatchesByKills,
+  buildPartyBreakdown,
   groupByAgent,
   groupByMap,
   groupBySeason,
@@ -32,6 +33,7 @@ import { MatchesCard } from "@/components/profile/matches-card";
 
 import { ActivityCard } from "@/components/profile/activity-card";
 import { TeammatesCard } from "@/components/profile/teammates-card";
+import { PartyBreakdownCard } from "@/components/profile/party-breakdown-card";
 import { BestMatchesCard } from "@/components/profile/best-matches-card";
 import { AgentsTable } from "@/components/profile/agents-table";
 import { MapsTable } from "@/components/profile/maps-table";
@@ -325,6 +327,7 @@ async function ProfileContent({
   const matchPageNum = Math.min(page, totalMatchPages);
   const matchPage = matchItems.slice((matchPageNum - 1) * MATCH_PAGE_SIZE, matchPageNum * MATCH_PAGE_SIZE).map(toDisplayMatch);
   const overviewMatches = matchItems.slice(0, 60).map(toDisplayMatch);
+  const partyBreakdown = buildPartyBreakdown(matches, profile.puuid);
 
   const latestActLabel = formatAct(profile.actCode ?? lastActCode ?? seasons[0]?.actCode);
   const selectedActItem =
@@ -353,6 +356,7 @@ async function ProfileContent({
         return (
           <>
             {!missing.has("recent") ? <TeammatesCard teammates={teammates} basePath={basePath} /> : null}
+            {!missing.has("recent") ? <PartyBreakdownCard breakdown={partyBreakdown} /> : null}
             {!missing.has("stored") ? <ActivityCard counts={activityByDay(storedAll, 60, Date.parse(capturedAt))} capturedAt={capturedAt} /> : null}
           </>
         );
@@ -360,6 +364,7 @@ async function ProfileContent({
         return (
           <>
             {!missing.has("recent") ? <TeammatesCard teammates={teammates} basePath={basePath} /> : null}
+            {!missing.has("recent") ? <PartyBreakdownCard breakdown={partyBreakdown} /> : null}
             {!missing.has("stored") ? <ActivityCard counts={activityByDay(storedAll, 60, Date.parse(capturedAt))} capturedAt={capturedAt} /> : null}
           </>
         );

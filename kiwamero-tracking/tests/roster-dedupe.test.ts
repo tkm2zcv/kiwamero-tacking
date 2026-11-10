@@ -95,12 +95,12 @@ test("stale views and leased admissions cannot rewind a current snapshot", async
   assert.equal(current!.leaseToken, job!.leaseToken);
 });
 
-test("older saved history remains readable beyond150 without entering the recent fetch queue", async () => {
+test("older saved history beyond the archive is queued for unlimited backfill", async () => {
   for (let i = 1; i <= 200; i++) await rememberMatch(rawMatch(i));
-  const calls = mockPages();
+  const calls = mockPages(Array.from({ length: 703 }, (_, i) => i + 1));
   await enqueueRosterHistory(selfId, "ap", ids(703));
-  await runRosterQueue();
-  assert.equal(calls.length, 0);
-  assert.equal((await readArchivedMatches(ids(703))).size, 200);
-  assert.equal((await rosterHistoryProgress(selfId)).expected, 50);
+  for (let i = 0; i < 3; i++) await runRosterQueue({ maxPages: 20 });
+  assert.equal((await rosterHistoryProgress(selfId)).expected, 703);
+  assert.ok(calls.length > 0, "missing older matches enter the fetch queue");
+  assert.equal((await readArchivedMatches(ids(703))).size, 703);
 });

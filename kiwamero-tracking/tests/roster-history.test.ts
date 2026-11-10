@@ -48,23 +48,23 @@ function pages(total: number, order?: number[]) {
   return starts;
 }
 
-test("703 known matches queue only the latest50, resume and revisit without duplicate calls", async () => {
+test("703 known matches queue the full history, resume and revisit without duplicate calls", async () => {
   const starts = pages(703);
   await enqueueRosterHistory(selfId, "ap", ids(703));
   await runRosterQueue({ maxPages: 2 });
   assert.equal((await state())!.cursor, 20);
   resetHenrikClient();
-  await runRosterQueue();
-  assert.deepEqual(starts, [0, 10, 20, 30, 40]);
+  for (let i = 0; i < 4; i++) await runRosterQueue({ maxPages: 20 });
+  assert.equal((await state())!.exhausted, 1);
+  assert.deepEqual(starts, Array.from({ length: 71 }, (_, i) => i * 10));
   assert.deepEqual(await rosterHistoryProgress(selfId), {
-    active: false, blocked: false, cursor: 50, exhausted: true,
-    expected: 50, cached: 50, unavailable: 0, pending: 0,
+    active: false, blocked: false, cursor: 703, exhausted: true,
+    expected: 703, cached: 703, unavailable: 0, pending: 0,
   });
-  assert.equal((await readArchivedMatches(ids(703))).size, 50);
-  assert.equal(await queryOne("SELECT matchId FROM MatchArchive WHERE matchId = ?", [matchId(51)]), null);
+  assert.equal((await readArchivedMatches(ids(703))).size, 703);
   await enqueueRosterHistory(selfId, "ap", [...ids(703), matchId(1)]);
   await runRosterQueue();
-  assert.equal(starts.length, 5, "revisits do not refetch completed history");
+  assert.equal(starts.length, 71, "revisits do not refetch completed history");
 });
 
 test("all cached history costs no provider calls; newly discovered IDs restart the completed scan", async () => {

@@ -14,8 +14,8 @@ export function encounterCoverageText(locale: Locale, c: EncounterCoverage): str
   const parts = [
     L(`${c.total}試合中、詳細取得済みの${c.covered}試合から遭遇を集計しています${c.allActs ? "（全期間）" : ""}。`,
       `Encounters are computed from ${c.covered} of ${c.total} matches${c.allActs ? " (all stored history)" : ""}.`),
-    L(`自動取得は全モード通算の直近${c.recentTotal}試合が対象です（保存済み${c.recentCovered}試合）。`,
-      `Auto-retrieval covers the latest ${c.recentTotal} matches across all playlists (${c.recentCovered} saved).`),
+    L(`自動取得は全モード通算の保存履歴全体が対象です（${c.recentTotal}試合中${c.recentCovered}試合を保存済み）。`,
+      `Auto-retrieval covers the entire stored history across playlists (${c.recentCovered} of ${c.recentTotal} saved).`),
   ];
   if (c.pending > 0) parts.push(c.blocked
     ? L("取得エラーのため、補完を一時停止しています。", "Retrieval is paused after an error.")

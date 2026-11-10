@@ -6,9 +6,9 @@ const sample: EncounterCoverage = {
   covered: 48, total: 54, allActs: true, recentTotal: 50, recentCovered: 48,
   pending: 2, olderMissing: 4, unavailable: 0, blocked: false, loaded: true,
 };
-test("Japanese encounter coverage explains real counts, recent-only acquisition and partial data", () => {
+test("Japanese encounter coverage explains real counts, full-history acquisition and partial data", () => {
   const copy = encounterCoverageText("ja", sample);
-  for (const text of ["54試合中", "48試合", "全期間", "直近50試合", "残り2試合", "過去の未保存4試合", "遭遇なし"]) {
+  for (const text of ["54試合中", "48試合", "全期間", "保存履歴全体", "50試合中48試合", "残り2試合", "過去の未保存4試合", "遭遇なし"]) {
     assert.ok(copy.includes(text), text);
   }
   assert.doesNotMatch(copy, /[A-Za-z]|最新2|2ACT/);

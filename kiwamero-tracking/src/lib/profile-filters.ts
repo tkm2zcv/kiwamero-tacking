@@ -1,13 +1,11 @@
 import type { Match } from "./types";
 import { MATCH_ID } from "./henrik-model.ts";
 
-export const ENCOUNTER_RECENT_LIMIT = 50;
-
 /** Acquisition is account-wide; changing an Act/playlist must not queue old games. */
 export function recentEncounterIds(rows: ReadonlyArray<{ id: string; startedAt: number }>): string[] {
   return [...new Set(rows.filter((r) => MATCH_ID.test(r.id) && Number.isFinite(r.startedAt) && r.startedAt > 0)
     .sort((a, b) => b.startedAt - a.startedAt || a.id.localeCompare(b.id))
-    .map((r) => r.id))].slice(0, ENCOUNTER_RECENT_LIMIT);
+    .map((r) => r.id))];
 }
 
 export function createActFilter(

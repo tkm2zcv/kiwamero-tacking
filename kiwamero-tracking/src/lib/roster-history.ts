@@ -2,7 +2,6 @@ import { execute, queryAll, queryOne } from "./db.ts";
 import { MATCH_ID } from "./henrik-model.ts";
 import { HenrikDevError } from "./henrik-errors.ts";
 import { queueMatchDetails, readArchivedCoverage } from "./match-archive.ts";
-import { ENCOUNTER_RECENT_LIMIT } from "./profile-filters.ts";
 
 export interface RosterJob {
   puuid: string; region: string; cursor: number; active: number; exhausted: number;
@@ -33,7 +32,7 @@ export async function enqueueRosterHistory(
   puuid: string, region: string, ids: readonly string[], observedAt = Date.now(),
 ) {
   if (!MATCH_ID.test(puuid) || !/^[a-z]{2,8}$/i.test(region)) throw new HenrikDevError(400, "Invalid player");
-  const unique = [...new Set(ids.filter((id) => MATCH_ID.test(id)))].slice(0, ENCOUNTER_RECENT_LIMIT);
+  const unique = [...new Set(ids.filter((id) => MATCH_ID.test(id)))];
   if (!unique.length) return rosterHistoryProgress(puuid);
   await execute(`INSERT INTO RosterHistory(puuid, region, updatedAt) VALUES (?, ?, ?)
     ON CONFLICT(puuid) DO UPDATE SET region = excluded.region`, [puuid, region, Date.now()]);
@@ -46,7 +45,7 @@ export async function enqueueRosterHistory(
     WHERE puuid = ? AND observedAt <= ? AND leaseUntil <= ? RETURNING puuid`,
     [targets, targets, targets, targets, observedAt, puuid, observedAt, now]);
   if (!admitted) return rosterHistoryProgress(puuid);
-  // Retain old associations for archive GC, but only the current50 are pending.
+  // Retain old associations for archive GC; every target is pending until archived.
   await execute(`INSERT OR IGNORE INTO RosterHistoryMatch(puuid, matchId)
     SELECT ?, value FROM json_each(?)`, [puuid, targets]);
   await execute(`UPDATE RosterHistory SET active = 1,
@@ -69,7 +68,7 @@ export async function claimRosterHistory(now = Date.now()) {
 
 /** Recheck shared archives immediately before fetching, including other players' work. */
 export async function nextRosterRequest(job: RosterJob) {
-  const ids = (JSON.parse(job.targetsJson) as string[]).slice(0, ENCOUNTER_RECENT_LIMIT);
+  const ids = JSON.parse(job.targetsJson) as string[];
   const { archived, unavailable } = await readArchivedCoverage(ids);
   const missing = (id: string) => !archived.has(id) && !unavailable.has(id);
   const start = ids.findIndex((id, i) => i >= job.cursor && missing(id));
@@ -80,8 +79,8 @@ export async function nextRosterRequest(job: RosterJob) {
 }
 
 export async function finishRosterPage(job: RosterJob, received: number, fingerprint: string, start = job.cursor) {
-  const end = Math.min(ENCOUNTER_RECENT_LIMIT, start + received);
-  const limit = Math.min(ENCOUNTER_RECENT_LIMIT, (JSON.parse(job.targetsJson) as string[]).length);
+  const limit = (JSON.parse(job.targetsJson) as string[]).length;
+  const end = Math.min(limit, start + received);
   await execute(`UPDATE RosterHistory SET cursor = ?, lastPage = ?,
       exhausted = ?, leaseToken = NULL, leaseUntil = 0, retryAt = 0, attempts = 0,
       lastStatus = 200, updatedAt = ?

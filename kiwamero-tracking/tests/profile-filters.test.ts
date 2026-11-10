@@ -120,16 +120,16 @@ test("all acts remain included and encounters deduplicate PUUIDs and match IDs a
   assert.deepEqual(buildEncounters([first], "Player", "TAG", "not-in-roster"), []);
 });
 
-test("recent encounter acquisition is globally newest50, dedupes IDs before limiting and leaves input intact", () => {
+test("recent encounter acquisition is the full stored history, deduped and newest-first", () => {
   const rows = Array.from({ length: 703 }, (_, i) => ({
     id: matchId(i + 1), startedAt: i, mode: i % 2 ? "competitive" : "unrated",
   }));
   const input = [rows[702], ...rows, rows[702]];
   const before = [...input];
   const ids = recentEncounterIds(input);
-  assert.equal(ids.length, 50);
+  assert.equal(ids.length, 702); // startedAt 0 is rejected as invalid
   assert.equal(ids[0], matchId(703));
-  assert.equal(ids.at(-1), matchId(654));
+  assert.equal(ids.at(-1), matchId(2));
   assert.deepEqual(input, before);
   assert.deepEqual(recentEncounterIds([]), []);
 });

@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { loadProfile } from "@/lib/data";
 import { formatAct } from "@/lib/profile-stats";
-import { createActFilter, filterProfileMatches, profileFilterHref, recentEncounterIds } from "@/lib/profile-filters";
+import { canonicalMatchMode, createActFilter, filterProfileMatches, PLAYLIST_PARAM_SET, playlistUpstreamMode, profileFilterHref, recentEncounterIds } from "@/lib/profile-filters";
 import { getMatch, playerCardArt, tierIcon, tierName } from "@/lib/henrikdev";
 import { normalizeHDMatch } from "@/lib/match-normalize";
 import type { Match, Profile, SeasonRank } from "@/lib/types";
@@ -122,7 +122,7 @@ export default async function ProfilePage({
   if (!VALID_TABS.has(activeTab)) notFound();
   const basePath = playerProfilePath(player);
   const query = await searchParams;
-  const playlist = ["competitive", "premier", "unrated", "deathmatch", "swiftplay", "all"].includes(query.playlist ?? "")
+  const playlist = PLAYLIST_PARAM_SET.has(query.playlist ?? "")
     ? query.playlist! : "competitive";
   const seasonParam = query.season ?? query.act;
   const act = seasonParam ?? "all";
@@ -161,7 +161,7 @@ async function ProfileContent({
   deadline: number;
 }) {
   const isReport = activeTab === "assessment" || activeTab === "diagnosis";
-  const mode = isReport ? "competitive" : playlist === "all" || activeTab === "encounters" ? undefined : playlist;
+  const mode = isReport ? "competitive" : activeTab === "encounters" ? undefined : playlistUpstreamMode(playlist);
   const needsRecent = !["agents", "maps", "performance", "weapons", "customs", "crosshairs", "lineups"].includes(activeTab);
   const needsStored = !Object.hasOwn(EMPTY_TABS, activeTab);
   const [t, result] = await Promise.all([
@@ -291,7 +291,7 @@ async function ProfileContent({
         : uuidToShort.get(actParam);
   const inSelectedAct = createActFilter(act, seasonUuid, uuidToShort, latestStoredSeason);
   const storedScoped = storedAll.filter((r) => inSelectedAct(r.seasonId, r.seasonShort) &&
-    (playlist === "all" || r.mode.toLowerCase().replace(/[^a-z]/g, "") === playlist));
+    (playlist === "all" || canonicalMatchMode(r.mode) === playlist));
   const usesMatchList = activeTab === "overview" || activeTab === "matches";
   const usesRecentRoster = usesMatchList || activeTab === "encounters";
   const visibleMatches = usesRecentRoster

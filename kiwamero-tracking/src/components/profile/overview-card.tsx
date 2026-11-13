@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Match, Profile } from "@/lib/types";
 import { tierIcon } from "@/lib/henrik-shared";
 import { deriveOverview, playtimeLabel, type OverviewStats } from "@/lib/profile-stats";
+import { playlistModeLabel } from "@/lib/profile-filters";
 import type { StatAggregate } from "@/lib/stored-stats";
 
 function Donut({ wins, losses }: { wins: number; losses: number }) {
@@ -85,7 +86,7 @@ export function OverviewCard({
     <section className="kt-card" aria-label="Competitive overview">
       <header className="kt-card-head">
         <h2 className="kt-card-title">
-          {actLabel} {playlist === "all" ? "All Modes" : playlist} Overview
+          {actLabel} {playlist === "all" ? "All Modes" : playlistModeLabel(playlist)} Overview
         </h2>
         <div className="kt-card-desc">
           {stats ? null : <span>{playtimeLabel(matches)}</span>}

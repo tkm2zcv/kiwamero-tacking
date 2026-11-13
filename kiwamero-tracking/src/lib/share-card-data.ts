@@ -1,4 +1,5 @@
 import { normalizeCluster } from "./henrik-shared.ts";
+import { canonicalMatchMode, playlistModeLabel } from "./profile-filters.ts";
 import { aggregate, agentIconUrl, groupByAgent, type StatAggregate, type StoredRow } from "./stored-stats.ts";
 import type { Profile } from "./types.ts";
 
@@ -19,7 +20,7 @@ export interface ShareCardModel {
 }
 
 function playlistSlug(playlist: string) {
-  return playlist === "premier" ? "premier" : playlist.toLowerCase().replace(/[^a-z]/g, "");
+  return canonicalMatchMode(playlist);
 }
 
 function topCluster(rows: StoredRow[]): string {
@@ -95,7 +96,7 @@ export function buildShareCardModel({
     actLabel,
     playlistLabel: playlist === "all"
       ? "All Modes"
-      : selectedPlaylist.charAt(0).toUpperCase() + selectedPlaylist.slice(1),
+      : playlistModeLabel(selectedPlaylist),
     matchesAvailable: scoped.length,
     stats: aggregate(scoped),
   };

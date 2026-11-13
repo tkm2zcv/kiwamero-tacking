@@ -1,4 +1,5 @@
 import type { Match, MatchPlayer, Summary } from "./types";
+import { canonicalMatchMode, playlistModeLabel } from "./profile-filters.ts";
 
 /** Summary of the retrieved sample, not lifetime totals. */
 export function summarize(matches: Match[], puuid: string): Summary {
@@ -145,7 +146,7 @@ export function deriveMatchRows(matches: Match[], puuid: string, now = Date.now(
     return {
       matchId: m.metadata.matchid,
       map: m.metadata.map,
-      mode: m.metadata.mode || m.metadata.mode_id,
+      mode: m.metadata.mode || playlistModeLabel(canonicalMatchMode(m.metadata.mode_id)),
       agent: me.character,
       agentIcon: me.assets?.agent?.small ?? agentIconUrl(me.character),
       startedAt: m.metadata.game_start,

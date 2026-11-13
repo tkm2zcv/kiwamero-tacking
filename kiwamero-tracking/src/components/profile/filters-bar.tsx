@@ -1,14 +1,9 @@
 import Link from "next/link";
 import { ActMenu, type ActMenuItem } from "@/components/profile/act-menu";
-import { profileFilterHref } from "@/lib/profile-filters";
+import { PLAYLISTS, profileFilterHref } from "@/lib/profile-filters";
 
-const MODES = [
-  ["competitive", "Competitive"],
-  ["premier", "Premier"],
-  ["unrated", "Unrated"],
-  ["deathmatch", "Deathmatch"],
-  ["swiftplay", "Swiftplay"],
-] as const;
+const MODES = PLAYLISTS.slice(0, 5);
+const EXTRA_MODES = PLAYLISTS.slice(5);
 
 export interface FiltersAct {
   /** Canonical act code, e.g. "e11a6". */
@@ -71,14 +66,24 @@ export function FiltersBar({
               ALL
             </Link>
           ) : null}
-          {MODES.map(([value, label]) => (
-            <Link key={value} href={url(value, act)} className="kt-seg-btn" data-active={playlist === value}>
+          {MODES.map(({ slug, label }) => (
+            <Link key={slug} href={url(slug, act)} className="kt-seg-btn" data-active={playlist === slug}>
               {label}
             </Link>
           ))}
-          {tab !== "encounters" ? <Link href={url("all", act)} className="kt-seg-btn kt-seg-more" data-active={playlist === "all"} aria-label="All playlists" title="All playlists">
-            ⋮
-          </Link> : null}
+          {tab !== "encounters" ? (
+            <Link href={url("all", act)} className="kt-seg-btn" data-active={playlist === "all"}>
+              All
+            </Link>
+          ) : null}
+          <ActMenu
+            menuLabel="More playlists"
+            items={EXTRA_MODES.map(({ slug, label }) => ({
+              label,
+              href: url(slug, act),
+              active: playlist === slug,
+            }))}
+          />
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createActFilter, filterProfileMatches, profileFilterHref, recentEncounterIds } from "../src/lib/profile-filters.ts";
+import { canonicalMatchMode, createActFilter, filterProfileMatches, playlistModeLabel, playlistUpstreamMode, profileFilterHref, recentEncounterIds } from "../src/lib/profile-filters.ts";
 import { matchId } from "./history-fixtures.ts";
 import { buildEncounters, aggregate, storedRowToMatch, type StoredRow } from "../src/lib/stored-stats.ts";
 import { deriveMatchRows } from "../src/lib/profile-stats.ts";
@@ -92,6 +92,50 @@ test("stored rows render as match-list rows for every act, self-only roster hide
   // A real v3 match with a full roster still produces a placement.
   const real = deriveMatchRows([roster("real", "uuid-old", "Opp")], "self");
   assert.notEqual(real[0].place, "—");
+});
+
+test("HenrikDev mode ids and stored display names canonicalize to the same playlist", () => {
+  // v3/v4 mode_id values observed in the match archive.
+  assert.equal(canonicalMatchMode("hurm"), "teamdeathmatch");
+  assert.equal(canonicalMatchMode("skirmish_2v2"), "teamdeathmatch");
+  assert.equal(canonicalMatchMode("abilitydraftarena"), "gauntlet");
+  assert.equal(canonicalMatchMode(""), "");
+  // stored-matches display names.
+  assert.equal(canonicalMatchMode("Team Deathmatch"), "teamdeathmatch");
+  assert.equal(canonicalMatchMode("Custom Game"), "custom");
+  assert.equal(canonicalMatchMode("Gauntlet: Glitched"), "gauntlet");
+  assert.equal(canonicalMatchMode("Spike Rush"), "spikerush");
+  assert.equal(canonicalMatchMode("Snowball Fight"), "snowball");
+  // Unmapped names keep their normalized form (only reachable via "all").
+  assert.equal(canonicalMatchMode("All Random One Site"), "allrandomonesite");
+  assert.equal(canonicalMatchMode(null), "");
+  assert.equal(playlistModeLabel("teamdeathmatch"), "Team Deathmatch");
+  assert.equal(playlistModeLabel("gauntlet"), "Gauntlet");
+});
+
+test("playlist filters match v3 mode_id and stored display names across mode families", () => {
+  const inAll = createActFilter("all", ids, shorts, "");
+  const tdm = { ...roster("tdm", "uuid-current", "Opponent"), metadata: { matchid: "tdm", season_id: "uuid-current", mode_id: "hurm", mode: "", game_start: 100 } } as Match;
+  const skirmish = { ...roster("sk", "uuid-current", "Opponent"), metadata: { matchid: "sk", season_id: "uuid-current", mode_id: "skirmish_2v2", mode: "", game_start: 100 } } as Match;
+  const custom = { ...roster("cu", "uuid-current", "Opponent"), metadata: { matchid: "cu", season_id: "uuid-current", mode_id: "", mode: "Custom Game", game_start: 100 } } as Match;
+  const gauntlet = { ...roster("ga", "uuid-current", "Opponent"), metadata: { matchid: "ga", season_id: "uuid-current", mode_id: "abilitydraftarena", mode: "", game_start: 100 } } as Match;
+  const ffa = { ...roster("dm", "uuid-current", "Opponent"), metadata: { matchid: "dm", season_id: "uuid-current", mode_id: "deathmatch", mode: "", game_start: 100 } } as Match;
+  const pool = [...matches, tdm, skirmish, custom, gauntlet, ffa];
+  assert.deepEqual(filterProfileMatches(pool, "teamdeathmatch", inAll, shorts).map((m) => m.metadata.matchid), ["tdm", "sk"]);
+  assert.deepEqual(filterProfileMatches(pool, "custom", inAll, shorts).map((m) => m.metadata.matchid), ["cu"]);
+  assert.deepEqual(filterProfileMatches(pool, "gauntlet", inAll, shorts).map((m) => m.metadata.matchid), ["ga"]);
+  assert.deepEqual(filterProfileMatches(pool, "deathmatch", inAll, shorts).map((m) => m.metadata.matchid), ["dm"],
+    "FFA deathmatch must not absorb team deathmatch or skirmish");
+  assert.equal(filterProfileMatches(pool, "all", inAll, shorts).length, pool.length);
+});
+
+test("only core high-volume playlists narrow the upstream mode fetch", () => {
+  for (const slug of ["competitive", "premier", "unrated", "deathmatch", "swiftplay"]) {
+    assert.equal(playlistUpstreamMode(slug), slug);
+  }
+  for (const slug of ["teamdeathmatch", "custom", "gauntlet", "spikerush", "all"]) {
+    assert.equal(playlistUpstreamMode(slug), undefined, slug);
+  }
 });
 
 test("played and act selectors preserve each other's URL state", () => {

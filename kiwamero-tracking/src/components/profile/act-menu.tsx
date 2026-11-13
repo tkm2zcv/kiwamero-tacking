@@ -28,10 +28,13 @@ export function ActMenu({
   items,
   variant = "seg",
   label = "Act",
+  menuLabel = "More acts",
 }: {
   items: ActMenuItem[];
   variant?: "seg" | "filter";
   label?: string;
+  /** Accessible name for the segmented `⋯` trigger. */
+  menuLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -89,8 +92,8 @@ export function ActMenu({
         className="kt-seg-btn"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        aria-label="More acts"
-        title="More acts"
+        aria-label={menuLabel}
+        title={menuLabel}
       >
         ⋮
       </button>

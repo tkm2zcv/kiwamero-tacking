@@ -25,6 +25,8 @@
   --color-gold-2: #b6a05f;
   --color-gold-3: #925829;
   --color-gold-4: #fedc45;
+  --scrollbar-thumb: var(--color-surface-3);
+  --scrollbar-track: var(--color-surface-1);
   --border-radius: 0.5rem;
   --game-bar-height: 2.5rem;
 }
@@ -153,6 +155,13 @@ body {
 .match-row__dots { color: rgb(239 239 239 / 0.5); flex: none; transition: color 0.15s ease; }
 .match-row:hover .match-row__dots { color: var(--color-text-primary); }
 
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: var(--color-surface-3); border-radius: 8px; }
-::-webkit-scrollbar-track { background: var(--color-surface-1); }
+html {
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  scrollbar-width: thin;
+}
+
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 8px; }
+  ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+}

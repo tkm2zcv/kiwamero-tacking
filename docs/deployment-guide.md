@@ -3,8 +3,8 @@
 対象: `kiwamero-tracking/` → Cloudflare Workers + D1、`tracking.kiwamero.dev`。
 DB 層は 2026-10-29 に Prisma から生 SQL + Kysely へ移行済み (workerd 動作確認済み)。
 
-**状態: 本番反映済み (261104更新)。** code `5ba21cd`、Worker
-`62408310-d7a0-41db-b51b-200a90ddbca8`、D1 `a8f05616-…` (APAC)、
+**状態: 本番反映済み (261114更新)。** code `aeb62cf`、Worker
+`fa1e4ded-9ea4-4a03-9ec7-90ee6a0b3c88`、D1 `a8f05616-…` (APAC)、
 `tracking.kiwamero.dev`、必要なシークレットとDiscord callbackは設定済み。
 Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 承認された監視1回で5件のDiscord送信成功と通知済み記録を確認しています。
@@ -16,7 +16,23 @@ Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 `redirect:"error"` はWorkers未対応のため、Webhook送信には使用しません。
 詳細な検証範囲・制約は [引き継ぎ](kiwamero-tracking-handoff.md) を参照してください。
 
-最新の反映は `5ba21cd`。ユーザー要望により、通常の外部ドキュメント遷移は
+最新の反映は `aeb62cf` (機能本体は `101ad48`)。試合履歴のプレイリストを
+Competitive/Premier/Unrated/Deathmatch/Swiftplay＋Allに加え、
+Team Deathmatch・Custom・Gauntlet・Spike Rush・Escalation・Replication・
+Snowballを `⋮` メニューから選択可能にしました。HenrikDevのmode_id
+(`hurm`/`skirmish_2v2`/`abilitydraftarena`)と保存済み表示名を
+canonical slugへ正規化して照合します。上流取得は従来5モードのみ絞り、
+それ以外は全モード取得→クライアント側フィルタです。
+あわせて `aeb62cf` でスクロールバーを標準プロパティ＋WebKitフォールバック化。
+この間の未記録分として `af8aa2e` (Party Size Breakdown) と
+`e58a0a5` (遭遇ロスター全履歴バックフィル) も本番反映済みです。
+353テスト・lint/型検査・実workerd/D1検証・build/scrubを通過。
+2026-11-14にWorker100%反映、配信BUILD_ID `IBrGTiz2zP8439o6A-Dae`一致、
+トップ/ログイン200・未認証API403を確認。ログイン後の実画面は未確認。
+DB移行・手動の試合取得・Discord送信は実行せず。
+
+以下は直前の `5ba21cd` の反映記録です。
+ユーザー要望により、通常の外部ドキュメント遷移は
 クリック情報がなくても確認画面を挟まず直接プロフィールを表示します。
 Discordの許可確認は先に実施し、API・埋め込み・先読みの保護は維持。
 外部中継から通常のプロフィール取得/キャッシュ更新が始まることは意図した変更です。

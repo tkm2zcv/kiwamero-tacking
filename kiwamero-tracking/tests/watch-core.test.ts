@@ -87,20 +87,25 @@ test("playerKey is case insensitive", () => {
 // The watch cycle fetches once per deduplicated player using the earliest
 // entry's stored puuid, so POST /api/watchlist verifies caller-supplied values
 // against the upstream account (injected here — no network needed).
-test("verifyWatchlistBinding stores the upstream-verified puuid/region", async () => {
+test("verifyWatchlistBinding stores the upstream-verified identity", async () => {
   const calls: string[] = [];
   const resolve = async (name: string, tag: string) => {
     calls.push(`${name}#${tag}`);
-    return { puuid: "canonical-puuid", region: "ap" }; // upstream region is lowercase
+    return { puuid: "canonical-puuid", region: "ap", name: "Canon", tag: "C4N" };
   };
   assert.deepEqual(
     await verifyWatchlistBinding("Name", "TAG", "canonical-puuid", resolve),
-    { puuid: "canonical-puuid", region: "AP" }, // upstream truth beats caller input
+    { puuid: "canonical-puuid", region: "AP", name: "Canon", tag: "C4N" }, // upstream truth beats caller input
   );
-  // Region-only submissions resolve to the canonical puuid too.
+  // Region-only submissions resolve to the canonical identity too.
   assert.deepEqual(
     await verifyWatchlistBinding("Name", "TAG", undefined, resolve),
-    { puuid: "canonical-puuid", region: "AP" },
+    { puuid: "canonical-puuid", region: "AP", name: "Canon", tag: "C4N" },
+  );
+  // Upstreams that omit the display name keep the caller's spelling.
+  assert.deepEqual(
+    await verifyWatchlistBinding("Name", "TAG", "canonical-puuid", async () => ({ puuid: "canonical-puuid", region: "ap" })),
+    { puuid: "canonical-puuid", region: "AP", name: "Name", tag: "TAG" },
   );
   assert.deepEqual(calls, ["Name#TAG", "Name#TAG"]);
 });

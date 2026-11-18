@@ -41,14 +41,14 @@ export function WatchlistButton({
   useEffect(() => {
     if (!session) return;
     const controller = new AbortController();
-    fetch(`/api/watchlist/check?name=${encodeURIComponent(riotName)}&tag=${encodeURIComponent(riotTag)}`, {
+    fetch(`/api/watchlist/check?name=${encodeURIComponent(riotName)}&tag=${encodeURIComponent(riotTag)}&puuid=${encodeURIComponent(puuid)}`, {
       signal: controller.signal,
     })
       .then(async (r) => (r.ok ? r.json() : null))
       .then((d) => setWatching(!!d?.watching))
       .catch(() => {});
     return () => controller.abort();
-  }, [session, riotName, riotTag]);
+  }, [session, riotName, riotTag, puuid]);
 
   async function update(remove: boolean) {
     setBusy(true);

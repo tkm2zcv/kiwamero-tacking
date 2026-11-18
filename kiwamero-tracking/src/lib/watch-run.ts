@@ -17,7 +17,7 @@ export function createWatchDeps(): WatchDeps {
     resolvePlayer: async (riotName, riotTag) => {
       const { getAccount } = await import("./henrikdev");
       const account = await getAccount(riotName, riotTag, { priority: "background" });
-      return { puuid: account.puuid, region: account.region };
+      return { puuid: account.puuid, region: account.region, name: account.name, tag: account.tag };
     },
     fetchMatches: async (puuid, region) => {
       const { getMatches } = await import("./henrikdev");

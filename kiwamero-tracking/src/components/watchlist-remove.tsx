@@ -7,9 +7,9 @@ import { watchlistRemoveBody } from "@/lib/watchlist-copy";
 import { WatchlistConfirmDialog } from "./watchlist-confirm";
 
 export function WatchlistRemoveButton({
-  name, tag, label, icon,
+  name, tag, puuid, label, icon,
 }: {
-  name: string; tag: string; label: string; icon: ReactNode;
+  name: string; tag: string; puuid?: string | null; label: string; icon: ReactNode;
 }) {
   const router = useRouter();
   const { t } = useT();
@@ -25,7 +25,7 @@ export function WatchlistRemoveButton({
       const res = await fetch("/api/watchlist", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ riotName: name, riotTag: tag }),
+        body: JSON.stringify({ riotName: name, riotTag: tag, puuid: puuid ?? undefined }),
       });
       if (res.ok) {
         setConfirming(false);

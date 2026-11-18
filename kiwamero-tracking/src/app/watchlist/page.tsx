@@ -64,7 +64,7 @@ export default async function WatchlistPage() {
               >
                 {t.watchlist.viewProfile}
               </Link>
-              <WatchlistRemoveButton name={e.riotName} tag={e.riotTag} label={t.watchlist.remove} icon={<Trash2 className="size-4" />} />
+              <WatchlistRemoveButton name={e.riotName} tag={e.riotTag} puuid={e.puuid} label={t.watchlist.remove} icon={<Trash2 className="size-4" />} />
             </div>
           ))}
         </div>

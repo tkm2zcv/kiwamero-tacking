@@ -3,7 +3,7 @@ import { ownerUserId } from "@/lib/owner-access";
 import { execute, queryAll } from "@/lib/db";
 import type { WatchlistEntryRow } from "@/lib/db-schema";
 import { getAccount } from "@/lib/henrikdev";
-import { MAX_WATCHED_PLAYERS, verifyWatchlistBinding } from "@/lib/watch-core";
+import { MAX_WATCHED_PLAYERS, verifyWatchlistBinding, type VerifiedWatchBinding } from "@/lib/watch-core";
 import { upsertWatchlistEntry, watchedPlayerCount } from "@/lib/watch-db";
 
 async function userId(req: NextRequest) {
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   // stored puuid, so caller-supplied values must provably belong to the
   // claimed riotName#riotTag. When neither is supplied the cycle resolves
   // canonically instead, so no upstream call is made here.
-  let verified: { puuid: string; region: string } | null = null;
+  let verified: VerifiedWatchBinding | null = null;
   if (puuid != null || region != null) {
     verified = await verifyWatchlistBinding(riotName, riotTag, puuid, getAccount);
     if (!verified) {
@@ -59,7 +59,9 @@ export async function POST(req: NextRequest) {
     }
   }
   const entry = await upsertWatchlistEntry({
-    userId: uid, riotName, riotTag,
+    userId: uid,
+    riotName: verified?.name ?? riotName,
+    riotTag: verified?.tag ?? riotTag,
     puuid: verified ? verified.puuid : puuid,
     region: verified ? verified.region : region,
   });
@@ -76,14 +78,19 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const uid = await userId(req);
   if (!uid) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  const body = (await req.json().catch(() => ({}))) as { riotName?: unknown; riotTag?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { riotName?: unknown; riotTag?: unknown; puuid?: unknown };
   const riotName = typeof body.riotName === "string" ? body.riotName.trim() : "";
   const riotTag = typeof body.riotTag === "string" ? body.riotTag.trim() : "";
-  if (!riotName || !riotTag) return NextResponse.json({ error: "bad request" }, { status: 400 });
-  await execute(`DELETE FROM "WatchlistEntry" WHERE "userId" = ? AND "riotName" = ? AND "riotTag" = ?`, [
-    uid,
-    riotName,
-    riotTag,
-  ]);
+  const puuid = typeof body.puuid === "string" ? body.puuid.trim() : "";
+  if (puuid) {
+    await execute(`DELETE FROM "WatchlistEntry" WHERE "userId" = ? AND "puuid" = ?`, [uid, puuid]);
+  } else {
+    if (!riotName || !riotTag) return NextResponse.json({ error: "bad request" }, { status: 400 });
+    await execute(`DELETE FROM "WatchlistEntry" WHERE "userId" = ? AND "riotName" = ? AND "riotTag" = ?`, [
+      uid,
+      riotName,
+      riotTag,
+    ]);
+  }
   return NextResponse.json({ ok: true });
 }

@@ -18,6 +18,7 @@ function entry(overrides: Partial<WatchEntryRow> & { id: string }): WatchEntryRo
 
 function fakeDb(rows: WatchEntryRow[]) {
   const updates: { id: string; data: Record<string, unknown> }[] = [];
+  const deletes: string[] = [];
   const db: WatchDb = {
     watchlistEntry: {
       findMany: async (args) => {
@@ -31,9 +32,13 @@ function fakeDb(rows: WatchEntryRow[]) {
         if (row) Object.assign(row, data);
         return row;
       },
+      delete: async (args) => {
+        deletes.push(args.where.id);
+        return null;
+      },
     },
   };
-  return { db, updates };
+  return { db, updates, deletes };
 }
 
 function rawMatch(matchid: string, gameStart: number): RawMatchForNotify {
@@ -224,9 +229,9 @@ test("players are queried once even when several users watch them", async () => 
 
 test("the system-wide player cap is enforced per run", async () => {
   const rows = [
-    entry({ id: "e1", riotName: "A", riotTag: "1" }),
-    entry({ id: "e2", riotName: "B", riotTag: "2" }),
-    entry({ id: "e3", riotName: "C", riotTag: "3" }),
+    entry({ id: "e1", riotName: "A", riotTag: "1", puuid: "p-a" }),
+    entry({ id: "e2", riotName: "B", riotTag: "2", puuid: "p-b" }),
+    entry({ id: "e3", riotName: "C", riotTag: "3", puuid: "p-c" }),
   ];
   const { db } = fakeDb(rows);
   const { deps: d } = deps([rawMatch("m1", 100)]);
@@ -273,13 +278,88 @@ test("a backlog larger than one batch drains without losing older matches", asyn
   assert.equal((sent as { embeds: unknown[] }[]).flatMap((p) => p.embeds).length, 8);
 });
 
+test("a rename keeps tracking by puuid and refreshes the stored name", async () => {
+  // The entry still says the old Riot ID; the roster reports the new one.
+  const rows = [entry({ id: "e1", riotName: "OldName", riotTag: "OLD" })];
+  const { db, updates } = fakeDb(rows);
+  const match = rawMatch("m1", 100);
+  (match.players as RawPlayerForNotify[])[0].name = "NewName";
+  (match.players as RawPlayerForNotify[])[0].tag = "N3W";
+  const base = deps([match]);
+  base.deps.resolvePlayer = async () => {
+    throw new Error("name lookup must not run — the stored puuid survives renames");
+  };
+
+  const summary = await runWatchCycle(db, base.deps);
+
+  assert.equal(summary.matchesSent, 1);
+  const rename = updates.find((u) => u.data.riotName !== undefined);
+  assert.deepEqual(rename?.data, { riotName: "NewName", riotTag: "N3W" });
+  const embed = (base.sent[0] as { embeds: { title: string; author?: { url?: string } }[] }).embeds[0];
+  assert.match(embed.title, /NewName#N3W/);
+  assert.match(embed.author?.url ?? "", /NewName%23N3W/);
+});
+
+test("a successful name resolve persists puuid, region and canonical name", async () => {
+  const rows = [entry({ id: "e1", puuid: null, region: null })];
+  const { db, updates } = fakeDb(rows);
+  const base = deps([rawMatch("m1", 100)]);
+  base.deps.resolvePlayer = async () => ({ puuid: "puuid-1", region: "ap", name: "Meiy", tag: "B3L" });
+
+  const summary = await runWatchCycle(db, base.deps);
+
+  assert.equal(summary.matchesSent, 1);
+  const bind = updates.find((u) => u.data.puuid !== undefined);
+  assert.deepEqual(bind?.data, { puuid: "puuid-1", region: "ap" });
+  assert.equal(base.fetchCalls[0], "puuid-1");
+});
+
+test("old and new entries for the same player merge into one fetch and one delivery", async () => {
+  const rows = [
+    entry({ id: "old", riotName: "OldName", riotTag: "OLD", lastSeenGameStart: 50 }),
+    entry({ id: "new", riotName: "NewName", riotTag: "N3W" }),
+  ];
+  const { db, deletes } = fakeDb(rows);
+  const { deps: d, fetchCalls, sent } = deps([rawMatch("m1", 100)]);
+
+  const summary = await runWatchCycle(db, d);
+
+  assert.equal(fetchCalls.length, 1, "one shared upstream query");
+  assert.equal(sent.length, 1, "one notification — the row with progress wins");
+  assert.deepEqual(deletes, ["new"], "the duplicate row is removed");
+  assert.equal(summary.matchesSent, 1);
+});
+
+test("a name-keyed group resolves into a puuid group already processed this run", async () => {
+  const rows = [
+    entry({ id: "bound", riotName: "OldName", riotTag: "OLD", lastSeenGameStart: 50 }),
+    entry({ id: "alias", riotName: "NewName", riotTag: "N3W", puuid: null, region: null }),
+  ];
+  const { db } = fakeDb(rows);
+  const base = deps([rawMatch("m1", 100)]);
+  base.deps.resolvePlayer = async (name) =>
+    name === "NewName" ? { puuid: "puuid-1", region: "ap" } : null;
+
+  const summary = await runWatchCycle(db, base.deps);
+
+  // The alias resolves to puuid-1, which was already delivered this run — no
+  // second fetch or duplicate notification.
+  assert.equal(base.fetchCalls.length, 1);
+  assert.equal(summary.matchesSent, 1);
+});
+
 test("subscriber count does not hide later players after the first 2000 rows", async () => {
   const rows = [
     ...Array.from({ length: 2000 }, (_, i) => entry({ id: `shared-${i}`, userId: `u${i}` })),
-    entry({ id: "later-player", riotName: "Other" }),
+    entry({ id: "later-player", riotName: "Other", puuid: "other-puuid" }),
   ];
   const { db, updates } = fakeDb(rows);
-  const { deps: d } = deps([rawMatch("m1", 100)]);
+  const match = rawMatch("m1", 100);
+  (match.players as RawPlayerForNotify[]).push({
+    puuid: "other-puuid", character: "Omen", team: "Blue",
+    stats: { score: 3200, kills: 12, deaths: 14, assists: 7 },
+  });
+  const { deps: d } = deps([match]);
   const summary = await runWatchCycle(db, d);
 
   assert.equal(summary.playersChecked, 2);

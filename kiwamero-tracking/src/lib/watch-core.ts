@@ -78,6 +78,9 @@ export function playerKey(riotName: string, riotTag: string): string {
 export interface VerifiedWatchBinding {
   puuid: string;
   region: string;
+  /** Canonical upstream name/tag — renames are common, stored display names follow upstream. */
+  name: string;
+  tag: string;
 }
 
 /**
@@ -92,11 +95,16 @@ export async function verifyWatchlistBinding(
   riotName: string,
   riotTag: string,
   puuid: string | undefined,
-  resolveAccount: (name: string, tag: string) => Promise<{ puuid: string; region: string }>,
+  resolveAccount: (name: string, tag: string) => Promise<{ puuid: string; region: string; name?: string; tag?: string }>,
 ): Promise<VerifiedWatchBinding | null> {
   const account = await resolveAccount(riotName, riotTag).catch(() => null);
   if (!account || (puuid != null && account.puuid !== puuid)) return null;
-  return { puuid: account.puuid, region: account.region.toUpperCase() };
+  return {
+    puuid: account.puuid,
+    region: account.region.toUpperCase(),
+    name: account.name ?? riotName,
+    tag: account.tag ?? riotTag,
+  };
 }
 
 export interface DiscordEmbed {
@@ -249,12 +257,14 @@ export interface WatchDb {
   watchlistEntry: {
     findMany: (args: unknown) => Promise<WatchEntryRow[]>;
     update: (args: unknown) => Promise<unknown>;
+    /** Removes duplicate rows for the same user+player after puuid dedupe. */
+    delete?: (args: { where: { id: string } }) => Promise<unknown>;
   };
 }
 
 export interface WatchDeps {
   fetchMatches: (puuid: string, region: string) => Promise<RawMatchForNotify[]>;
-  resolvePlayer: (riotName: string, riotTag: string) => Promise<{ puuid: string; region: string } | null>;
+  resolvePlayer: (riotName: string, riotTag: string) => Promise<{ puuid: string; region: string; name?: string; tag?: string } | null>;
   fetchSeasonStats?: (puuid: string, region: string, seasonId: string | undefined) => Promise<SeasonStatsSummary | null>;
   /** Render the match card PNG; return null to fall back to plain embeds. */
   renderMatchCard?: (match: NewMatchSummary, watched: { name: string; tag: string }) => Promise<Uint8Array | null>;
@@ -320,7 +330,9 @@ export async function runWatchCycle(
 
   const byPlayer = new Map<string, WatchEntryRow[]>();
   for (const entry of entries) {
-    const key = playerKey(entry.riotName, entry.riotTag);
+    // Entries survive renames: a stored puuid keys the shared fetch group,
+    // falling back to the name pair only while no identity is known yet.
+    const key = entry.puuid ?? playerKey(entry.riotName, entry.riotTag);
     const list = byPlayer.get(key) ?? [];
     list.push(entry);
     byPlayer.set(key, list);
@@ -341,6 +353,7 @@ export async function runWatchCycle(
     return cached;
   };
 
+  const seenPuuids = new Set<string>();
   for (const [key, group] of players) {
     summary.playersChecked += 1;
     const first = group[0];
@@ -355,9 +368,61 @@ export async function runWatchCycle(
         }
         puuid = account.puuid;
         region = account.region;
+        // Persist the identity so a later rename can never strand the entry.
+        for (const entry of group) {
+          const patch: Record<string, unknown> = {};
+          if (entry.puuid !== puuid) patch.puuid = puuid;
+          if (entry.region !== region) patch.region = region;
+          if (account.name && account.tag &&
+              (entry.riotName !== account.name || entry.riotTag !== account.tag)) {
+            patch.riotName = account.name;
+            patch.riotTag = account.tag;
+          }
+          if (Object.keys(patch).length) {
+            await db.watchlistEntry.update({ where: { id: entry.id }, data: patch });
+            Object.assign(entry, patch);
+          }
+        }
       }
+      if (seenPuuids.has(puuid)) continue; // same player already handled under an old name
+      seenPuuids.add(puuid);
       const recent = await deps.fetchMatches(puuid, region);
+      // The roster carries the current Riot ID — refresh stale display names.
+      const selfNow = [...recent]
+        .sort((a, b) => b.metadata.game_start - a.metadata.game_start)
+        .map((m) => playersOf(m).find((p) => p.puuid === puuid))
+        .find((p) => p?.name && p?.tag);
+      if (selfNow) {
+        const nowName = selfNow.name!, nowTag = selfNow.tag!;
+        for (const entry of group) {
+          if (entry.riotName !== nowName || entry.riotTag !== nowTag) {
+            await db.watchlistEntry.update({
+              where: { id: entry.id },
+              data: { riotName: nowName, riotTag: nowTag },
+            });
+            entry.riotName = nowName;
+            entry.riotTag = nowTag;
+          }
+        }
+      }
+      // The same player added under old and new names must not notify twice.
+      const deduped = new Map<string, WatchEntryRow>();
+      const stale: WatchEntryRow[] = [];
       for (const entry of group) {
+        const prev = deduped.get(entry.userId);
+        if (!prev) {
+          deduped.set(entry.userId, entry);
+        } else {
+          // Keep the row holding delivery progress so dedupe never rewinds it.
+          const keep = prev.lastSeenGameStart == null && entry.lastSeenGameStart != null ? entry : prev;
+          stale.push(keep === prev ? entry : prev);
+          deduped.set(entry.userId, keep);
+        }
+      }
+      for (const entry of stale) {
+        await db.watchlistEntry.delete?.({ where: { id: entry.id } }).catch(() => {});
+      }
+      for (const entry of deduped.values()) {
         summary.entriesProcessed += 1;
         const webhookUrl = entry.user.webhookUrl;
         if (!webhookUrl) continue;

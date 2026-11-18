@@ -46,10 +46,19 @@ export const watchDb: WatchDb = {
     update: async (args) => {
       const { where, data } = args as {
         where: { id: string };
-        data: { lastSeenGameStart?: number; lastNotifiedMatchId?: string; lastNotifiedAt?: Date };
+        data: {
+          lastSeenGameStart?: number; lastNotifiedMatchId?: string; lastNotifiedAt?: Date;
+          riotName?: string; riotTag?: string; puuid?: string; region?: string;
+        };
       };
       const sets: string[] = [];
       const params: unknown[] = [];
+      for (const key of ["riotName", "riotTag", "puuid", "region"] as const) {
+        if (data[key] !== undefined) {
+          sets.push(`"${key}" = ?`);
+          params.push(data[key]);
+        }
+      }
       if (data.lastSeenGameStart !== undefined) {
         sets.push(`"lastSeenGameStart" = ?`);
         params.push(data.lastSeenGameStart);
@@ -70,11 +79,17 @@ export const watchDb: WatchDb = {
       }
       return null;
     },
+    delete: async (args) => {
+      const { where } = args as { where: { id: string } };
+      return execute(`DELETE FROM "WatchlistEntry" WHERE "id" = ?`, [where.id]);
+    },
   },
 };
 
-const distinctPlayersSql = `SELECT lower("riotName"), lower("riotTag")
-  FROM "WatchlistEntry" GROUP BY lower("riotName"), lower("riotTag")`;
+// Players are counted by identity, not display name: a renamed player must
+// keep occupying one slot instead of two.
+const distinctPlayersSql = `SELECT coalesce("puuid", lower("riotName") || '#' || lower("riotTag")) AS playerKey
+  FROM "WatchlistEntry" GROUP BY playerKey`;
 
 /** Admission and insert are one SQLite/D1 statement, so concurrent callers cannot oversubscribe. */
 export async function upsertWatchlistEntry(input: {
@@ -84,6 +99,16 @@ export async function upsertWatchlistEntry(input: {
   puuid?: string;
   region?: string;
 }): Promise<WatchlistEntryRow | null> {
+  // A renamed player re-added under the new name reuses the existing row, so
+  // the delivery cursor (lastSeenGameStart) is preserved instead of restarting.
+  if (input.puuid) {
+    const renamed = await queryAll<WatchlistEntryRow>(
+      `UPDATE "WatchlistEntry" SET "riotName" = ?, "riotTag" = ?, "region" = coalesce(?, "region")
+       WHERE "userId" = ? AND "puuid" = ? RETURNING *`,
+      [input.riotName, input.riotTag, input.region ?? null, input.userId, input.puuid],
+    );
+    if (renamed.length) return renamed[0];
+  }
   const rows = await queryAll<WatchlistEntryRow>(
     `INSERT INTO "WatchlistEntry" ("id", "userId", "riotName", "riotTag", "puuid", "region", "createdAt")
      SELECT ?, ?, ?, ?, ?, ?, ?

@@ -3,8 +3,8 @@
 対象: `kiwamero-tracking/` → Cloudflare Workers + D1、`tracking.kiwamero.dev`。
 DB 層は 2026-10-29 に Prisma から生 SQL + Kysely へ移行済み (workerd 動作確認済み)。
 
-**状態: 本番反映済み (261114更新)。** code `aeb62cf`、Worker
-`fa1e4ded-9ea4-4a03-9ec7-90ee6a0b3c88`、D1 `a8f05616-…` (APAC)、
+**状態: 本番反映済み (261118更新)。** code `b2e31d4`、Worker
+`22a24567-6fff-4a31-b44a-f3bce9042013`、D1 `a8f05616-…` (APAC)、
 `tracking.kiwamero.dev`、必要なシークレットとDiscord callbackは設定済み。
 Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 承認された監視1回で5件のDiscord送信成功と通知済み記録を確認しています。
@@ -16,7 +16,18 @@ Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 `redirect:"error"` はWorkers未対応のため、Webhook送信には使用しません。
 詳細な検証範囲・制約は [引き継ぎ](kiwamero-tracking-handoff.md) を参照してください。
 
-最新の反映は `aeb62cf` (機能本体は `101ad48`)。試合履歴のプレイリストを
+最新の反映は `b2e31d4`＋`cc7d509`。監視をPUUID主体へ変更し、
+名前変更でも追跡が切れない構造にしました（グループ化・取得・通知はpuuid基準、
+ロースターから現在名を検出して表示名を自動更新、新旧名の重複登録を統合、
+check/DELETEもpuuid対応、100人上限はID単位で計上）。
+あわせて遭遇フィルタに `played=all`（パーティー・野良・敵すべてを合算した
+All Encounters）を追加しました。
+358テスト・lint/型検査・実workerd（check:watch-worker）・build/scrubを通過。
+2026-11-18にWorker100%反映、配信BUILD_ID `EmZLs6O6XGMMB_Zkb3Qmt`一致、
+トップ/ログイン200・未認証API403を確認。ログイン後の実画面は未確認。
+DB移行・手動の試合取得・Discord送信は実行せず。
+
+以下は直前の `aeb62cf`/`101ad48` の反映記録です。試合履歴のプレイリストを
 Competitive/Premier/Unrated/Deathmatch/Swiftplay＋Allに加え、
 Team Deathmatch・Custom・Gauntlet・Spike Rush・Escalation・Replication・
 Snowballを `⋮` メニューから選択可能にしました。HenrikDevのmode_id

@@ -126,7 +126,7 @@ export default async function ProfilePage({
     ? query.playlist! : "competitive";
   const seasonParam = query.season ?? query.act;
   const act = seasonParam ?? "all";
-  const played = query.played === "against" ? "against" : "with";
+  const played = query.played === "against" || query.played === "all" ? query.played : "with";
   const page = Math.max(1, Number.parseInt(query.page ?? "1", 10) || 1);
   const country = query.country;
 
@@ -155,7 +155,7 @@ async function ProfileContent({
   basePath: string;
   playlist: string;
   act: string;
-  played: "with" | "against";
+  played: "with" | "against" | "all";
   page: number;
   country?: string;
   deadline: number;

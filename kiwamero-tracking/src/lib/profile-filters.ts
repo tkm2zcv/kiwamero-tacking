@@ -96,9 +96,9 @@ export function profileFilterHref(
   tab: string,
   playlist: string,
   act: string,
-  played?: "with" | "against",
+  played?: "with" | "against" | "all",
 ): string {
   const query = new URLSearchParams({ platform: "pc", playlist, season: act });
-  if (tab === "encounters" && played === "against") query.set("played", played);
+  if (tab === "encounters" && played && played !== "with") query.set("played", played);
   return `${basePath}/${tab}?${query}`;
 }

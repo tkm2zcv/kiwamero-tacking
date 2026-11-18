@@ -325,6 +325,7 @@ export interface EncounterStat {
   encounters: number; // matches in either team
   winsWith: number;
   winsAgainst: number; // matches they won while opposing you
+  winsAll: number; // shared matches where their side won
   kills: number;
   deaths: number;
   killsAgainst: number;
@@ -340,7 +341,7 @@ export function buildEncounters(matches: Match[], selfName: string, selfTag: str
     puuid: string;
     name: string; tag: string; agent: string; tier: number; tierPatched: string;
     with_: number; against_: number; all: number;
-    winsWith: number; winsAgainst: number;
+    winsWith: number; winsAgainst: number; winsAll: number;
     kills: number; deaths: number; killsAgainst: number; deathsAgainst: number;
     last: number; lastDay: string;
   }>();
@@ -364,7 +365,7 @@ export function buildEncounters(matches: Match[], selfName: string, selfTag: str
         puuid: p.puuid,
         name: p.name, tag: p.tag, agent: p.character, tier: 0, tierPatched: "",
         with_: 0, against_: 0, all: 0,
-        winsWith: 0, winsAgainst: 0,
+        winsWith: 0, winsAgainst: 0, winsAll: 0,
         kills: 0, deaths: 0, killsAgainst: 0, deathsAgainst: 0,
         last: 0, lastDay: "",
       };
@@ -390,6 +391,7 @@ export function buildEncounters(matches: Match[], selfName: string, selfTag: str
         e.killsAgainst += p.stats?.kills ?? 0;
         e.deathsAgainst += p.stats?.deaths ?? 0;
       }
+      if (sameTeam ? selfWon : !selfWon) e.winsAll++;
       if (started >= e.last) {
         e.name = p.name;
         e.tag = p.tag;
@@ -415,6 +417,7 @@ export function buildEncounters(matches: Match[], selfName: string, selfTag: str
       encounters: e.all,
       winsWith: e.winsWith,
       winsAgainst: e.winsAgainst,
+      winsAll: e.winsAll,
       kills: e.kills,
       deaths: e.deaths,
       killsAgainst: e.killsAgainst,

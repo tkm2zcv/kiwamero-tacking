@@ -61,6 +61,35 @@ test("Encounters counts playedWith only for premade party members", () => {
   assert.equal(byName.get("Enemy")?.killsAgainst, 7);
 });
 
+test("Encounters all-category surfaces random teammates and counts each player's wins", () => {
+  const match = {
+    metadata: { matchid: "m1", season_id: "uuid-current", mode_id: "competitive", game_start: 100 },
+    teams: { red: { has_won: true }, blue: { has_won: false } },
+    players: [
+      { puuid: "self", name: "Player", tag: "TAG", team_id: "red", party_id: "party-a", stats: {} },
+      { puuid: "duo", name: "Duo", tag: "TAG", team_id: "red", party_id: "party-a", stats: {} },
+      { puuid: "random", name: "Random", tag: "TAG", team_id: "red", party_id: "party-z", stats: {} },
+      { puuid: "enemy", name: "Enemy", tag: "TAG", team_id: "blue", party_id: "party-b", stats: {} },
+    ],
+  } as Match;
+  const entries = buildEncounters([match], "Player", "TAG");
+  // All mode lists everyone met — including randoms that appear in neither
+  // "with" nor "against" buckets.
+  assert.equal(entries.length, 3);
+  for (const e of entries) assert.equal(e.encounters, 1);
+  // winsAll = shared matches where that player's side won.
+  assert.equal(entries.find((e) => e.name === "Random")?.winsAll, 1);
+  assert.equal(entries.find((e) => e.name === "Duo")?.winsAll, 1);
+  assert.equal(entries.find((e) => e.name === "Enemy")?.winsAll, 0);
+  const lost = { ...match, metadata: { ...match.metadata, matchid: "m2" },
+    teams: { red: { has_won: false }, blue: { has_won: true } } } as Match;
+  const merged = new Map(buildEncounters([match, lost], "Player", "TAG").map((e) => [e.name, e]));
+  assert.equal(merged.get("Random")?.winsAll, 1); // red won once of two
+  assert.equal(merged.get("Enemy")?.winsAll, 1); // blue won once of two
+  const allHref = profileFilterHref("/profile/Player", "encounters", "all", "e11a5", "all");
+  assert.equal(new URL(allHref, "https://example.test").searchParams.get("played"), "all");
+});
+
 test("act-scoped stored aggregate reports the selected act, not lifetime or current-act totals", () => {
   const stored = [
     { seasonId: "uuid-old", seasonShort: "e11a5", result: "win", kills: 10, deaths: 5, assists: 0, head: 5, body: 5, leg: 0, dmgMade: 1000, dmgRecv: 500, score: 200, rounds: 20 },

@@ -5,7 +5,7 @@ import type { EncounterStat } from "@/lib/stored-stats";
 import { tierIcon, tierName } from "@/lib/henrik-shared";
 import { ActMenu } from "./act-menu";
 
-export type EncounterMode = "with" | "against";
+export type EncounterMode = "with" | "against" | "all";
 
 const sortIcon = (
   <svg viewBox="0 0 24 24" className="h-4 rotate-90 hidden" aria-hidden="true">
@@ -40,25 +40,39 @@ export function EncountersTable({
   filterItems: { label: string; href: string; active?: boolean }[];
 }) {
   const rows = [...encounters]
-    .filter((e) => (mode === "against" ? e.playedAgainst > 0 : e.playedWith > 0))
+    .filter((e) =>
+      mode === "all" ? e.encounters > 0
+        : mode === "against" ? e.playedAgainst > 0
+        : e.playedWith > 0)
     .sort((a, b) =>
-      mode === "against"
+      mode === "all"
+        ? b.encounters - a.encounters || b.lastPlayedAt - a.lastPlayedAt
+        : mode === "against"
         ? b.playedAgainst - a.playedAgainst || b.encounters - a.encounters
         : b.playedWith - a.playedWith || b.encounters - a.encounters
     );
 
-  const count = (e: EncounterStat) => (mode === "against" ? e.playedAgainst : e.playedWith);
+  const count = (e: EncounterStat) =>
+    mode === "all" ? e.encounters : mode === "against" ? e.playedAgainst : e.playedWith;
   const winRate = (e: EncounterStat) =>
-    mode === "against"
+    mode === "all"
+      ? (e.encounters ? (e.winsAll / e.encounters) * 100 : 0)
+      : mode === "against"
       ? (e.playedAgainst ? (e.winsAgainst / e.playedAgainst) * 100 : 0)
       : e.winRate;
   const kd = (e: EncounterStat) =>
-    mode === "against"
+    mode === "all"
+      ? (() => {
+        const kills = e.kills + e.killsAgainst;
+        const deaths = e.deaths + e.deathsAgainst;
+        return deaths ? kills / deaths : kills;
+      })()
+      : mode === "against"
       ? (e.deathsAgainst ? e.killsAgainst / e.deathsAgainst : e.killsAgainst)
       : e.kd;
 
   const cols = [
-    mode === "against" ? "Played Against" : "Played With",
+    mode === "all" ? "Encounters" : mode === "against" ? "Played Against" : "Played With",
     "Player Rank",
     "Player Win Rate",
     "Player K/D",
@@ -75,7 +89,7 @@ export function EncountersTable({
         <div className="filters -mb-6 -ml-4 flex select-none items-center gap-4 overflow-auto pb-6 pl-4 font-medium no-scrollbar tl:overflow-hidden">
           <ActMenu
             variant="filter"
-            label={mode === "against" ? "Played Against" : "Played With"}
+            label={mode === "all" ? "All Encounters" : mode === "against" ? "Played Against" : "Played With"}
             items={filterItems}
           />
         </div>

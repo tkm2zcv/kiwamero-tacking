@@ -18,7 +18,7 @@ export async function EncountersSection({
 }: {
   visibleMatches: Match[]; storedScoped: StoredRow[]; puuid: string; region: string;
   recentIds: string[]; observedAt: number;
-  name: string; tag: string; act: string; played: "with" | "against";
+  name: string; tag: string; act: string; played: "with" | "against" | "all";
   basePath: string; playlist: string; deadline: number;
 }) {
   const locale = await getLocale();
@@ -45,7 +45,7 @@ export async function EncountersSection({
     try { await enqueueRosterHistory(puuid, region, recentIds, observedAt); }
     catch { console.warn("[encounters] history queue admission failed"); }
   });
-  const playedHref = (p: "with" | "against") => profileFilterHref(basePath, "encounters", playlist, act, p);
+  const playedHref = (p: "with" | "against" | "all") => profileFilterHref(basePath, "encounters", playlist, act, p);
   return (
     <>
       <QueuedRefresh active={!!result && recentPending > 0 && !blocked} maxTicks={30} />
@@ -61,6 +61,7 @@ export async function EncountersSection({
         filterItems={[
           { label: "Played With", href: playedHref("with"), active: played === "with" },
           { label: "Played Against", href: playedHref("against"), active: played === "against" },
+          { label: "All Encounters", href: playedHref("all"), active: played === "all" },
         ]}
       />
     </>

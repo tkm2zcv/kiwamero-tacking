@@ -30,7 +30,7 @@ export function FiltersBar({
   act: string;
   /** Acts available on this profile, newest first (from the player's first act). */
   acts: FiltersAct[];
-  played?: "with" | "against";
+  played?: "with" | "against" | "all";
 }) {
   const tabPath = tab === "overview" ? "overview" : tab;
   const url = (mode: string, season: string) =>

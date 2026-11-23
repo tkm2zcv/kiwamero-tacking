@@ -250,6 +250,8 @@ export interface WatchEntryRow {
   puuid: string | null;
   region: string | null;
   lastSeenGameStart: number | null;
+  /** D1 stores 0/1; absent (tests, legacy rows) means enabled. */
+  notifyEnabled?: number | boolean | null;
   user: { webhookUrl: string | null };
 }
 
@@ -281,6 +283,8 @@ export interface WatchSummary {
   embedFallbacks: number;
   webhookFailures: number;
   skipped: number;
+  /** Entries that had new matches while their notification toggle was off. */
+  muted: number;
   errors: string[];
 }
 
@@ -316,6 +320,7 @@ export async function runWatchCycle(
     embedFallbacks: 0,
     webhookFailures: 0,
     skipped: 0,
+    muted: 0,
     errors: [],
   };
 
@@ -431,6 +436,19 @@ export async function runWatchCycle(
           entry.lastSeenGameStart,
         );
         if (!fresh.length) continue;
+
+        // Muted entries still advance the cursor so unmuting never replays the
+        // silenced window; only webhook delivery is skipped.
+        if (entry.notifyEnabled === 0 || entry.notifyEnabled === false) {
+          const newest = fresh[fresh.length - 1];
+          await db.watchlistEntry.update({
+            where: { id: entry.id },
+            data: { lastSeenGameStart: newest.game_start },
+          });
+          entry.lastSeenGameStart = newest.game_start;
+          summary.muted += 1;
+          continue;
+        }
 
         const deliveries: { item: (typeof fresh)[number]; match: NewMatchSummary; embed: DiscordEmbed }[] = [];
         for (const item of fresh) {

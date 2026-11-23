@@ -62,6 +62,7 @@ export interface WatchlistEntryRow {
   lastSeenGameStart: number | null;
   lastNotifiedMatchId: string | null;
   lastNotifiedAt: string | null;
+  notifyEnabled: number;
   createdAt: string;
 }
 

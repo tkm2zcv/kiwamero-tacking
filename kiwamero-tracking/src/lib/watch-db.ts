@@ -10,6 +10,7 @@ interface WatchJoinRow {
   puuid: string | null;
   region: string | null;
   lastSeenGameStart: number | null;
+  notifyEnabled: number | null;
   user_webhookUrl: string | null;
 }
 
@@ -25,7 +26,7 @@ export const watchDb: WatchDb = {
       const { where, take } = (args ?? {}) as { where?: { userId?: string }; take?: number };
       const rows = await queryAll<WatchJoinRow>(
         `SELECT e."id", e."userId", e."riotName", e."riotTag", e."puuid", e."region",
-                e."lastSeenGameStart", u."webhookUrl" AS "user_webhookUrl"
+                e."lastSeenGameStart", e."notifyEnabled", u."webhookUrl" AS "user_webhookUrl"
          FROM "WatchlistEntry" e
          JOIN "User" u ON u."id" = e."userId"
          WHERE u."webhookUrl" IS NOT NULL ${where?.userId ? `AND e."userId" = ?` : ""}
@@ -40,6 +41,7 @@ export const watchDb: WatchDb = {
         puuid: r.puuid,
         region: r.region,
         lastSeenGameStart: r.lastSeenGameStart,
+        notifyEnabled: r.notifyEnabled,
         user: { webhookUrl: r.user_webhookUrl },
       })) satisfies WatchEntryRow[];
     },

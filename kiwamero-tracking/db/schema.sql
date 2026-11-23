@@ -65,6 +65,7 @@ CREATE TABLE "WatchlistEntry" (
     "lastSeenGameStart" INTEGER,
     "lastNotifiedMatchId" TEXT,
     "lastNotifiedAt" DATETIME,
+    "notifyEnabled" INTEGER NOT NULL DEFAULT 1,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "WatchlistEntry_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );

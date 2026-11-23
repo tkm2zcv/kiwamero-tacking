@@ -1,0 +1,1 @@
+ALTER TABLE "WatchlistEntry" ADD COLUMN "notifyEnabled" INTEGER NOT NULL DEFAULT 1;

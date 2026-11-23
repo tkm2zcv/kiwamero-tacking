@@ -157,6 +157,9 @@ const en = {
     removeCancel: "Cancel",
     removeBusy: "Removing…",
     removeError: "Could not remove this player.",
+    alerts: "Notifications",
+    alertsOff: "alerts off",
+    notifyError: "Could not update notifications.",
     viewProfile: "View Profile",
   },
   developers: {
@@ -354,6 +357,9 @@ const ja: Dict = {
     removeCancel: "キャンセル",
     removeBusy: "削除中…",
     removeError: "監視対象を削除できませんでした。",
+    alerts: "通知",
+    alertsOff: "通知オフ",
+    notifyError: "通知設定を更新できませんでした。",
     viewProfile: "プロフィールを見る",
   },
   developers: {

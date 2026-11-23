@@ -99,6 +99,21 @@ test("second cycle with the same data sends nothing", async () => {
   assert.equal(updates.length, 0);
 });
 
+test("a muted entry sends nothing but still advances the cursor", async () => {
+  const rows = [entry({ id: "e1", lastSeenGameStart: 100, notifyEnabled: 0 })];
+  const { db, updates } = fakeDb(rows);
+  const { deps: d, sent } = deps([rawMatch("m1", 100), rawMatch("m2", 200), rawMatch("m3", 300)]);
+
+  const summary = await runWatchCycle(db, d);
+
+  assert.equal(summary.matchesSent, 0);
+  assert.equal(sent.length, 0);
+  assert.equal(summary.muted, 1);
+  // Silencing skips delivery only — unmuting must not replay the missed window.
+  assert.deepEqual(updates.map((u) => u.data.lastSeenGameStart), [300]);
+  assert.equal(updates[0].data.lastNotifiedMatchId, undefined);
+});
+
 test("only matches newer than the last delivered one are sent", async () => {
   const rows = [entry({ id: "e1", lastSeenGameStart: 100 })];
   const { db } = fakeDb(rows);

@@ -7,6 +7,7 @@ import { getSiteAccess } from "@/lib/site-access";
 import { AccessGate } from "@/components/access-gate";
 import { Eye, Trash2 } from "lucide-react";
 import { WatchlistRemoveButton } from "@/components/watchlist-remove";
+import { WatchlistNotifyToggle } from "@/components/watchlist-notify-toggle";
 import { WatchlistWebhook } from "@/components/watchlist-webhook";
 import { MAX_WATCHED_PLAYERS } from "@/lib/watch-core";
 import { watchedPlayerCount } from "@/lib/watch-db";
@@ -56,8 +57,15 @@ export default async function WatchlistPage() {
                   {e.lastNotifiedAt
                     ? `last alert ${new Date(e.lastNotifiedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`
                     : "no alert yet"}
+                  {!e.notifyEnabled ? ` · ${t.watchlist.alertsOff}` : ""}
                 </div>
               </div>
+              <WatchlistNotifyToggle
+                id={e.id}
+                enabled={e.notifyEnabled !== 0}
+                label={t.watchlist.alerts}
+                errorLabel={t.watchlist.notifyError}
+              />
               <Link
                 href={`/valorant/profile/riot/${encodeURIComponent(`${e.riotName}#${e.riotTag}`)}/overview`}
                 className="trn-button h-9 px-4 text-xs"

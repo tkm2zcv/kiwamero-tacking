@@ -16,10 +16,10 @@ export async function GET(req: NextRequest) {
   const entries = await queryAll<
     Pick<
       WatchlistEntryRow,
-      "id" | "riotName" | "riotTag" | "puuid" | "region" | "createdAt" | "lastNotifiedAt"
+      "id" | "riotName" | "riotTag" | "puuid" | "region" | "createdAt" | "lastNotifiedAt" | "notifyEnabled"
     >
   >(
-    `SELECT "id", "riotName", "riotTag", "puuid", "region", "createdAt", "lastNotifiedAt"
+    `SELECT "id", "riotName", "riotTag", "puuid", "region", "createdAt", "lastNotifiedAt", "notifyEnabled"
      FROM "WatchlistEntry" WHERE "userId" = ? ORDER BY "createdAt" DESC`,
     [uid],
   );
@@ -73,6 +73,31 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ entry, players: await watchedPlayerCount() });
+}
+
+export async function PATCH(req: NextRequest) {
+  const uid = await userId(req);
+  if (!uid) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const body = (await req.json().catch(() => null) ?? {}) as {
+    id?: unknown;
+    notifyEnabled?: unknown;
+  };
+  const id = typeof body.id === "string" ? body.id.trim() : "";
+  const notifyEnabled =
+    body.notifyEnabled === true || body.notifyEnabled === 1
+      ? 1
+      : body.notifyEnabled === false || body.notifyEnabled === 0
+        ? 0
+        : null;
+  if (!id || id.length > 64 || notifyEnabled === null) {
+    return NextResponse.json({ error: "bad request" }, { status: 400 });
+  }
+  const rows = await queryAll<{ id: string }>(
+    `UPDATE "WatchlistEntry" SET "notifyEnabled" = ? WHERE "id" = ? AND "userId" = ? RETURNING "id"`,
+    [notifyEnabled, id, uid],
+  );
+  if (!rows.length) return NextResponse.json({ error: "not found" }, { status: 404 });
+  return NextResponse.json({ ok: true, notifyEnabled });
 }
 
 export async function DELETE(req: NextRequest) {

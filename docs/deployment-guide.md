@@ -3,8 +3,8 @@
 対象: `kiwamero-tracking/` → Cloudflare Workers + D1、`tracking.kiwamero.dev`。
 DB 層は 2026-10-29 に Prisma から生 SQL + Kysely へ移行済み (workerd 動作確認済み)。
 
-**状態: 本番反映済み (261118更新)。** code `b2e31d4`、Worker
-`22a24567-6fff-4a31-b44a-f3bce9042013`、D1 `a8f05616-…` (APAC)、
+**状態: 本番反映済み (261124更新)。** code `059ddfb`、Worker
+`abc07e2a-9f4d-45ad-b2ba-b3fe4bf09279`、D1 `a8f05616-…` (APAC)、
 `tracking.kiwamero.dev`、必要なシークレットとDiscord callbackは設定済み。
 Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 承認された監視1回で5件のDiscord送信成功と通知済み記録を確認しています。
@@ -16,7 +16,16 @@ Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 `redirect:"error"` はWorkers未対応のため、Webhook送信には使用しません。
 詳細な検証範囲・制約は [引き継ぎ](kiwamero-tracking-handoff.md) を参照してください。
 
-最新の反映は `b2e31d4`＋`cc7d509`。監視をPUUID主体へ変更し、
+最新の反映は `059ddfb`。監視対象ごとの通知オン/オフを追加しました
+（`WatchlistEntry.notifyEnabled`、ALTER適用済み・既存行はONのまま）。
+通知OFFでも試合取得と改名追従は継続し、Discord送信のみスキップ。
+ミュート期間中も配信カーソルは進むため、再有効化で過去試合は再送されません。
+UIは監視リスト各行のスイッチ（`role="switch"`）、PATCH `/api/watchlist`。
+359テスト・lint/型検査・実workerd（check:watch-worker）・build/scrubを通過。
+2026-11-24にWorker100%反映、配信BUILD_ID `NOycc8yqXurABTVpsVtb-`一致、
+トップ/ログイン200・未認証API403を確認。ログイン後の実画面操作は未確認。
+
+以下は `b2e31d4`＋`cc7d509` の反映記録です。監視をPUUID主体へ変更し、
 名前変更でも追跡が切れない構造にしました（グループ化・取得・通知はpuuid基準、
 ロースターから現在名を検出して表示名を自動更新、新旧名の重複登録を統合、
 check/DELETEもpuuid対応、100人上限はID単位で計上）。

@@ -4,6 +4,7 @@ import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 const nextConfig: NextConfig = {
   experimental: {
     cpus: 4,
+    agentUpgrade: "security",
   },
   turbopack: {
     root: __dirname,

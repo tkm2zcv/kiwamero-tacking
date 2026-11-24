@@ -3,8 +3,8 @@
 対象: `kiwamero-tracking/` → Cloudflare Workers + D1、`tracking.kiwamero.dev`。
 DB 層は 2026-10-29 に Prisma から生 SQL + Kysely へ移行済み (workerd 動作確認済み)。
 
-**状態: 本番反映済み (261124更新)。** code `059ddfb`、Worker
-`abc07e2a-9f4d-45ad-b2ba-b3fe4bf09279`、D1 `a8f05616-…` (APAC)、
+**状態: 本番反映済み (261124更新・16.4.6)。** code `650336d`、Worker
+`7f38be95-3a4c-4a08-8fac-56ba4a297edf`、D1 `a8f05616-…` (APAC)、
 `tracking.kiwamero.dev`、必要なシークレットとDiscord callbackは設定済み。
 Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 承認された監視1回で5件のDiscord送信成功と通知済み記録を確認しています。
@@ -16,7 +16,15 @@ Cronは `* * * * *` で、watchはUTC毎時0分、auditは毎分です。
 `redirect:"error"` はWorkers未対応のため、Webhook送信には使用しません。
 詳細な検証範囲・制約は [引き継ぎ](kiwamero-tracking-handoff.md) を参照してください。
 
-最新の反映は `059ddfb`。監視対象ごとの通知オン/オフを追加しました
+最新の反映は `650336d`。Next.js 16.4.3 → 16.4.6（セキュリティアドバイザリ対応、
+`next`＋`eslint-config-next`）と `experimental.agentUpgrade: "security"` 設定。
+アップグレード検証（install・型検査・359テスト・lint・OpenNext build＋compatパッチ）
+通過後、2026-11-24にWorker100%反映。配信BUILD_ID `T1WfgIHpTmBIxQuBE-z-1`一致、
+トップ/ログイン200・未認証API403を確認。
+なお本番D1には `WatchlistEntry.notifyEnabled` カラム追加済み（`059ddfb`機能、
+既存行はONのまま）。
+
+以下は `059ddfb` の反映記録です。監視対象ごとの通知オン/オフを追加しました
 （`WatchlistEntry.notifyEnabled`、ALTER適用済み・既存行はONのまま）。
 通知OFFでも試合取得と改名追従は継続し、Discord送信のみスキップ。
 ミュート期間中も配信カーソルは進むため、再有効化で過去試合は再送されません。
